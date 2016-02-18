@@ -1191,3 +1191,29 @@ iprint(char *fmt, ...)
 	return n;
 }
 
+static	ulong	randn;
+
+static void
+seedrand(void)
+{
+	if(!waserror()){
+		randomread((void*)&randn, sizeof(randn));
+		poperror();
+	}
+}
+
+int
+nrand(int n)
+{
+	if(randn == 0)
+		seedrand();
+	randn = randn*1103515245 + 12345;
+	return (randn>>16) % n;
+}
+
+int
+rand(void)
+{
+	nrand(1);
+	return randn;
+}

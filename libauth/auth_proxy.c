@@ -4,7 +4,7 @@
 #include <auth.h>
 #include "authlocal.h"
 
-enum { 
+enum {
 	ARgiveup = 100,
 };
 
@@ -90,7 +90,6 @@ auth_getinfo(AuthRpc *rpc)
 
 	if(auth_rpc(rpc, "authinfo", nil, 0) != ARok)
 		return nil;
-	a = nil;
 	if(convM2AI((uchar*)rpc->arg, rpc->narg, &a) == nil){
 		werrstr("bad auth info from factotum");
 		return nil;
@@ -106,7 +105,7 @@ dorpc(AuthRpc *rpc, char *verb, char *val, int len, AuthGetkey *getkey)
 	for(;;){
 		if((ret = auth_rpc(rpc, verb, val, len)) != ARneedkey && ret != ARbadkey)
 			return ret;
-		if(getkey == 0)
+		if(getkey == nil)
 			return ARgiveup;	/* don't know how */
 		if((*getkey)(rpc->arg) < 0)
 			return ARgiveup;	/* user punted */
@@ -124,6 +123,11 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 	AuthInfo *a;
 	char oerr[ERRMAX];
 
+	if(rpc == nil){
+		werrstr("fauth_proxy - no factotum");
+		return nil;
+	}
+
 	rerrstr(oerr, sizeof oerr);
 	werrstr("UNKNOWN AUTH ERROR");
 
@@ -140,7 +144,8 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 		case ARdone:
 			free(buf);
 			a = auth_getinfo(rpc);
-			errstr(oerr, sizeof oerr);	/* no error, restore whatever was there */
+			/* no error, restore whatever was there */
+			errstr(oerr, sizeof oerr);
 			return a;
 		case ARok:
 			if(write(fd, rpc->arg, rpc->narg) != rpc->narg){
@@ -152,18 +157,21 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 			n = 0;
 			memset(buf, 0, AuthRpcMax);
 			while((ret = dorpc(rpc, "write", buf, n, getkey)) == ARtoosmall){
-				if(atoi(rpc->arg) > AuthRpcMax)
+				m = atoi(rpc->arg);
+				if(m <= n || m > AuthRpcMax)
 					break;
-				m = read(fd, buf+n, atoi(rpc->arg)-n);
+				m = read(fd, buf + n, m - n);
 				if(m <= 0){
 					if(m == 0)
-						werrstr("auth_proxy short read: %s", buf);
+						werrstr("auth_proxy short read");
+					else
+						werrstr("auth_proxy read fd: %r");
 					goto Error;
 				}
 				n += m;
 			}
 			if(ret != ARok){
-				werrstr("auth_proxy rpc write: %s: %r", buf);
+				werrstr("auth_proxy rpc write: %r");
 				goto Error;
 			}
 			break;
@@ -191,6 +199,7 @@ auth_proxy(int fd, AuthGetkey *getkey, char *fmt, ...)
 	p = vsmprint(fmt, arg);
 	va_end(arg);
 
+	ai = nil;
 	afd = open("/mnt/factotum/rpc", ORDWR);
 	if(afd < 0){
 		werrstr("opening /mnt/factotum/rpc: %r");
@@ -199,15 +208,11 @@ auth_proxy(int fd, AuthGetkey *getkey, char *fmt, ...)
 	}
 
 	rpc = auth_allocrpc(afd);
-	if(rpc == nil){
-		free(p);
-		return nil;
+	if(rpc){
+		ai = fauth_proxy(fd, rpc, getkey, p);
+		auth_freerpc(rpc);
 	}
-
-	ai = fauth_proxy(fd, rpc, getkey, p);
-	free(p);
-	auth_freerpc(rpc);
 	close(afd);
+	free(p);
 	return ai;
 }
-

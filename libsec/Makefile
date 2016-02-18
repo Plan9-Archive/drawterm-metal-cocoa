@@ -4,7 +4,12 @@ LIB=libsec.a
 
 OFILES=\
 	aes.$O\
+	aes_xts.$O\
 	blowfish.$O\
+	ccpoly.$O\
+	chacha.$O\
+	curve25519.$O\
+	curve25519_dh.$O\
 	decodepem.$O\
 	des.$O\
 	des3CBC.$O\
@@ -12,12 +17,14 @@ OFILES=\
 	desCBC.$O\
 	desECB.$O\
 	desmodes.$O\
+	dh.$O\
 	dsaalloc.$O\
 	dsagen.$O\
 	dsaprimes.$O\
 	dsaprivtopub.$O\
 	dsasign.$O\
 	dsaverify.$O\
+	ecc.$O\
 	egalloc.$O\
 	egdecrypt.$O\
 	egencrypt.$O\
@@ -30,23 +37,37 @@ OFILES=\
 	genrandom.$O\
 	gensafeprime.$O\
 	genstrongprime.$O\
+	hkdf.$O\
 	hmac.$O\
 	md4.$O\
 	md5.$O\
 	md5pickle.$O\
 	nfastrand.$O\
+	pbkdf2.$O\
+	poly1305.$O\
 	prng.$O\
 	probably_prime.$O\
 	rc4.$O\
+	ripemd.$O\
 	rsaalloc.$O\
 	rsadecrypt.$O\
 	rsaencrypt.$O\
 	rsafill.$O\
 	rsagen.$O\
 	rsaprivtopub.$O\
+	salsa.$O\
+	secp256k1.$O\
+	secp256r1.$O\
 	sha1.$O\
 	sha1pickle.$O\
-	smallprimes.$O
+	sha2_128.$O\
+	sha2_64.$O\
+	sha2block128.$O\
+	sha2block64.$O\
+	smallprimes.$O\
+	tsmemcmp.$O\
+	tlshand.$O\
+	x509.$O
 
 default: $(LIB)
 $(LIB): $(OFILES)

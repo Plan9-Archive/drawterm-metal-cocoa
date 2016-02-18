@@ -2,14 +2,15 @@
 #include <mp.h>
 #include "dat.h"
 
-// remainder = b mod m
-//
-// knuth, vol 2, pp 398-400
-
 void
-mpmod(mpint *b, mpint *m, mpint *remainder)
+mpmod(mpint *x, mpint *n, mpint *r)
 {
-	mpdiv(b, m, nil, remainder);
-	if(remainder->sign < 0)
-		mpadd(m, remainder, remainder);
+	int sign;
+
+	sign = x->sign;
+	if((n->flags & MPfield) == 0
+	|| ((Mfield*)n)->reduce((Mfield*)n, x, r) != 0)
+		mpdiv(x, n, nil, r);
+	if(sign < 0)
+		mpmagsub(n, r, r);
 }

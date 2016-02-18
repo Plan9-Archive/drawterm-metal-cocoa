@@ -7,25 +7,45 @@
 int
 authdial(char *netroot, char *dom)
 {
-	char server[Ndbvlen];
-	Ndbtuple *nt;
+	Ndbtuple *t, *nt;
+	char *p;
+	int rv;
 
-	
-	if(dom != nil){
-		/* look up an auth server in an authentication domain */
-		nt = csgetval(netroot, "authdom", dom, "auth", server);
-
-		/* if that didn't work, just try the IP domain */
-		if(nt == nil)
-			nt = csgetval(netroot, "dom", dom, "auth", server);
-		if(nt == nil){
-			werrstr("no auth server found for %s", dom);
-			return -1;
-		}
-		ndbfree(nt);
-		return dial(netmkaddr(server, netroot, "ticket"), 0, 0, 0);
-	} else {
+	if(dom == nil)
 		/* look for one relative to my machine */
 		return dial(netmkaddr("$auth", netroot, "ticket"), 0, 0, 0);
+
+	/* look up an auth server in an authentication domain */
+	p = csgetvalue(netroot, "authdom", dom, "auth", &t);
+
+	/* if that didn't work, just try the IP domain */
+	if(p == nil)
+		p = csgetvalue(netroot, "dom", dom, "auth", &t);
+
+	/*
+	 * if that didn't work, try p9auth.$dom.  this is very helpful if
+	 * you can't edit /lib/ndb.
+	 */
+	if(p == nil) {
+		p = smprint("p9auth.%s", dom);
+		t = ndbnew("auth", p);
 	}
+	free(p);
+
+	/*
+	 * allow multiple auth= attributes for backup auth servers,
+	 * try each one in order.
+	 */
+	rv = -1;
+	for(nt = t; nt != nil; nt = nt->entry) {
+		if(strcmp(nt->attr, "auth") == 0) {
+			p = netmkaddr(nt->val, netroot, "ticket");
+			rv = dial(p, 0, 0, 0);
+			if(rv >= 0)
+				break;
+		}
+	}
+	ndbfree(t);
+
+	return rv;
 }

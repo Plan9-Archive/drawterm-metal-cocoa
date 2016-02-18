@@ -145,6 +145,13 @@ setmalloctag(void *v, uintptr tag)
 	USED(tag);
 }
 
+void
+setrealloctag(void *v, uintptr tag)
+{
+	USED(v);
+	USED(tag);
+}
+
 int
 postnote(Proc *p, int x, char *msg, int flag)
 {

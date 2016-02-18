@@ -9,10 +9,11 @@ letomp(uchar *s, uint n, mpint *b)
 	int i=0, m = 0;
 	mpdigit x=0;
 
-	if(b == nil)
+	if(b == nil){
 		b = mpnew(0);
+		setmalloctag(b, getcallerpc(&s));
+	}
 	mpbits(b, 8*n);
-	b->top = DIGITS(8*n);
 	for(; n > 0; n--){
 		x |= ((mpdigit)(*s++)) << i;
 		i += 8;
@@ -25,5 +26,6 @@ letomp(uchar *s, uint n, mpint *b)
 	if(i > 0)
 		b->p[m++] = x;
 	b->top = m;
-	return b;
+	b->sign = 1;
+	return mpnorm(b);
 }

@@ -10,13 +10,14 @@
 mpint*
 uitomp(uint i, mpint *b)
 {
-	if(b == nil)
+	if(b == nil){
 		b = mpnew(0);
-	mpassign(mpzero, b);
-	if(i != 0)
-		b->top = 1;
+		setmalloctag(b, getcallerpc(&i));
+	}
 	*b->p = i;
-	return b;
+	b->top = 1;
+	b->sign = 1;
+	return mpnorm(b);
 }
 
 uint
@@ -25,11 +26,9 @@ mptoui(mpint *b)
 	uint x;
 
 	x = *b->p;
-	if(b->sign < 0){
+	if(b->sign < 0)
 		x = 0;
-	} else {
-		if(b->top > 1 || x > MAXUINT)
-			x =  MAXUINT;
-	}
+	else if(b->top > 1 || (sizeof(mpdigit) > sizeof(uint) && x > MAXUINT))
+		x =  MAXUINT;
 	return x;
 }

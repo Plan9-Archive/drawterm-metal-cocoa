@@ -9,6 +9,7 @@ OFILES=\
 	convM2D.$O\
 	convM2S.$O\
 	convS2M.$O\
+	ctime.$O\
 	crypt.$O\
 	dial.$O\
 	dirfstat.$O\

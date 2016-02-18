@@ -1,9 +1,10 @@
 #include <u.h>
 #include <libc.h>
 #include <authsrv.h>
+#include <libsec.h>
 
-int
-passtokey(char *key, char *p)
+void
+passtodeskey(char key[DESKEYLEN], char *p)
 {
 	uchar buf[ANAMELEN], *t;
 	int i, n;
@@ -20,7 +21,7 @@ passtokey(char *key, char *p)
 		for(i = 0; i < DESKEYLEN; i++)
 			key[i] = (t[i] >> i) + (t[i+1] << (8 - (i+1)));
 		if(n <= 8)
-			return 1;
+			return;
 		n -= 8;
 		t += 8;
 		if(n < 8){
@@ -29,5 +30,19 @@ passtokey(char *key, char *p)
 		}
 		encrypt(key, t, 8);
 	}
-	return 1;	/* not reached */
+}
+
+void
+passtoaeskey(uchar key[AESKEYLEN], char *p)
+{
+	static char salt[] = "Plan 9 key derivation";
+	pbkdf2_x((uchar*)p, strlen(p), (uchar*)salt, sizeof(salt)-1, 9001, key, AESKEYLEN, hmac_sha1, SHA1dlen);
+}
+
+void
+passtokey(Authkey *key, char *pw)
+{
+	memset(key, 0, sizeof(Authkey));
+	passtodeskey(key->des, pw);
+	passtoaeskey(key->aes, pw);
 }

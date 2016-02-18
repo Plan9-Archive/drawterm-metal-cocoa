@@ -16,11 +16,19 @@ OFILES=\
 	nvcsum.$O\
 	opasstokey.$O\
 	passtokey.$O\
+	_asgetpakkey.$O\
+	_asgetresp.$O\
+	_asrequest.$O\
+	authpak.$O\
+	form1.$O\
+	
 
 default: $(LIB)
 $(LIB): $(OFILES)
 	$(AR) r $(LIB) $(OFILES)
 	$(RANLIB) $(LIB)
+
+authpak.$O:	msqrt.mpc edwards.mpc ed448.mpc decaf.mpc elligator2.mpc spake2ee.mpc
 
 %.$O: %.c
 	$(CC) $(CFLAGS) $*.c

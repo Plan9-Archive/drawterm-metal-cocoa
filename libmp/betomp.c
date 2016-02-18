@@ -9,21 +9,16 @@ betomp(uchar *p, uint n, mpint *b)
 	int m, s;
 	mpdigit x;
 
-	if(b == nil)
+	if(b == nil){
 		b = mpnew(0);
-
-	// dump leading zeros
-	while(*p == 0 && n > 1){
-		p++;
-		n--;
+		setmalloctag(b, getcallerpc(&p));
 	}
-
-	// get the space
 	mpbits(b, n*8);
-	b->top = DIGITS(n*8);
-	m = b->top-1;
 
-	// first digit might not be Dbytes long
+	m = DIGITS(n*8);
+	b->top = m--;
+	b->sign = 1;
+
 	s = ((n-1)*8)%Dbits;
 	x = 0;
 	for(; n > 0; n--){
@@ -35,6 +30,5 @@ betomp(uchar *p, uint n, mpint *b)
 			x = 0;
 		}
 	}
-
-	return b;
+	return mpnorm(b);
 }

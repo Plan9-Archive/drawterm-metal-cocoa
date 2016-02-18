@@ -38,8 +38,6 @@ static char	*ealgs = "rc4_256 sha1";
 static int	msgsize = Maxfdata+IOHDRSZ;
 
 /* authentication mechanisms */
-static int	netkeyauth(int);
-static int	netkeysrvauth(int, char*);
 static int	p9auth(int);
 static int	srvp9auth(int, char*);
 
@@ -53,8 +51,6 @@ struct AuthMethod {
 } authmethod[] =
 {
 	{ "p9",		p9auth,		srvp9auth,},
-	{ "netkey",	netkeyauth,	netkeysrvauth,},
-//	{ "none",	noauth,		srvnoauth,},
 	{ 0 }
 };
 AuthMethod *am = authmethod;	/* default is p9 */
@@ -95,6 +91,47 @@ mountfactotum(void)
 	}
 	close(fd);
 	return 0;
+}
+
+void
+rcpu(char *host)
+{
+	static char script[] = 
+"mount -nc /fd/0 /mnt/term || exit	\n"
+"bind -q /mnt/term/dev/cons /dev/cons	\n"
+"</dev/cons >/dev/cons >[2=1] {		\n"
+"	service=cpu exec rc -li		\n"
+"}					\n";
+	AuthInfo *ai;
+	TLSconn *conn;
+	char *na;
+	int fd;
+
+	na = netmkaddr(host, "tcp", "17019");
+	if((fd = dial(na, 0, 0, 0)) < 0)
+		return;
+
+	ai = p9any(fd);
+	if(ai == nil)
+		fatal(1, "can't authenticate");
+
+	conn = mallocz(sizeof(TLSconn), 1);
+	conn->pskID = "p9secret";
+	conn->psk = ai->secret;
+	conn->psklen = ai->nsecret;
+
+	fd = tlsClient(fd, conn);
+	if(fd < 0)
+		fatal(1, "tlsClient");
+
+	auth_freeAI(ai);
+
+	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
+		fatal(1, "sending script");
+
+	/* Begin serving the namespace */
+	exportfs(fd, msgsize);
+	fatal(1, "starting exportfs");
 }
 
 void
@@ -178,6 +215,8 @@ cpumain(int argc, char **argv)
 			}
 		}
 	}
+
+	rcpu(system);
 
 	if((err = rexcall(&data, system, srvname)))
 		fatal(1, "%s: %s", err, system);
@@ -300,61 +339,6 @@ readstr(int fd, char *str, int len)
 	return -1;
 }
 
-static int
-readln(char *buf, int n)
-{
-	int i;
-	char *p;
-
-	n--;	/* room for \0 */
-	p = buf;
-	for(i=0; i<n; i++){
-		if(read(0, p, 1) != 1)
-			break;
-		if(*p == '\n' || *p == '\r')
-			break;
-		p++;
-	}
-	*p = '\0';
-	return p-buf;
-}
-
-/*
- *  user level challenge/response
- */
-static int
-netkeyauth(int fd)
-{
-	char chall[32];
-	char resp[32];
-
-	strecpy(chall, chall+sizeof chall, getuser());
-	print("user[%s]: ", chall);
-	if(readln(resp, sizeof(resp)) < 0)
-		return -1;
-	if(*resp != 0)
-		strcpy(chall, resp);
-	writestr(fd, chall, "challenge/response", 1);
-
-	for(;;){
-		if(readstr(fd, chall, sizeof chall) < 0)
-			break;
-		if(*chall == 0)
-			return fd;
-		print("challenge: %s\nresponse: ", chall);
-		if(readln(resp, sizeof(resp)) < 0)
-			break;
-		writestr(fd, resp, "challenge/response", 1);
-	}
-	return -1;
-}
-
-static int
-netkeysrvauth(int fd, char *user)
-{
-	return -1;
-}
-
 static void
 mksecret(char *t, uchar *f)
 {
@@ -378,13 +362,17 @@ p9auth(int fd)
 	ai = p9any(fd);
 	if(ai == nil)
 		return -1;
-	memmove(key+4, ai->secret, ai->nsecret);
 	if(ealgs == nil)
 		return fd;
 
+	if(ai->nsecret < 8){
+		werrstr("secret too small");
+		return -1;
+	}
+	memmove(key+4, ai->secret, 8);
+
 	/* exchange random numbers */
-	for(i = 0; i < 4; i++)
-		key[i] = fastrand();
+	genrandom(key, 4);
 	if(write(fd, key, 4) != 4)
 		return -1;
 	if(readn(fd, key+12, 4) != 4)
@@ -412,7 +400,7 @@ authdial(char *net, char *dom)
 }
 
 static int
-getastickets(Ticketreq *tr, char *trbuf, char *tbuf)
+getastickets(Authkey *key, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
 {
 	int asfd, rv;
 	char *dom;
@@ -421,38 +409,71 @@ getastickets(Ticketreq *tr, char *trbuf, char *tbuf)
 	asfd = authdial(nil, dom);
 	if(asfd < 0)
 		return -1;
-	rv = _asgetticket(asfd, trbuf, tbuf);
+	if(y != nil){
+		PAKpriv p;
+
+		rv = -1;
+		tr->type = AuthPAK;
+		if(_asrequest(asfd, tr) != 0 || write(asfd, y, PAKYLEN) != PAKYLEN)
+			goto Out;
+
+		authpak_new(&p, key, (uchar*)tbuf, 1);
+		if(write(asfd, tbuf, PAKYLEN) != PAKYLEN)
+			goto Out;
+
+		if(_asrdresp(asfd, tbuf, 2*PAKYLEN) != 2*PAKYLEN)
+			goto Out;
+	
+		memmove(y, tbuf, PAKYLEN);
+		if(authpak_finish(&p, key, (uchar*)tbuf+PAKYLEN))
+			goto Out;
+	}
+	tr->type = AuthTreq;
+	rv = _asgetticket(asfd, tr, tbuf, tbuflen);
+Out:
 	close(asfd);
 	return rv;
 }
 
 static int
-mkserverticket(Ticketreq *tr, char *authkey, char *tbuf)
+mkservertickets(Authkey *key, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
 {
-	int i;
 	Ticket t;
+	int ret;
 
 	if(strcmp(tr->authid, tr->hostid) != 0)
 		return -1;
 	memset(&t, 0, sizeof(t));
+	ret = 0;
+	if(y != nil){
+		PAKpriv p;
+
+		t.form = 1;
+		memmove(tbuf, y, PAKYLEN);
+		authpak_new(&p, key, y, 0);
+		authpak_finish(&p, key, (uchar*)tbuf);
+	}
 	memmove(t.chal, tr->chal, CHALLEN);
 	strcpy(t.cuid, tr->uid);
 	strcpy(t.suid, tr->uid);
-	for(i=0; i<DESKEYLEN; i++)
-		t.key[i] = fastrand();
+	genrandom((uchar*)t.key, sizeof(t.key));
 	t.num = AuthTc;
-	convT2M(&t, tbuf, authkey);
+	ret += convT2M(&t, tbuf+ret, tbuflen-ret, key);
 	t.num = AuthTs;
-	convT2M(&t, tbuf+TICKETLEN, authkey);
-	return 0;
+	ret += convT2M(&t, tbuf+ret, tbuflen-ret, key);
+	memset(&t, 0, sizeof(t));
+
+	return ret;
 }
 
 static int
-gettickets(Ticketreq *tr, char *key, char *trbuf, char *tbuf)
+gettickets(Authkey *key, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
 {
-	if(getastickets(tr, trbuf, tbuf) >= 0)
-		return 0;
-	return mkserverticket(tr, key, tbuf);
+	int ret;
+	ret = getastickets(key, tr, y, tbuf, tbuflen);
+	if(ret > 0)
+		return ret;
+	return mkservertickets(key, tr, y, tbuf, tbuflen);
 }
 
 /*
@@ -548,12 +569,13 @@ p9anyfactotum(int fd, int afd)
 AuthInfo*
 p9any(int fd)
 {
-	char buf[1024], buf2[1024], cchal[CHALLEN], *bbuf, *p, *dom, *u;
+	char buf[1024], buf2[1024], *bbuf, *p, *proto, *dom, *u;
 	char *pass;
-	char tbuf[TICKETLEN+TICKETLEN+AUTHENTLEN], trbuf[TICKREQLEN];
-	char authkey[DESKEYLEN];
+	uchar crand[2*NONCELEN], cchal[CHALLEN], y[PAKYLEN];
+	char tbuf[2*MAXTICKETLEN+MAXAUTHENTLEN+PAKYLEN], trbuf[TICKREQLEN+PAKYLEN];
+	Authkey authkey;
 	Authenticator auth;
-	int afd, i, n, v2;
+	int afd, i, n, m, v2, dp9ik;
 	Ticketreq tr;
 	Ticket t;
 	AuthInfo *ai;
@@ -570,16 +592,26 @@ p9any(int fd)
 		v2 = 1;
 		bbuf += 4;
 	}
-	if((p = strchr(bbuf, ' ')))
-		*p = 0;
-	p = bbuf;
-	if((dom = strchr(p, '@')) == nil)
-		fatal(1, "bad p9any domain");
-	*dom++ = 0;
-	if(strcmp(p, "p9sk1") != 0)
-		fatal(1, "server did not offer p9sk1");
-
-	sprint(buf2, "%s %s", p, dom);
+	dp9ik = 0;
+	proto = nil;
+	while(bbuf != nil){
+		if((p = strchr(bbuf, ' ')))
+			*p++ = 0;
+		if((dom = strchr(bbuf, '@')) == nil)
+			fatal(1, "bad p9any domain");
+		*dom++ = 0;
+		if(strcmp(bbuf, "p9sk1") == 0 || strcmp(bbuf, "dp9ik") == 0){
+			proto = bbuf;
+			if(strcmp(proto, "dp9ik") == 0){
+				dp9ik = 1;
+				break;
+			}
+		}
+		bbuf = p;
+	}
+	if(proto == nil)
+		fatal(1, "server did not offer p9sk1 or dp9ik");
+	sprint(buf2, "%s %s", proto, dom);
 	if(write(fd, buf2, strlen(buf2)+1) != strlen(buf2)+1)
 		fatal(1, "cannot write user/domain choice in p9any");
 	if(v2){
@@ -588,16 +620,18 @@ p9any(int fd)
 		if(memcmp(buf, "OK\0", 3) != 0)
 			fatal(1, "did not get OK in p9any");
 	}
-	for(i=0; i<CHALLEN; i++)
-		cchal[i] = fastrand();
-	if(write(fd, cchal, 8) != 8)
+	genrandom(crand, 2*NONCELEN);
+	genrandom(cchal, CHALLEN);
+	if(write(fd, cchal, CHALLEN) != CHALLEN)
 		fatal(1, "cannot write p9sk1 challenge");
 
-	if(readn(fd, trbuf, TICKREQLEN) != TICKREQLEN)
+	n = TICKREQLEN;
+	if(dp9ik)
+		n += PAKYLEN;
+
+	if(readn(fd, trbuf, n) != n || convM2TR(trbuf, TICKREQLEN, &tr) <= 0)
 		fatal(1, "cannot read ticket request in p9sk1");
 
-
-	convM2TR(trbuf, &tr);
 	u = user;
 	pass = findkey(&u, tr.authdom);
 	if(pass == nil)
@@ -606,36 +640,45 @@ p9any(int fd)
 	if(pass == nil)
 		fatal(1, "no password");
 
-	passtokey(authkey, pass);
+	passtokey(&authkey, pass);
 	memset(pass, 0, strlen(pass));
 
-	tr.type = AuthTreq;
 	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, u);
 	strecpy(tr.uid, tr.uid+sizeof tr.uid, u);
-	convTR2M(&tr, trbuf);
 
-	if(gettickets(&tr, authkey, trbuf, tbuf) < 0)
+	if(dp9ik){
+		authpak_hash(&authkey, tr.hostid);
+		memmove(y, trbuf+TICKREQLEN, PAKYLEN);
+		n = gettickets(&authkey, &tr, y, tbuf, sizeof(tbuf));
+	} else {
+		n = gettickets(&authkey, &tr, nil, tbuf, sizeof(tbuf));
+	}
+	if(n <= 0)
 		fatal(1, "cannot get auth tickets in p9sk1");
 
-	convM2T(tbuf, &t, authkey);
-	if(t.num != AuthTc){
+	m = convM2T(tbuf, n, &t, &authkey);
+	if(m <= 0 || t.num != AuthTc){
 		print("?password mismatch with auth server\n");
 		goto again;
 	}
-	memmove(tbuf, tbuf+TICKETLEN, TICKETLEN);
+	n -= m;
+	memmove(tbuf, tbuf+m, n);
+
+	if(dp9ik && write(fd, y, PAKYLEN) != PAKYLEN)
+		fatal(1, "cannot send authpak public key back");
 
 	auth.num = AuthAc;
+	memmove(auth.rand, crand, NONCELEN);
 	memmove(auth.chal, tr.chal, CHALLEN);
-	auth.id = 0;
-	convA2M(&auth, tbuf+TICKETLEN, t.key);
+	m = convA2M(&auth, tbuf+n, sizeof(tbuf)-n, &t);
+	n += m;
 
-	if(write(fd, tbuf, TICKETLEN+AUTHENTLEN) != TICKETLEN+AUTHENTLEN)
-		fatal(1, "cannot send ticket and authenticator back in p9sk1");
+	if(write(fd, tbuf, n) != n)
+		fatal(1, "cannot send ticket and authenticator back");
 
-	if((n=readn(fd, tbuf, AUTHENTLEN)) != AUTHENTLEN ||
-			memcmp(tbuf, "cpu:", 4) == 0){
+	if((n=readn(fd, tbuf, m)) != m || memcmp(tbuf, "cpu:", 4) == 0){
 		if(n <= 4)
-			fatal(1, "cannot read authenticator in p9sk1");
+			fatal(1, "cannot read authenticator");
 
 		/*
 		 * didn't send back authenticator:
@@ -650,51 +693,41 @@ p9any(int fd)
 		fatal(0, "server says: %s", buf);
 	}
 	
-	convM2A(tbuf, &auth, t.key);
-	if(auth.num != AuthAs
-	|| memcmp(auth.chal, cchal, CHALLEN) != 0
-	|| auth.id != 0){
+	if(convM2A(tbuf, n, &auth, &t) <= 0
+	|| auth.num != AuthAs || tsmemcmp(auth.chal, cchal, CHALLEN) != 0){
 		print("?you and auth server agree about password.\n");
 		print("?server is confused.\n");
-		fatal(0, "server lies got %llux.%d want %llux.%d", *(vlong*)auth.chal, auth.id, *(vlong*)cchal, 0);
+		fatal(0, "server lies got %llux want %llux", *(vlong*)auth.chal, *(vlong*)cchal);
 	}
-	//print("i am %s there.\n", t.suid);
+	memmove(crand+NONCELEN, auth.rand, NONCELEN);
+
+	// print("i am %s there.\n", t.suid);
+
 	ai = mallocz(sizeof(AuthInfo), 1);
-	ai->secret = mallocz(8, 1);
-	des56to64((uchar*)t.key, ai->secret);
-	ai->nsecret = 8;
 	ai->suid = strdup(t.suid);
 	ai->cuid = strdup(t.cuid);
-	memset(authkey, 0, sizeof authkey);
+	if(dp9ik){
+		static char info[] = "Plan 9 session secret";
+		ai->nsecret = 256;
+		ai->secret = mallocz(ai->nsecret, 1);
+		hkdf_x(	crand, 2*NONCELEN,
+			(uchar*)info, sizeof(info)-1,
+			(uchar*)t.key, NONCELEN,
+			ai->secret, ai->nsecret,
+			hmac_sha2_256, SHA2_256dlen);
+	} else {
+		ai->nsecret = 8;
+		ai->secret = mallocz(ai->nsecret, 1);
+		des56to64((uchar*)t.key, ai->secret);
+	}
+
+	memset(&t, 0, sizeof(t));
+	memset(&auth, 0, sizeof(auth));
+	memset(&authkey, 0, sizeof(authkey));
+	memset(cchal, 0, sizeof(cchal));
+	memset(crand, 0, sizeof(crand));
+
 	return ai;
-}
-
-/*
-static int
-noauth(int fd)
-{
-	ealgs = nil;
-	return fd;
-}
-
-static int
-srvnoauth(int fd, char *user)
-{
-	strecpy(user, user+MaxStr, getuser());
-	ealgs = nil;
-	return fd;
-}
-*/
-
-void
-loghex(uchar *p, int n)
-{
-	char buf[100];
-	int i;
-
-	for(i = 0; i < n; i++)
-		sprint(buf+2*i, "%2.2ux", p[i]);
-//	syslog(0, "cpu", buf);
 }
 
 static int
@@ -715,17 +748,3 @@ setam(char *name)
 	am = authmethod;
 	return -1;
 }
-
-/*
- *  set authentication mechanism and encryption/hash algs
- *
-int
-setamalg(char *s)
-{
-	ealgs = strchr(s, ' ');
-	if(ealgs != nil)
-		*ealgs++ = 0;
-	return setam(s);
-}
-
-*/

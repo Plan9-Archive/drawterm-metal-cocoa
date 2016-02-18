@@ -2,27 +2,50 @@
 #include <libc.h>
 #include <authsrv.h>
 
-#define	CHAR(x)		f->x = *p++
-#define	SHORT(x)	f->x = (p[0] | (p[1]<<8)); p += 2
-#define	VLONG(q)	q = (p[0] | (p[1]<<8) | (p[2]<<16) | (p[3]<<24)); p += 4
-#define	LONG(x)		VLONG(f->x)
-#define	STRING(x,n)	memmove(f->x, p, n); p += n
+extern int form1check(char *ap, int n);
+extern int form1M2B(char *ap, int n, uchar key[32]);
 
-void
-convM2T(char *ap, Ticket *f, char *key)
+int
+convM2T(char *ap, int n, Ticket *f, Authkey *k)
 {
-	uchar *p;
+	uchar buf[MAXTICKETLEN], *p;
+	int m;
 
-	if(key)
-		decrypt(key, ap, TICKETLEN);
-	p = (uchar*)ap;
-	CHAR(num);
-	STRING(chal, CHALLEN);
-	STRING(cuid, ANAMELEN);
+	if(f != nil)
+		memset(f, 0, sizeof(Ticket));
+
+	if(n < 8)
+		return -8;
+
+	if(form1check(ap, n) < 0){
+		m = 1+CHALLEN+2*ANAMELEN+DESKEYLEN;
+		if(n < m)
+			return -m;
+		if(f == nil || k == nil)
+			return m;
+		f->form = 0;
+		memmove(buf, ap, m);
+		decrypt(k->des, buf, m);
+	} else {
+		m = 12+CHALLEN+2*ANAMELEN+NONCELEN+16;
+		if(n < m)
+			return -m;
+		if(f == nil || k == nil)
+			return m;
+		f->form = 1;
+		memmove(buf, ap, m);
+		if(form1M2B((char*)buf, m, k->pakkey) < 0)
+			return m;
+	}
+	p = buf;
+	f->num = *p++;
+	memmove(f->chal, p, CHALLEN), p += CHALLEN;
+	memmove(f->cuid, p, ANAMELEN), p += ANAMELEN;
+	memmove(f->suid, p, ANAMELEN), p += ANAMELEN;
+	memmove(f->key, p, f->form == 0 ? DESKEYLEN : NONCELEN);
+
 	f->cuid[ANAMELEN-1] = 0;
-	STRING(suid, ANAMELEN);
 	f->suid[ANAMELEN-1] = 0;
-	STRING(key, DESKEYLEN);
-	USED(p);
-}
 
+	return m;
+}

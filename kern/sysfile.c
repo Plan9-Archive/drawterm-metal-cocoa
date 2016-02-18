@@ -850,11 +850,17 @@ _sysfwstat(int fd, void *buf, long n)
 	return l;
 }
 
-
 static void
 starterror(void)
 {
 	assert(up->nerrlab == 0);
+}
+
+static void
+enderror(void)
+{
+	assert(up->nerrlab == 1);
+	poperror();
 }
 
 static void
@@ -865,13 +871,6 @@ _syserror(void)
 	p = up->syserrstr;
 	up->syserrstr = up->errstr;
 	up->errstr = p;
-}
-
-static void
-enderror(void)
-{
-	assert(up->nerrlab == 1);
-	poperror();
 }
 
 int

@@ -717,7 +717,7 @@ static void
 randfill(uchar *buf, int len)
 {
 	while(len-- > 0)
-		*buf++ = fastrand();
+		*buf++ = nrand(256);
 }
 
 static long

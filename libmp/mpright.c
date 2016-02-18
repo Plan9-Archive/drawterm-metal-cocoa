@@ -9,6 +9,12 @@ mpright(mpint *b, int shift, mpint *res)
 	int d, l, r, i;
 	mpdigit this, last;
 
+	res->sign = b->sign;
+	if(b->top==0){
+		res->top = 0;
+		return;
+	}
+
 	// a negative right shift is a left shift
 	if(shift < 0){
 		mpleft(b, -shift, res);
@@ -17,9 +23,19 @@ mpright(mpint *b, int shift, mpint *res)
 
 	if(res != b)
 		mpbits(res, b->top*Dbits - shift);
+	else if(shift == 0)
+		return;
+
 	d = shift/Dbits;
 	r = shift - d*Dbits;
 	l = Dbits - r;
+
+	//  shift all the bits out == zero
+	if(d>=b->top){
+		res->sign = 1;
+		res->top = 0;
+		return;
+	}
 
 	// special case digit shifts
 	if(r == 0){
@@ -34,7 +50,8 @@ mpright(mpint *b, int shift, mpint *res)
 		}
 		res->p[i++] = last>>r;
 	}
-	while(i > 0 && res->p[i-1] == 0)
-		i--;
+
 	res->top = i;
+	res->flags |= b->flags & MPtimesafe;
+	mpnorm(res);
 }
