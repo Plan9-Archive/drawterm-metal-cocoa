@@ -9,6 +9,8 @@
 #include	"fns.h"
 #include	"error.h"
 
+#include	<libsec.h>	/* for sha1 in pathhash() */
+
 typedef struct DIR	DIR;
 typedef	struct Ufsinfo	Ufsinfo;
 
@@ -65,11 +67,11 @@ unixtime(FILETIME *ft)
 static uvlong
 pathhash(TCHAR *p)
 {
-	uvlong h;
-	h = 0LL;
-	for(; *p; p++)
-		h += *p * 13;
-	return h;
+	uchar digest[SHA1dlen];
+	int n;
+	for(n=0; p[n] != 0; n++);
+	sha1((uchar*)p, n*sizeof(TCHAR), digest, nil);
+	return *(uvlong*)digest;
 }
 
 static ulong
