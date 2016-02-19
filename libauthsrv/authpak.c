@@ -14,7 +14,7 @@
 typedef struct PAKcurve PAKcurve;
 struct PAKcurve
 {
-	Lock;
+	Lock	lk;
 	mpint	*P;
 	mpint	*A;
 	mpint	*D;
@@ -27,7 +27,7 @@ authpak_curve(void)
 {
 	static PAKcurve a;
 
-	lock(&a);
+	lock(&a.lk);
 	if(a.P == nil){
 		a.P = mpnew(0);
 		a.A = mpnew(0);
@@ -37,7 +37,7 @@ authpak_curve(void)
 		ed448_curve(a.P, a.A, a.D, a.X, a.Y);
 		a.P = mpfield(a.P);
 	}
-	unlock(&a);
+	unlock(&a.lk);
 	return &a;
 }
 
