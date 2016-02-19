@@ -44,8 +44,16 @@ static	char	dmsize[12] =
  * change.
  */
 
-static	int	dysize(int);
+#define dysize _dysize	/* conflicts on unix */
 
+static int
+dysize(int y)
+{
+
+	if(y%4 == 0 && (y%100 != 0 || y%400 == 0))
+		return 366;
+	return 365;
+}
 
 Tm*
 gmtime(long tim)
@@ -108,11 +116,3 @@ gmtime(long tim)
 	return &xtime;
 }
 
-static int
-dysize(int y)
-{
-
-	if(y%4 == 0 && (y%100 != 0 || y%400 == 0))
-		return 366;
-	return 365;
-}
