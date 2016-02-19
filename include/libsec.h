@@ -475,7 +475,7 @@ typedef struct ECpoint{
 
 typedef ECpoint ECpub;
 typedef struct ECpriv{
-	ECpoint;
+	ECpoint a;
 	mpint *d;
 } ECpriv;
 

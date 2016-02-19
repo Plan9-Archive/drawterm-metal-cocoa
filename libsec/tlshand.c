@@ -976,8 +976,8 @@ tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 	}
 
 	memset(&Q, 0, sizeof(Q));
-	Q.x = mpnew(0);
-	Q.y = mpnew(0);
+	Q.a.x = mpnew(0);
+	Q.a.y = mpnew(0);
 	Q.d = mpnew(0);
 
 	memset(&K, 0, sizeof(K));
@@ -994,8 +994,8 @@ tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 
 	mpfree(K.x);
 	mpfree(K.y);
-	mpfree(Q.x);
-	mpfree(Q.y);
+	mpfree(Q.a.x);
+	mpfree(Q.a.y);
 	mpfree(Q.d);
 
 	ecpubfree(pub);

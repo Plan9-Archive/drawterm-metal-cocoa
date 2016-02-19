@@ -165,7 +165,7 @@ typedef struct Mfield	Mfield;
 
 struct Mfield
 {
-	mpint;
+	mpint	m;
 	int	(*reduce)(Mfield*, mpint*, mpint*);
 };
 

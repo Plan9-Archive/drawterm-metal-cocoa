@@ -14,7 +14,7 @@ enum {
 typedef struct GMfield GMfield;
 struct GMfield
 {
-	Mfield;	
+	Mfield f;	
 
 	mpint	m2[1];
 
@@ -36,7 +36,7 @@ gmreduce(Mfield *m, mpint *a, mpint *r)
 	if(a != r)
 		mpassign(a, r);
 
-	d = g->top;
+	d = g->f.m.top;
 	mpbits(r, (d+1)*Dbits*2);
 	memmove(t+d, r->p+d, d*Dbytes);
 
@@ -45,7 +45,7 @@ gmreduce(Mfield *m, mpint *a, mpint *r)
 	r->p[d] = 0;
 
 	if(g->nsub > 0)
-		mpvecdigmuladd(g->p, d, g->nsub, r->p);
+		mpvecdigmuladd(g->f.m.p, d, g->nsub, r->p);
 
 	x = g->indx;
 	for(i=0; i<g->nadd; i++){
@@ -68,10 +68,10 @@ gmreduce(Mfield *m, mpint *a, mpint *r)
 		mpvecsub(r->p, d+1, t, d, r->p);
 	}
 
-	mpvecdigmulsub(g->p, d, r->p[d], r->p);
+	mpvecdigmulsub(g->f.m.p, d, r->p[d], r->p);
 	r->p[d] = 0;
 
-	mpvecsub(r->p, d+1, g->p, d, r->p+d+1);
+	mpvecsub(r->p, d+1, g->f.m.p, d, r->p+d+1);
 	d0 = r->p[2*d+1];
 	for(j=0; j<d; j++)
 		r->p[j] = (r->p[j] & d0) | (r->p[j+d+1] & ~d0);
@@ -123,8 +123,8 @@ gmfield(mpint *N)
 	g->m2->size = d*2+1;
 	mpmul(N, N, g->m2);
 	mpassign(N, (mpint*)g);
-	g->reduce = gmreduce;
-	g->flags |= MPfield;
+	g->f.reduce = gmreduce;
+	g->f.m.flags |= MPfield;
 
 	s = 0;
 	x = g->indx;

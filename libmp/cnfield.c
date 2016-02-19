@@ -13,7 +13,7 @@ enum {
 typedef struct CNfield CNfield;
 struct CNfield
 {
-	Mfield;	
+	Mfield f;	
 
 	mpint	m[1];
 
@@ -28,7 +28,7 @@ cnreduce(Mfield *m, mpint *a, mpint *r)
 	CNfield *f = (CNfield*)m;
 	int qn, tn, k;
 
-	k = f->top;
+	k = f->f.m.top;
 	if((a->top - k) >= MAXDIG)
 		return -1;
 
@@ -104,8 +104,8 @@ cnfield(mpint *N)
 	f->m->p = (mpdigit*)&f[1];
 	mpassign(M, f->m);
 	mpassign(N, (mpint*)f);
-	f->reduce = cnreduce;
-	f->flags |= MPfield;
+	f->f.reduce = cnreduce;
+	f->f.m.flags |= MPfield;
 out:
 	mpfree(M);
 	mpfree(C);
