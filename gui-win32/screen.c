@@ -186,7 +186,7 @@ winproc(void *a)
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
 	wc.hInstance = inst;
-	wc.hIcon = LoadIcon(inst, NULL);
+	wc.hIcon = LoadIcon(inst, MAKEINTRESOURCE(101));
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground = GetStockObject(WHITE_BRUSH);
 	wc.lpszMenuName = 0;
