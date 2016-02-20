@@ -388,6 +388,12 @@ memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point sp, Memimage *mask
 static int
 xdraw(Memdrawparam *par)
 {
+	return 0;
+}
+
+static int
+xdraw_broken(Memdrawparam *par)
+{
 	int dy, dx;
 	unsigned m;
 	Memimage *src, *dst, *mask;
