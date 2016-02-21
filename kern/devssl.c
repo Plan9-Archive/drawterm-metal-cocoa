@@ -7,7 +7,7 @@
 #include	"fns.h"
 #include	"error.h"
 
-#include	"libsec.h"
+#include	<libsec.h>
 
 #define NOSPOOKS 1
 
@@ -72,15 +72,15 @@ struct Dstate
 enum
 {
 	Maxdmsg=	1<<16,
-	Maxdstate=	128,	/* must be a power of 2 */
+	Maxdstate=	512,	/* max. open ssl conn's; must be a power of 2 */
 };
 
-Lock	dslock;
-int	dshiwat;
-char	*dsname[Maxdstate];
-Dstate	*dstate[Maxdstate];
-char	*encalgs;
-char	*hashalgs;
+static	Lock	dslock;
+static	int	dshiwat;
+static	char	*dsname[Maxdstate];
+static	Dstate	*dstate[Maxdstate];
+static	char	*encalgs;
+static	char	*hashalgs;
 
 enum{
 	Qtopdir		= 1,	/* top level directory */
@@ -113,17 +113,13 @@ static void	dsnew(Chan *c, Dstate **);
 static long	sslput(Dstate *s, Block * volatile b);
 
 char *sslnames[] = {
-	/* unused */ 0,
-	/* topdir */ 0,
-	/* protodir */ 0,
-	"clone",
-	/* convdir */ 0,
-	"data",
-	"ctl",
-	"secretin",
-	"secretout",
-	"encalgs",
-	"hashalgs",
+[Qclonus]	"clone",
+[Qdata]		"data",
+[Qctl]		"ctl",
+[Qsecretin]	"secretin",
+[Qsecretout]	"secretout",
+[Qencalgs]	"encalgs",
+[Qhashalgs]	"hashalgs",
 };
 
 static int
@@ -237,7 +233,6 @@ sslgen(Chan *c, char *n, Dirtab *d, int nd, int s, Dir *dp)
 		devdir(c, c->qid, sslnames[TYPE(c->qid)], 0, nm, 0660, dp);
 		return 1;
 	}
-	return -1;
 }
 
 static Chan*
@@ -358,7 +353,7 @@ sslwstat(Chan *c, uchar *db, int n)
 
 	if(!emptystr(dir->uid))
 		kstrdup(&s->user, dir->uid);
-	if(dir->mode != ~0)
+	if(dir->mode != ~0UL)
 		s->perm = dir->mode;
 
 	free(dir);
@@ -766,9 +761,8 @@ sslput(Dstate *s, Block * volatile b)
 	int offset;
 
 	if(waserror()){
-iprint("error: %s\n", up->errstr);
 		if(b != nil)
-			free(b);
+			freeb(b);
 		nexterror();
 	}
 
@@ -900,7 +894,7 @@ initDESkey_40(OneWay *w)
 		key[6] &= 0x0f;
 	}
 
-	w->state = malloc(sizeof(DESstate));
+	w->state = smalloc(sizeof(DESstate));
 	if(w->slen >= 16)
 		setupDESstate(w->state, key, w->secret+8);
 	else if(w->slen >= 8)
@@ -936,7 +930,7 @@ initRC4key_40(OneWay *w)
 	if(w->slen > 5)
 		w->slen = 5;
 
-	w->state = malloc(sizeof(RC4state));
+	w->state = smalloc(sizeof(RC4state));
 	setupRC4state(w->state, w->secret, w->slen);
 }
 
@@ -955,7 +949,7 @@ initRC4key_128(OneWay *w)
 	if(w->slen > 16)
 		w->slen = 16;
 
-	w->state = malloc(sizeof(RC4state));
+	w->state = smalloc(sizeof(RC4state));
 	setupRC4state(w->state, w->secret, w->slen);
 }
 
@@ -1004,6 +998,7 @@ struct Encalg
 };
 
 #ifdef NOSPOOKS
+static
 Encalg encrypttab[] =
 {
 	{ "descbc", 8, DESCBC, initDESkey, },           /* DEPRECATED -- use des_56_cbc */
@@ -1019,6 +1014,7 @@ Encalg encrypttab[] =
 	{ 0 }
 };
 #else
+static
 Encalg encrypttab[] =
 {
 	{ "des_40_cbc", 8, DESCBC, initDESkey_40, },
@@ -1048,14 +1044,31 @@ parseencryptalg(char *p, Dstate *s)
 	return -1;
 }
 
+enum {
+	Cfd,
+	Calg,
+	Csin,
+	Csout,
+};
+	
+static
+Cmdtab sslcmds[] = {
+	{Cfd, 	"fd", 	2 },
+	{Calg, 	"alg", 	0 },
+	{Csin, 	"secretin", 	2 },
+	{Csout,	"secretout",	2 },
+};
+
 static long
 sslwrite(Chan *c, void *a, long n, vlong o)
 {
 	Dstate * volatile s;
 	Block * volatile b;
-	int m, t;
-	char *p, *np, *e, buf[128];
+	int m, t, i;
+	char *p, *e;
 	uchar *x;
+	Cmdbuf *cb;
+	Cmdtab *ct;
 
 	USED(o);
 	s = dstate[CONV(c->qid)];
@@ -1073,9 +1086,8 @@ sslwrite(Chan *c, void *a, long n, vlong o)
 			nexterror();
 		}
 		qlock(&s->out.q);
+
 		p = a;
-if(0) iprint("write %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
-	n, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
 		e = p + n;
 		do {
 			m = e - p;
@@ -1095,9 +1107,7 @@ if(0) iprint("write %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
 
 			p += m;
 		} while(p < e);
-		p = a;
-if(0) iprint("wrote %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
-	n, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+
 		poperror();
 		qunlock(&s->out.q);
 		return n;
@@ -1125,19 +1135,15 @@ if(0) iprint("wrote %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
 		break;
 	}
 
-	if(n >= sizeof(buf))
-		error("arg too long");
-	strncpy(buf, a, n);
-	buf[n] = 0;
-	p = strchr(buf, '\n');
-	if(p)
-		*p = 0;
-	p = strchr(buf, ' ');
-	if(p)
-		*p++ = 0;
-
-	if(strcmp(buf, "fd") == 0){
-		s->c = buftochan(p);
+	cb = parsecmd(a, n);
+	if(waserror()){
+		free(cb);
+		nexterror();
+	}
+	ct = lookupcmd(cb, sslcmds, nelem(sslcmds));
+	switch(ct->index){
+	case Cfd:
+		s->c = buftochan(cb->f[1]);
 
 		/* default is clear (msg delimiters only) */
 		s->state = Sclear;
@@ -1146,7 +1152,11 @@ if(0) iprint("wrote %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
 		s->maxpad = s->max = (1<<15) - s->diglen - 1;
 		s->in.mid = 0;
 		s->out.mid = 0;
-	} else if(strcmp(buf, "alg") == 0 && p != 0){
+		break;
+	case Calg:
+		if(cb->nf < 2)
+			cmderror(cb, "no algorithms");
+
 		s->blocklen = 1;
 		s->diglen = 0;
 
@@ -1155,9 +1165,8 @@ if(0) iprint("wrote %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
 
 		s->state = Sclear;
 		s->maxpad = s->max = (1<<15) - s->diglen - 1;
-		if(strcmp(p, "clear") == 0){
-			goto out;
-		}
+		if(strcmp(cb->f[1], "clear") == 0)
+			break;
 
 		if(s->in.secret && s->out.secret == 0)
 			setsecret(&s->out, s->in.secret, s->in.slen);
@@ -1170,18 +1179,11 @@ if(0) iprint("wrote %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
 		s->encryptalg = Noencryption;
 		s->blocklen = 1;
 
-		for(;;){
-			np = strchr(p, ' ');
-			if(np)
-				*np++ = 0;
-
+		for(i=1; i<cb->nf; i++){
+			p = cb->f[i];
 			if(parsehashalg(p, s) < 0)
 			if(parseencryptalg(p, s) < 0)
 				error("bad algorithm");
-
-			if(np == 0)
-				break;
-			p = np;
 		}
 
 		if(s->hf == 0 && s->encryptalg == Noencryption)
@@ -1194,20 +1196,34 @@ if(0) iprint("wrote %d %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux %.2ux\n",
 			s->maxpad -= s->maxpad % s->blocklen;
 		} else
 			s->maxpad = s->max = (1<<15) - s->diglen - 1;
-	} else if(strcmp(buf, "secretin") == 0 && p != 0) {
+		break;
+	case Csin:
+		p = cb->f[1];
 		m = (strlen(p)*3)/2;
 		x = smalloc(m);
 		t = dec64(x, m, p, strlen(p));
+		if(t <= 0){
+			free(x);
+			error(Ebadarg);
+		}
 		setsecret(&s->in, x, t);
 		free(x);
-	} else if(strcmp(buf, "secretout") == 0 && p != 0) {
+		break;
+	case Csout:
+		p = cb->f[1];
 		m = (strlen(p)*3)/2 + 1;
 		x = smalloc(m);
 		t = dec64(x, m, p, strlen(p));
+		if(t <= 0){
+			free(x);
+			error(Ebadarg);
+		}
 		setsecret(&s->out, x, t);
 		free(x);
-	} else
-		error(Ebadarg);
+		break;
+	}
+	poperror();
+	free(cb);
 
 out:
 	qunlock(&s->in.ctlq);
@@ -1426,7 +1442,7 @@ checkdigestb(Dstate *s, Block *bin)
 	*p = n;
 	(*s->hf)(msgid, 4, digest, &ss);
 
-	if(memcmp(digest, bin->rp, s->diglen) != 0)
+	if(tsmemcmp(digest, bin->rp, s->diglen) != 0)
 		error("bad digest");
 }
 

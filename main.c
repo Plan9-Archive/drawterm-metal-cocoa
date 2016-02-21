@@ -111,7 +111,7 @@ findkey(char **puser, char *dom)
 				pass = f[i]+10;
 			if(strncmp(f[i], "dom=", 4) == 0 && strcmp(f[i]+4, dom) == 0)
 				havedom = 1;
-			if(strcmp(f[i], "proto=p9sk1") == 0)
+			if(strcmp(f[i], "proto=p9sk1") == 0 || strcmp(f[i], "proto=dp9ik") == 0)
 				haveproto = 1;
 		}
 		if(!haveproto || !havedom || !pass || !user)

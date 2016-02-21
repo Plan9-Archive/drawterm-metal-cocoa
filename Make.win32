@@ -19,7 +19,7 @@ GUI=win32
 LDFLAGS=-mwindows
 LDADD=-lkernel32 -ladvapi32 -lgdi32 -lmpr -lwsock32 -lmsvcrt -lmingw32
 TARG=drawterm.exe
-XOFILES=9ball.$O
+XOFILES=glenda-t.$O
 
 # Windows via MSVC
 #AR=???
@@ -37,6 +37,6 @@ all: default
 libmachdep.a:
 	(cd win32-386; make)
 
-9ball.$O: 9ball.rc 9ball.ico
-	$(WINDRES) -i 9ball.rc -o 9ball.o
+glenda-t.$O: glenda-t.rc glenda-t.ico
+	$(WINDRES) -i glenda-t.rc -o glenda-t.o
 
