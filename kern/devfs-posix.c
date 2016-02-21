@@ -40,7 +40,7 @@ struct Ufsinfo
 
 char	*base = "/";
 
-static	Qid	fsqid(char*, struct stat *);
+static	Qid	fsqid(struct stat *);
 static	void	fspath(Chan*, char*, char*);
 static	ulong	fsdirread(Chan*, uchar*, int, ulong);
 static	int	fsomode(int);
@@ -130,7 +130,7 @@ fswalk1(Chan *c, char *name)
 	uif->uid = stbuf.st_uid;
 	uif->gid = stbuf.st_gid;
 
-	c->qid = fsqid(path, &stbuf);
+	c->qid = fsqid(&stbuf);
 
 	return 1;
 }
@@ -302,7 +302,7 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 
 	if(stat(path, &stbuf) < 0)
 		error(strerror(errno));
-	c->qid = fsqid(path, &stbuf);
+	c->qid = fsqid(&stbuf);
 	c->offset = 0;
 	c->flag |= COPEN;
 	c->mode = openmode(mode);
@@ -458,31 +458,15 @@ fswstat(Chan *c, uchar *buf, int n)
 }
 
 static Qid
-fsqid(char *p, struct stat *st)
+fsqid(struct stat *st)
 {
 	Qid q;
-	int dev;
-	ulong h;
-	static int nqdev;
-	static uchar *qdev;
-
-	if(qdev == 0)
-		qdev = mallocz(65536U, 1);
 
 	q.type = 0;
 	if((st->st_mode&S_IFMT) ==  S_IFDIR)
 		q.type = QTDIR;
 
-	dev = st->st_dev & 0xFFFFUL;
-	if(qdev[dev] == 0)
-		qdev[dev] = ++nqdev;
-
-	h = 0;
-	while(*p != '\0')
-		h += *p++ * 13;
-	
-	q.path = (vlong)qdev[dev]<<32;
-	q.path |= h;
+	q.path = (uvlong)st->st_dev<<32 | st->st_ino;
 	q.vers = st->st_mtime;
 
 	return q;
@@ -579,7 +563,7 @@ fsdirread(Chan *c, uchar *va, int count, ulong offset)
 		d.uid = "unknown";
 		d.gid = "unknown";
 		d.muid = "unknown";
-		d.qid = fsqid(path, &stbuf);
+		d.qid = fsqid(&stbuf);
 		d.mode = (d.qid.type<<24)|(stbuf.st_mode&0777);
 		d.atime = stbuf.st_atime;
 		d.mtime = stbuf.st_mtime;
