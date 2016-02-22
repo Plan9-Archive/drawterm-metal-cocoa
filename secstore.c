@@ -560,7 +560,7 @@ PAKclient(SConn *conn, char *C, char *pass, char **pS)
 	}
 	*eol = 0;
 	if(pS)
-		*pS = strdup(S);
+		*pS = estrdup(S);
 	strtomp(hexmu, nil, 64, mu);
 	mpexp(mu, x, pak->p, sigma);
 	hexsigma = mptoa(sigma, 64, nil, 0);
@@ -615,7 +615,7 @@ secstorefetch(char *addr, char *owner, char *password)
 	conn = nil;
 	rv = nil;
 	if(password != nil && *password)
-		pass = strdup(password);
+		pass = estrdup(password);
 	else
 		pass = readcons("secstore password", nil, 1);
 	if(pass==nil || strlen(pass)==0){

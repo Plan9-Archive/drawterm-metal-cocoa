@@ -197,13 +197,13 @@ cpumain(int argc, char **argv)
 		usage();
 
 	if(system == nil)
-		system = readcons("cpuserver", "cpu", 0);
+		system = readcons("cpu", "cpu", 0);
 
 	if(user == nil)
 		user = readcons("user", "glenda", 0);
 
 	if(authserver == nil)
-		authserver = readcons("authserver", system, 0);
+		authserver = readcons("auth", system, 0);
 
 	if(mountfactotum() < 0){
 		if(secstoreserver == nil)
@@ -613,6 +613,7 @@ p9any(int fd)
 	}
 	if(proto == nil)
 		fatal(1, "server did not offer p9sk1 or dp9ik");
+	proto = estrdup(proto);
 	sprint(buf2, "%s %s", proto, dom);
 	if(write(fd, buf2, strlen(buf2)+1) != strlen(buf2)+1)
 		fatal(1, "cannot write user/domain choice in p9any");
@@ -635,15 +636,16 @@ p9any(int fd)
 		fatal(1, "cannot read ticket request in p9sk1");
 
 	u = user;
-	pass = findkey(&u, tr.authdom);
+	pass = findkey(&u, tr.authdom, proto);
 	if(pass == nil)
 	again:
-		pass = getkey(u, tr.authdom);
+		pass = getkey(u, tr.authdom, proto);
 	if(pass == nil)
 		fatal(1, "no password");
 
 	passtokey(&authkey, pass);
 	memset(pass, 0, strlen(pass));
+	free(pass);
 
 	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, u);
 	strecpy(tr.uid, tr.uid+sizeof tr.uid, u);
@@ -706,8 +708,8 @@ p9any(int fd)
 	// print("i am %s there.\n", t.suid);
 
 	ai = mallocz(sizeof(AuthInfo), 1);
-	ai->suid = strdup(t.suid);
-	ai->cuid = strdup(t.cuid);
+	ai->suid = estrdup(t.suid);
+	ai->cuid = estrdup(t.cuid);
 	if(dp9ik){
 		static char info[] = "Plan 9 session secret";
 		ai->nsecret = 256;
@@ -728,6 +730,7 @@ p9any(int fd)
 	memset(&authkey, 0, sizeof(authkey));
 	memset(cchal, 0, sizeof(cchal));
 	memset(crand, 0, sizeof(crand));
+	free(proto);
 
 	return ai;
 }

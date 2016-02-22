@@ -6,7 +6,7 @@ void*
 erealloc(void *v, ulong n)
 {
 	v = realloc(v, n);
-	if(v == nil)
+	if(v == nil && n != 0)
 		sysfatal("out of memory");
 	return v;
 }

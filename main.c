@@ -70,16 +70,16 @@ main(int argc, char **argv)
 }
 
 char*
-getkey(char *user, char *dom)
+getkey(char *user, char *dom, char *proto)
 {
 	char buf[1024];
 
-	snprint(buf, sizeof buf, "%s@%s password", user, dom);
+	snprint(buf, sizeof buf, "%s@%s %s password", user, dom, proto);
 	return readcons(buf, nil, 1);
 }
 
 char*
-findkey(char **puser, char *dom)
+findkey(char **puser, char *dom, char *proto)
 {
 	char buf[1024], *f[50], *p, *ep, *nextp, *pass, *user;
 	int nf, haveproto,  havedom, i;
@@ -111,13 +111,13 @@ findkey(char **puser, char *dom)
 				pass = f[i]+10;
 			if(strncmp(f[i], "dom=", 4) == 0 && strcmp(f[i]+4, dom) == 0)
 				havedom = 1;
-			if(strcmp(f[i], "proto=p9sk1") == 0 || strcmp(f[i], "proto=dp9ik") == 0)
+			if(strncmp(f[i], "proto=", 6) == 0 && strcmp(f[i]+6, proto) == 0)
 				haveproto = 1;
 		}
 		if(!haveproto || !havedom || !pass || !user)
 			continue;
-		*puser = strdup(user);
-		pass = strdup(pass);
+		*puser = estrdup(user);
+		pass = estrdup(pass);
 		memset(buf, 0, sizeof buf);
 		return pass;
 	}
