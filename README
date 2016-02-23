@@ -1,3 +1,11 @@
+DESCRIPTION
+-----------
+This is a fork of Russ Cox's drawterm to incorporate features
+from Plan9front (http://9front.org), most importantly DP9IK
+authentication support (see authsrv(6)) and the TLS based rcpu(1)
+protocol.
+
+
 INSTALLATION
 --------------
 To build on Unix, run CONF=unix make.
