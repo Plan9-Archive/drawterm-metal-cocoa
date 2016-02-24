@@ -1491,13 +1491,10 @@ _xgetsnarf(XDisplay *xd)
 	 * come, and we have no way to time out.  Instead, we will clear
 	 * local property #1, request our buddy to fill it in for us, and poll
 	 * until he's done or we get tired of waiting.
-	 *
-	 * We should try to go for utf8string instead of XA_STRING,
-	 * but that would add to the polling.
 	 */
 	prop = 1;
-	XChangeProperty(xd, xdrawable, prop, XA_STRING, 8, PropModeReplace, (uchar*)"", 0);
-	XConvertSelection(xd, clipboard, XA_STRING, prop, xdrawable, CurrentTime);
+	XChangeProperty(xd, xdrawable, prop, utf8string, 8, PropModeReplace, (uchar*)"", 0);
+	XConvertSelection(xd, clipboard, utf8string, prop, xdrawable, CurrentTime);
 	XFlush(xd);
 	lastlen = 0;
 	for(i=0; i<10 || (lastlen!=0 && i<30); i++){
