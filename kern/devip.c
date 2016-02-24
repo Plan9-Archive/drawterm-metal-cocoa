@@ -16,12 +16,17 @@ void osipinit(void);
 enum
 {
 	Qtopdir		= 1,	/* top level directory */
-	Qcs,
+	Qtopbase,
+	Qcs		= Qtopbase,
+
 	Qprotodir,		/* directory for a protocol */
-	Qclonus,
+	Qprotobase,
+	Qclone		= Qprotobase,
+
 	Qconvdir,		/* directory for a conversation */
+	Qconvbase,
+	Qctl		= Qconvbase,
 	Qdata,
-	Qctl,
 	Qstatus,
 	Qremote,
 	Qlocal,
@@ -72,83 +77,138 @@ static	Proto	proto[MAXPROTO];
 static	Conv*	protoclone(Proto*, char*, int);
 static	void	setladdr(Conv*);
 
-int
-ipgen(Chan *c, char *nname, Dirtab *d, int nd, int s, Dir *dp)
+static char	network[] = "network";
+
+static int
+ip3gen(Chan *c, int i, Dir *dp)
 {
 	Qid q;
 	Conv *cv;
 	char *p;
 
-	USED(nname);
-	q.vers = 0;
-	q.type = 0;
+	cv = proto[PROTO(c->qid)].conv[CONV(c->qid)];
+	if(cv->owner == nil)
+		strcpy(cv->owner, eve);
+	mkqid(&q, QID(PROTO(c->qid), CONV(c->qid), i), 0, QTFILE);
+
+	switch(i) {
+	default:
+		return -1;
+	case Qctl:
+		devdir(c, q, "ctl", 0, cv->owner, cv->perm, dp);
+		return 1;
+	case Qdata:
+		devdir(c, q, "data", 0, cv->owner, cv->perm, dp);
+		return 1;
+	case Qlisten:
+		devdir(c, q, "listen", 0, cv->owner, cv->perm, dp);
+		return 1;
+	case Qlocal:
+		p = "local";
+		break;
+	case Qremote:
+		p = "remote";
+		break;
+	case Qstatus:
+		p = "status";
+		break;
+	}
+	devdir(c, q, p, 0, cv->owner, 0444, dp);
+	return 1;
+}
+
+static int
+ip2gen(Chan *c, int i, Dir *dp)
+{
+	Qid q;
+
+	switch(i) {
+	case Qclone:
+		mkqid(&q, QID(PROTO(c->qid), 0, Qclone), 0, QTFILE);
+		devdir(c, q, "clone", 0, network, 0666, dp);
+		return 1;
+	}
+	return -1;
+}
+
+static int
+ip1gen(Chan *c, int i, Dir *dp)
+{
+	Qid q;
+	char *p;
+	int prot;
+	int len = 0;
+
+	prot = 0666;
+	mkqid(&q, QID(0, 0, i), 0, QTFILE);
+	switch(i) {
+	default:
+		return -1;
+	case Qcs:
+		p = "cs";
+		prot = 0664;
+		break;
+	}
+	devdir(c, q, p, len, network, prot, dp);
+	return 1;
+}
+
+static int
+ipgen(Chan *c, char *nname, Dirtab *d, int nd, int s, Dir *dp)
+{
+	Qid q;
+	Conv *cv;
+
 	switch(TYPE(c->qid)) {
 	case Qtopdir:
-		if(s >= 1+np)
-			return -1;
-
-		if(s == 0){
-			q.path = QID(s, 0, Qcs);
-			devdir(c, q, "cs", 0, "network", 0666, dp);
-		}else{
-			s--;
-			q.path = QID(s, 0, Qprotodir);
-			q.type = QTDIR;
-			devdir(c, q, proto[s].name, 0, "network", DMDIR|0555, dp);
+		if(s == DEVDOTDOT){
+			mkqid(&q, QID(0, 0, Qtopdir), 0, QTDIR);
+			snprint(up->genbuf, sizeof up->genbuf, "#I%lud", c->dev);
+			devdir(c, q, up->genbuf, 0, network, 0555, dp);
+			return 1;
 		}
-		return 1;
+		if(s < np) {
+			mkqid(&q, QID(s, 0, Qprotodir), 0, QTDIR);
+			devdir(c, q, proto[s].name, 0, network, 0555, dp);
+			return 1;
+		}
+		s -= np;
+		return ip1gen(c, s+Qtopbase, dp);
+	case Qcs:
+		return ip1gen(c, TYPE(c->qid), dp);
 	case Qprotodir:
+		if(s == DEVDOTDOT){
+			mkqid(&q, QID(0, 0, Qtopdir), 0, QTDIR);
+			snprint(up->genbuf, sizeof up->genbuf, "#I%lud", c->dev);
+			devdir(c, q, up->genbuf, 0, network, 0555, dp);
+			return 1;
+		}
 		if(s < proto[PROTO(c->qid)].nc) {
 			cv = proto[PROTO(c->qid)].conv[s];
-			sprint(up->genbuf, "%d", s);
-			q.path = QID(PROTO(c->qid), s, Qconvdir);
-			q.type = QTDIR;
-			devdir(c, q, up->genbuf, 0, cv->owner, DMDIR|0555, dp);
+			snprint(up->genbuf, sizeof up->genbuf, "%d", s);
+			mkqid(&q, QID(PROTO(c->qid), s, Qconvdir), 0, QTDIR);
+			devdir(c, q, up->genbuf, 0, cv->owner, 0555, dp);
 			return 1;
 		}
 		s -= proto[PROTO(c->qid)].nc;
-		switch(s) {
-		default:
-			return -1;
-		case 0:
-			p = "clone";
-			q.path = QID(PROTO(c->qid), 0, Qclonus);
-			break;
-		}
-		devdir(c, q, p, 0, "network", 0555, dp);
-		return 1;
+		return ip2gen(c, s+Qprotobase, dp);
+	case Qclone:
+		return ip2gen(c, TYPE(c->qid), dp);
 	case Qconvdir:
-		cv = proto[PROTO(c->qid)].conv[CONV(c->qid)];
-		switch(s) {
-		default:
-			return -1;
-		case 0:
-			q.path = QID(PROTO(c->qid), CONV(c->qid), Qdata);
-			devdir(c, q, "data", 0, cv->owner, cv->perm, dp);
+		if(s == DEVDOTDOT){
+			s = PROTO(c->qid);
+			mkqid(&q, QID(s, 0, Qprotodir), 0, QTDIR);
+			devdir(c, q, proto[s].name, 0, network, 0555, dp);
 			return 1;
-		case 1:
-			q.path = QID(PROTO(c->qid), CONV(c->qid), Qctl);
-			devdir(c, q, "ctl", 0, cv->owner, cv->perm, dp);
-			return 1;
-		case 2:
-			p = "status";
-			q.path = QID(PROTO(c->qid), CONV(c->qid), Qstatus);
-			break;
-		case 3:
-			p = "remote";
-			q.path = QID(PROTO(c->qid), CONV(c->qid), Qremote);
-			break;
-		case 4:
-			p = "local";
-			q.path = QID(PROTO(c->qid), CONV(c->qid), Qlocal);
-			break;
-		case 5:
-			p = "listen";
-			q.path = QID(PROTO(c->qid), CONV(c->qid), Qlisten);
-			break;
 		}
-		devdir(c, q, p, 0, cv->owner, 0444, dp);
-		return 1;
+		return ip3gen(c, s+Qconvbase, dp);
+	case Qctl:
+	case Qdata:
+	case Qlisten:
+	case Qlocal:
+	case Qremote:
+	case Qstatus:
+		return ip3gen(c, TYPE(c->qid), dp);
 	}
 	return -1;
 }
@@ -249,7 +309,7 @@ ipopen(Chan *c, int omode)
 		if(omode != OREAD)
 			error(Eperm);
 		break;
-	case Qclonus:
+	case Qclone:
 		p = &proto[PROTO(c->qid)];
 		cv = protoclone(p, up->user, -1);
 		if(cv == 0)
@@ -317,7 +377,7 @@ ipclose(Chan *c)
 		cc = proto[PROTO(c->qid)].conv[CONV(c->qid)];
 		if(decref(&cc->r) != 0)
 			break;
-		strcpy(cc->owner, "network");
+		strcpy(cc->owner, network);
 		cc->perm = 0666;
 		cc->state = "Closed";
 		ipzero(cc->laddr);
@@ -681,6 +741,7 @@ static struct
 	"rexexec", 17009,
 	"ncpu", 17010,
 	"cpu", 17013,
+	"rcpu", 17019,
 	"glenglenda1", 17020,
 	"glenglenda2", 17021,
 	"glenglenda3", 17022,
