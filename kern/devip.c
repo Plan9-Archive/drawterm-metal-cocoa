@@ -87,8 +87,6 @@ ip3gen(Chan *c, int i, Dir *dp)
 	char *p;
 
 	cv = proto[PROTO(c->qid)].conv[CONV(c->qid)];
-	if(cv->owner == nil)
-		strcpy(cv->owner, eve);
 	mkqid(&q, QID(PROTO(c->qid), CONV(c->qid), i), 0, QTFILE);
 
 	switch(i) {
