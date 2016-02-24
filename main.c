@@ -8,6 +8,7 @@
 
 char *argv0;
 char *user;
+char secstorebuf[65536];
 
 extern int errfmt(Fmt*);
 void

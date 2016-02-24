@@ -637,6 +637,8 @@ p9any(int fd)
 
 	u = user;
 	pass = findkey(&u, tr.authdom, proto);
+	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
+
 	if(pass == nil)
 	again:
 		pass = getkey(u, tr.authdom, proto);
