@@ -27,7 +27,7 @@ struct Dirlist
 };
 
 static Dirtab rootdir[Nrootfiles] = {
-	"#/",		{Qdir, 0, QTDIR},	0,		DMDIR|0555,
+	"#/",	{Qdir, 0, QTDIR},	0,		DMDIR|0555,
 	"boot",	{Qboot, 0, QTDIR},	0,		DMDIR|0555,
 	"mnt",	{Qmnt, 0, QTDIR},	0,		DMDIR|0555,
 };

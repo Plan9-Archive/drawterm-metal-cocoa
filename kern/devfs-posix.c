@@ -15,17 +15,7 @@
 #include	"fns.h"
 #include	"error.h"
 
-
 typedef	struct Ufsinfo	Ufsinfo;
-
-enum
-{
-	NUID	= 256,
-	NGID	= 256,
-	MAXPATH	= 1024,
-	MAXCOMP	= 128
-};
-
 struct Ufsinfo
 {
 	int	mode;
@@ -35,36 +25,20 @@ struct Ufsinfo
 	DIR*	dir;
 	vlong	offset;
 	QLock	oq;
+	char*	path;
 	char nextname[NAME_MAX];
 };
 
-char	*base = "/";
-
 static	Qid	fsqid(struct stat *);
-static	void	fspath(Chan*, char*, char*);
+static	char*	catpath(char*, char*);
 static	ulong	fsdirread(Chan*, uchar*, int, ulong);
 static	int	fsomode(int);
 
-/* clumsy hack, but not worse than the Path stuff in the last one */
 static char*
-uc2name(Chan *c)
+lastelem(char *s)
 {
-	char *s;
+	char *t;
 
-	if(c->name == nil)
-		return "/";
-	s = c2name(c);
-	if(s[0]=='#' && s[1]=='U')
-		return s+2;
-	return s;
-}
-
-static char*
-lastelem(Chan *c)
-{
-	char *s, *t;
-
-	s = uc2name(c);
 	if((t = strrchr(s, '/')) == nil)
 		return s;
 	if(t[1] == 0)
@@ -80,15 +54,13 @@ fsattach(char *spec)
 	static int devno;
 	Ufsinfo *uif;
 
-	if(stat(base, &stbuf) < 0)
-		error(strerror(errno));
-
 	c = devattach('U', spec);
 
 	uif = mallocz(sizeof(Ufsinfo), 1);
 	uif->mode = stbuf.st_mode;
 	uif->uid = stbuf.st_uid;
 	uif->gid = stbuf.st_gid;
+	uif->path = strdup("/");
 
 	c->aux = uif;
 	c->dev = devno++;
@@ -105,6 +77,7 @@ fsclone(Chan *c, Chan *nc)
 
 	uif = mallocz(sizeof(Ufsinfo), 1);
 	*uif = *(Ufsinfo*)c->aux;
+	uif->path = strdup(uif->path);
 	nc->aux = uif;
 
 	return nc;
@@ -114,17 +87,19 @@ static int
 fswalk1(Chan *c, char *name)
 {
 	struct stat stbuf;
-	char path[MAXPATH];
 	Ufsinfo *uif;
-
-	fspath(c, name, path);
+	char *path;
 
 	/*print("** fs walk '%s' -> %s\n", path, name);  */
 
-	if(stat(path, &stbuf) < 0)
-		return 0;
-
 	uif = c->aux;
+	path = catpath(uif->path, name);
+	if(stat(path, &stbuf) < 0){
+		free(path);
+		return 0;
+	}
+	free(uif->path);
+	uif->path = path;
 
 	uif->mode = stbuf.st_mode;
 	uif->uid = stbuf.st_uid;
@@ -135,32 +110,23 @@ fswalk1(Chan *c, char *name)
 	return 1;
 }
 
-extern Cname* addelem(Cname*, char*);
-
 static Walkqid*
 fswalk(Chan *c, Chan *nc, char **name, int nname)
 {
 	int i;
-	Cname *cname;
 	Walkqid *wq;
 
 	if(nc != nil)
 		panic("fswalk: nc != nil");
 	wq = smalloc(sizeof(Walkqid)+(nname-1)*sizeof(Qid));
 	nc = devclone(c);
-	cname = c->name;
-	incref(&cname->ref);
-
 	fsclone(c, nc);
 	wq->clone = nc;
 	for(i=0; i<nname; i++){
-		nc->name = cname;
 		if(fswalk1(nc, name[i]) == 0)
 			break;
-		cname = addelem(cname, name[i]);
 		wq->qid[i] = nc->qid;
 	}
-	nc->name = cname;
 	if(i != nname){
 		cclose(nc);
 		wq->clone = nil;
@@ -174,19 +140,19 @@ fsstat(Chan *c, uchar *buf, int n)
 {
 	Dir d;
 	struct stat stbuf;
-	char path[MAXPATH];
+	Ufsinfo *uif;
 
 	if(n < BIT16SZ)
 		error(Eshortstat);
 
-	fspath(c, 0, path);
-	if(stat(path, &stbuf) < 0)
+	uif = c->aux;
+	if(stat(uif->path, &stbuf) < 0)
 		error(strerror(errno));
 
-	d.name = lastelem(c);
-	d.uid = "unknown";
-	d.gid = "unknown";
-	d.muid = "unknown";
+	d.name = lastelem(uif->path);
+	d.uid = eve;
+	d.gid = eve;
+	d.muid = eve;
 	d.qid = c->qid;
 	d.mode = (c->qid.type<<24)|(stbuf.st_mode&0777);
 	d.atime = stbuf.st_atime;
@@ -200,7 +166,6 @@ fsstat(Chan *c, uchar *buf, int n)
 static Chan*
 fsopen(Chan *c, int mode)
 {
-	char path[MAXPATH];
 	int m, isdir;
 	Ufsinfo *uif;
 
@@ -231,18 +196,15 @@ fsopen(Chan *c, int mode)
 	c->mode = openmode(mode);
 
 	uif = c->aux;
-
-	fspath(c, 0, path);
 	if(isdir) {
-		uif->dir = opendir(path);
+		uif->dir = opendir(uif->path);
 		if(uif->dir == 0)
 			error(strerror(errno));
 	}	
 	else {
 		if(mode & OTRUNC)
 			m |= O_TRUNC;
-		uif->fd = open(path, m, 0666);
-
+		uif->fd = open(uif->path, m, 0666);
 		if(uif->fd < 0)
 			error(strerror(errno));
 	}
@@ -257,16 +219,18 @@ static void
 fscreate(Chan *c, char *name, int mode, ulong perm)
 {
 	int fd, m;
-	char path[MAXPATH];
+	char *path;
 	struct stat stbuf;
 	Ufsinfo *uif;
 
 	m = fsomode(mode&3);
 
-	fspath(c, name, path);
-
 	uif = c->aux;
-
+	path = catpath(uif->path, name);
+	if(waserror()){
+		free(path);
+		nexterror();
+	}
 	if(perm & DMDIR) {
 		if(m)
 			error(Eperm);
@@ -299,9 +263,13 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 			error(strerror(errno));
 		uif->fd = fd;
 	}
-
 	if(stat(path, &stbuf) < 0)
 		error(strerror(errno));
+
+	free(uif->path);
+	uif->path = path;
+	poperror();
+
 	c->qid = fsqid(&stbuf);
 	c->offset = 0;
 	c->flag |= COPEN;
@@ -314,14 +282,13 @@ fsclose(Chan *c)
 	Ufsinfo *uif;
 
 	uif = c->aux;
-
 	if(c->flag & COPEN) {
 		if(c->qid.type & QTDIR)
 			closedir(uif->dir);
 		else
 			close(uif->fd);
 	}
-
+	free(uif->path);
 	free(uif);
 }
 
@@ -367,7 +334,6 @@ fswrite(Chan *c, void *va, long n, vlong offset)
 	Ufsinfo *uif;
 
 	uif = c->aux;
-
 	qlock(&uif->oq);
 	if(waserror()) {
 		qunlock(&uif->oq);
@@ -396,13 +362,13 @@ static void
 fsremove(Chan *c)
 {
 	int n;
-	char path[MAXPATH];
+	Ufsinfo *uif;
 
-	fspath(c, 0, path);
+	uif = c->aux;
 	if(c->qid.type & QTDIR)
-		n = rmdir(path);
+		n = rmdir(uif->path);
 	else
-		n = remove(path);
+		n = remove(uif->path);
 	if(n < 0)
 		error(strerror(errno));
 }
@@ -412,34 +378,39 @@ fswstat(Chan *c, uchar *buf, int n)
 {
 	Dir d;
 	struct stat stbuf;
-	char old[MAXPATH], new[MAXPATH];
-	char strs[MAXPATH*3], *p;
+	char strs[NAME_MAX*3];
 	Ufsinfo *uif;
 
 	if(convM2D(buf, n, &d, strs) != n)
 		error(Ebadstat);
 	
-	fspath(c, 0, old);
-	if(stat(old, &stbuf) < 0)
+	uif = c->aux;
+	if(stat(uif->path, &stbuf) < 0)
 		error(strerror(errno));
 
-	uif = c->aux;
-
-	fspath(c, 0, old);
 	if(~d.mode != 0 && (int)(d.mode&0777) != (int)(stbuf.st_mode&0777)) {
-		if(chmod(old, d.mode&0777) < 0)
+		if(chmod(uif->path, d.mode&0777) < 0)
 			error(strerror(errno));
 		uif->mode &= ~0777;
 		uif->mode |= d.mode&0777;
 	}
 
-	if(d.name[0] && strcmp(d.name, lastelem(c)) != 0) {
-		fspath(c, 0, old);
-		strcpy(new, old);
-		p = strrchr(new, '/');
-		strcpy(p+1, d.name);
-		if(rename(old, new) < 0)
+	if(d.name[0] && strcmp(d.name, lastelem(uif->path)) != 0) {
+		char *base, *newpath;
+
+		base = strdup(uif->path);
+		if(waserror()){
+			free(base);
+			nexterror();
+		}
+		*lastelem(base) = 0;
+		newpath = catpath(base, d.name);
+		free(base), base = newpath;
+		if(rename(uif->path, newpath) < 0)
 			error(strerror(errno));
+		free(uif->path);
+		uif->path = newpath;
+		poperror();
 	}
 
 /*
@@ -472,17 +443,20 @@ fsqid(struct stat *st)
 	return q;
 }
 
-static void
-fspath(Chan *c, char *ext, char *path)
+static char*
+catpath(char *base, char *ext)
 {
-	strcpy(path, base);
-	strcat(path, "/");
-	strcat(path, uc2name(c));
-	if(ext){
-		strcat(path, "/");
-		strcat(path, ext);
-	}
-	cleanname(path);
+	char *path;
+	int n, m;
+
+	n = strlen(base);
+	m = strlen(ext);
+	path = malloc(n+m+2);
+	memmove(path, base, n);
+	if(n > 0 && path[n-1] != '/')
+		path[n++] = '/';
+	memmove(path+n, ext, m+1);
+	return path;
 }
 
 static int
@@ -526,7 +500,6 @@ fsdirread(Chan *c, uchar *va, int count, ulong offset)
 	long n;
 	char de[NAME_MAX];
 	struct stat stbuf;
-	char path[MAXPATH], dirpath[MAXPATH];
 	Ufsinfo *uif;
 
 /*print("fsdirread %s\n", c2name(c));*/
@@ -542,9 +515,9 @@ fsdirread(Chan *c, uchar *va, int count, ulong offset)
 		rewinddir(uif->dir);
 	}
 
-	fspath(c, 0, dirpath);
-
 	while(i+BIT16SZ < count) {
+		char *p;
+
 		if(!p9readdir(de, uif))
 			break;
 
@@ -552,17 +525,17 @@ fsdirread(Chan *c, uchar *va, int count, ulong offset)
 			continue;
 
 		d.name = de;
-		sprint(path, "%s/%s", dirpath, de);
-		memset(&stbuf, 0, sizeof stbuf);
-
-		if(stat(path, &stbuf) < 0) {
+		p = catpath(uif->path, de);
+		if(stat(p, &stbuf) < 0) {
 			/* fprint(2, "dir: bad path %s\n", path); */
 			/* but continue... probably a bad symlink */
+			memset(&stbuf, 0, sizeof stbuf);
 		}
+		free(p);
 
-		d.uid = "unknown";
-		d.gid = "unknown";
-		d.muid = "unknown";
+		d.uid = eve;
+		d.gid = eve;
+		d.muid = eve;
 		d.qid = fsqid(&stbuf);
 		d.mode = (d.qid.type<<24)|(stbuf.st_mode&0777);
 		d.atime = stbuf.st_atime;

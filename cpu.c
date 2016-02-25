@@ -29,7 +29,6 @@ static AuthInfo *p9any(int);
 static char	*system;
 static int	cflag;
 extern int	dbg;
-extern char*   base;   // fs base for devroot 
 
 static char	*srvname = "ncpu";
 static char	*ealgs = "rc4_256 sha1";
@@ -69,7 +68,7 @@ exits(char *s)
 void
 usage(void)
 {
-	fprint(2, "usage: drawterm [-a authserver] [-c cpuserver] [-s secstore] [-u user]\n");
+	fprint(2, "usage: drawterm [-a authserver] [-c cpuserver] [-s secstore] [-u user] [-r root]\n");
 	exits("usage");
 }
 int fdd;
@@ -168,6 +167,12 @@ cpumain(int argc, char **argv)
 		if(*ealgs == 0 || strcmp(ealgs, "clear") == 0)
 			ealgs = nil;
 		break;
+	case 'r':
+		snprint(buf, sizeof(buf), "/root/%s", EARGF(usage()));
+		cleanname(buf);
+		if(bind(buf, "/root", MREPL) < 0)
+			panic("bind /root: %r");
+		break;
 	case 'C':
 		cflag++;
 		cmd[0] = '!';
@@ -179,9 +184,6 @@ cpumain(int argc, char **argv)
 		break;
 	case 'k':
 		keyspec = EARGF(usage());
-		break;
-	case 'r':
-		base = EARGF(usage());
 		break;
 	case 's':
 		secstoreserver = EARGF(usage());
@@ -195,6 +197,9 @@ cpumain(int argc, char **argv)
 
 	if(argc != 0)
 		usage();
+
+	if(bind("/root", "/", MAFTER) < 0)
+		panic("bind /root: %r");
 
 	if(system == nil)
 		system = readcons("cpu", "cpu", 0);
