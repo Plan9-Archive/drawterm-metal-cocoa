@@ -38,25 +38,8 @@ static int	msgsize = Maxfdata+IOHDRSZ;
 
 /* authentication mechanisms */
 static int	p9auth(int);
-static int	srvp9auth(int, char*);
 
 char *authserver;
-
-typedef struct AuthMethod AuthMethod;
-struct AuthMethod {
-	char	*name;			/* name of method */
-	int	(*cf)(int);		/* client side authentication */
-	int	(*sf)(int, char*);	/* server side authentication */
-} authmethod[] =
-{
-	{ "p9",		p9auth,		srvp9auth,},
-	{ 0 }
-};
-AuthMethod *am = authmethod;	/* default is p9 */
-
-char *p9authproto = "p9any";
-
-int setam(char*);
 
 void
 exits(char *s)
@@ -96,11 +79,11 @@ void
 rcpu(char *host)
 {
 	static char script[] = 
-"mount -nc /fd/0 /mnt/term || exit	\n"
-"bind -q /mnt/term/dev/cons /dev/cons	\n"
-"</dev/cons >/dev/cons >[2=1] {		\n"
-"	service=cpu exec rc -li		\n"
-"}					\n";
+"mount -nc /fd/0 /mnt/term || exit\n"
+"bind -q /mnt/term/dev/cons /dev/cons\n"
+"</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
+"bind -q /mnt/term/dev/cons /dev/cons\n"
+"</dev/cons >/dev/cons >[2=1] service=cpu exec rc -li\n";
 	AuthInfo *ai;
 	TLSconn *conn;
 	char *na;
@@ -109,6 +92,10 @@ rcpu(char *host)
 	na = netmkaddr(host, "tcp", "17019");
 	if((fd = dial(na, 0, 0, 0)) < 0)
 		return;
+
+	/* provide /dev/kbd for kbdfs */
+	if(bind("#b", "/dev", MAFTER) < 0)
+		panic("bind #b: %r");
 
 	ai = p9any(fd);
 	if(ai == nil)
@@ -282,8 +269,6 @@ fatal(int syserr, char *fmt, ...)
 
 char *negstr = "negotiating authentication method";
 
-char bug[256];
-
 char*
 rexcall(int *fd, char *host, char *service)
 {
@@ -298,10 +283,11 @@ rexcall(int *fd, char *host, char *service)
 		return "can't dial";
 
 	/* negotiate authentication mechanism */
-	if(ealgs != nil)
-		snprint(msg, sizeof(msg), "%s %s", am->name, ealgs);
-	else
-		snprint(msg, sizeof(msg), "%s", am->name);
+	strcpy(msg, "p9any");
+	if(ealgs != nil){
+		strcat(msg, " ");
+		strcat(msg, ealgs);
+	}
 	writestr(*fd, msg, negstr, 0);
 	n = readstr(*fd, err, sizeof err);
 	if(n < 0)
@@ -312,7 +298,7 @@ rexcall(int *fd, char *host, char *service)
 	}
 
 	/* authenticate */
-	*fd = (*am->cf)(*fd);
+	*fd = p9auth(*fd);
 	if(*fd < 0)
 		return "can't authenticate";
 	return 0;
@@ -740,23 +726,4 @@ p9any(int fd)
 	free(proto);
 
 	return ai;
-}
-
-static int
-srvp9auth(int fd, char *user)
-{
-	return -1;
-}
-
-/*
- *  set authentication mechanism
- */
-int
-setam(char *name)
-{
-	for(am = authmethod; am->name != nil; am++)
-		if(strcmp(am->name, name) == 0)
-			return 0;
-	am = authmethod;
-	return -1;
 }

@@ -660,6 +660,7 @@ xproc(void *arg)
 	XEvent event;
 
 	mask = 	KeyPressMask|
+		KeyReleaseMask|
 		ButtonPressMask|
 		ButtonReleaseMask|
 		PointerMotionMask|
@@ -1123,9 +1124,8 @@ xkeyboard(XEvent *e)
 	 * do case conversion properly
 	 * (at least, with Xterminal servers and R4 intrinsics)
 	 */
-	if(e->xany.type != KeyPress)
+	if(e->xany.type != KeyPress && e->xany.type != KeyRelease)
 		return;
-
 
 	XLookupString((XKeyEvent*)e, NULL, 0, &k, NULL);
 
@@ -1252,7 +1252,7 @@ xkeyboard(XEvent *e)
 		return;
 	}
 
-	kbdputc(kbdq, k);
+	kbdkey(k, e->xany.type == KeyPress);
 }
 
 static void

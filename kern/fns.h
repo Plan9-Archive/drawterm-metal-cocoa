@@ -140,6 +140,7 @@ void		ixsummary(void);
 void		kbdclock(void);
 int		kbdcr2nl(Queue*, int);
 int		kbdputc(Queue*, int);
+void		kbdkey(Rune, int);
 void		kbdrepeat(int);
 long		keyread(char*, int, long);
 void		kickpager(void);

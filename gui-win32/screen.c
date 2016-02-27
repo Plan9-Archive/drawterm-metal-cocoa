@@ -321,14 +321,41 @@ bmiinit(void)
 		p[i] = i;
 }
 
+
+Rune vk2rune[256] = {
+[VK_CANCEL] Kbreak,
+[VK_CAPITAL] Kcaps,
+[VK_CONTROL] Kctl,
+[VK_DELETE] Kdel,
+[VK_DOWN] Kdown,
+[VK_END] Kend,
+[VK_F1] KF|1,KF|2,KF|3,KF|4,KF|5,KF|6,KF|7,KF|8,KF|9,KF|10,KF|11,KF|12,
+[VK_HOME] Khome,
+[VK_INSERT] Kins,
+[VK_LEFT] Kleft,
+[VK_MENU] Kalt,
+[VK_NEXT] Kpgdown,
+[VK_NUMLOCK] Knum,
+[VK_PRINT] Kprint,
+[VK_PRIOR] Kpgup,
+[VK_RIGHT] Kright,
+[VK_RMENU] Kaltgr,
+[VK_SCROLL] Kscroll,
+[VK_SHIFT] Kshift,
+[VK_UP] Kup,
+};
+		
+
 LRESULT CALLBACK
 WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+	static Rune scdown[256];
 	PAINTSTRUCT paint;
 	HDC hdc;
 	LONG x, y, b;
 	int i;
 	Rectangle r;
+	Rune k;
 
 	b = 0;
 
@@ -392,56 +419,29 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		break;
 
 	case WM_CHAR:
-		/* repeat count is lparam & 0xf */
-		switch(wparam){
-		case '\n':
-			wparam = '\r';
-			break;
-		case '\r':
-			wparam = '\n';
-			break;
-		}
-		kbdputc(kbdq, wparam);
-		break;
-
-	case WM_SYSKEYUP:
-		break;
+		k = wparam;
+		if(k == '\n')
+			k = '\r';
+		else if(k == '\r')
+			k = '\n';
+		if(0){
 	case WM_SYSKEYDOWN:
 	case WM_KEYDOWN:
-		switch(wparam) {
-		case VK_MENU:
-			kbdputc(kbdq, Kalt);
+			k = vk2rune[wparam&0xFF];
+		}
+		if(k == 0)
 			break;
-		case VK_INSERT:
-			kbdputc(kbdq, Kins);
-			break;
-		case VK_DELETE:
-			kbdputc(kbdq, Kdel);
-			break;
-		case VK_UP:
-			kbdputc(kbdq, Kup);
-			break;
-		case VK_DOWN:
-			kbdputc(kbdq, Kdown);
-			break;
-		case VK_LEFT:
-			kbdputc(kbdq, Kleft);
-			break;
-		case VK_RIGHT:
-			kbdputc(kbdq, Kright);
-			break;
-		case VK_HOME:
-			kbdputc(kbdq, Khome);
-			break;
-		case VK_END:
-			kbdputc(kbdq, Kend);
-			break;
-		case VK_PRIOR:
-			kbdputc(kbdq, Kpgup);
-			break;
-		case VK_NEXT:
-			kbdputc(kbdq, Kpgdown);
-			break;
+		i = (lparam>>16)&0xFF;
+		scdown[i] = k;
+		kbdkey(k, 1);
+		break;
+	case WM_SYSKEYUP:
+	case WM_KEYUP:
+		i = (lparam>>16)&0xFF;
+		k = scdown[i];
+		if(k != 0){
+			scdown[i] = 0;
+			kbdkey(k, 0);
 		}
 		break;
 
