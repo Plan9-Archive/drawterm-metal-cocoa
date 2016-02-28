@@ -14,7 +14,6 @@ OFILES=\
 	convT2M.$O\
 	convTR2M.$O\
 	nvcsum.$O\
-	opasstokey.$O\
 	passtokey.$O\
 	_asgetpakkey.$O\
 	_asgetresp.$O\
