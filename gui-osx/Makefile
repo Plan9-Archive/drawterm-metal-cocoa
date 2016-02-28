@@ -3,10 +3,6 @@ include ../Make.config
 LIB=libgui.a
 
 OFILES=\
-	alloc.$O\
-	cload.$O\
-	draw.$O\
-	load.$O\
 	screen.$O
 
 default: $(LIB)
