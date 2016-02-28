@@ -20,15 +20,19 @@ openmemsubfont(char *name)
 	i = readmemimage(fd);
 	if(i == nil)
 		goto Err;
-	if(read(fd, hdr, 3*12) != 3*12){
+	if(readn(fd, hdr, 3*12) != 3*12){
 		werrstr("openmemsubfont: header read error: %r");
 		goto Err;
 	}
 	n = atoi(hdr);
+	if(n <= 0 || n > 0x7fff){
+		werrstr("openmemsubfont: bad fontchar count %d", n);
+		goto Err;
+	}
 	p = malloc(6*(n+1));
 	if(p == nil)
 		goto Err;
-	if(read(fd, p, 6*(n+1)) != 6*(n+1)){
+	if(readn(fd, p, 6*(n+1)) != 6*(n+1)){
 		werrstr("openmemsubfont: fontchar read error: %r");
 		goto Err;
 	}
@@ -41,13 +45,12 @@ openmemsubfont(char *name)
 		free(fc);
 		goto Err;
 	}
+	close(fd);
 	free(p);
 	return sf;
 Err:
 	close(fd);
-	if (i != nil)
-		freememimage(i);
-	if (p != nil)
-		free(p);
+	free(p);
+	freememimage(i);
 	return nil;
 }

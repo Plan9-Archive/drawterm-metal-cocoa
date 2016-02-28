@@ -11,7 +11,6 @@ enum
 	Arrow3 = 3,
 };
 
-#ifdef NOT
 static
 int
 lmin(int a, int b)
@@ -20,7 +19,6 @@ lmin(int a, int b)
 		return a;
 	return b;
 }
-#endif
 
 static
 int
@@ -370,6 +368,7 @@ _memimageline(Memimage *dst, Point p0, Point p1, int end0, int end1, int radius,
 			r.max.y += radius+1;
 		}
 		oclipr = dst->clipr;
+		sp = addpt(r.min, d);
 		dst->clipr = clipr;
 		memimagedraw(dst, r, src, sp, memopaque, sp, op);
 		dst->clipr = oclipr;
@@ -422,7 +421,7 @@ _memimageline(Memimage *dst, Point p0, Point p1, int end0, int end1, int radius,
 		break;
 	case Endarrow:
 		arrowend(q, pp, end1, sin, cos, radius);
-		_memfillpolysc(dst, pp, 5, ~0, src, addpt(pts[0], mulpt(d, ICOSSCALE)), 1, 10, 1, op);
+		_memfillpolysc(dst, pp, 5, ~0, src, addpt(pp[0], mulpt(d, ICOSSCALE)), 1, 10, 1, op);
 		pp[1] = pp[4];
 		pp += 2;
 	}

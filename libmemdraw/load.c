@@ -4,13 +4,20 @@
 #include <memdraw.h>
 
 int
-_loadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
+loadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 {
 	int y, l, lpart, rpart, mx, m, mr;
+	Memdrawparam par;
 	uchar *q;
 
-	if(!rectinrect(r, i->r))
+	if(badrect(r) || !rectinrect(r, i->r))
 		return -1;
+
+	memset(&par, 0, sizeof par);
+	par.dst = i;
+	par.r = r;
+	hwdraw(&par);
+
 	l = bytesperline(r, i->depth);
 	if(ndata < l*Dy(r))
 		return -1;

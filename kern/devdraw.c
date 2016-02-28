@@ -921,19 +921,18 @@ initscreenimage(void)
 {
 	int width, depth;
 	ulong chan;
-	void *X;
 	Rectangle r;
 
 	if(screenimage != nil)
 		return 1;
 
 	screendata.base = nil;
-	screendata.bdata = attachscreen(&r, &chan, &depth, &width, &sdraw.softscreen, &X);
-	if(screendata.bdata == nil && X == nil)
+	screendata.bdata = attachscreen(&r, &chan, &depth, &width, &sdraw.softscreen);
+	if(screendata.bdata == nil)
 		return 0;
 	screendata.ref = 1;
 
-	screenimage = allocmemimaged(r, chan, &screendata, X);
+	screenimage = allocmemimaged(r, chan, &screendata);
 	if(screenimage == nil){
 		/* RSC: BUG: detach screen */
 		return 0;

@@ -43,7 +43,7 @@ getmemdefont(void)
 	md->ref = 1;
 	md->allocd = 1;		/* so freememimage does free md */
 
-	i = allocmemimaged(r, drawld2chan[ld], md, nil);
+	i = allocmemimaged(r, drawld2chan[ld], md);
 	if(i == nil){
 		free(md);
 		return nil;

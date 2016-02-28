@@ -5,10 +5,12 @@ LIB=libdraw.a
 OFILES=\
 	alloc.$O\
 	arith.$O\
+	badrect.$O\
 	bytesperline.$O\
 	chan.$O\
 	defont.$O\
 	drawrepl.$O\
+	fmt.$O\
 	icossin.$O\
 	icossin2.$O\
 	rectclip.$O\

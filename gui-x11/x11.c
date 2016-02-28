@@ -37,41 +37,15 @@ typedef struct Cursor Cursor;
 /* perfect approximation to NTSC = .299r+.587g+.114b when 0 ≤ r,g,b < 256 */
 #define RGB2K(r,g,b)	((156763*(r)+307758*(g)+59769*(b))>>19)
 
-enum
-{
-	PMundef	= ~0		/* undefined pixmap id */
-};
-
-/*
- * Structure pointed to by X field of Memimage
- */
-typedef struct Xmem Xmem;
-struct Xmem
-{
-	int	pmid;	/* pixmap id for screen ldepth instance */
-	XImage *xi;	/* local image if we currenty have the data */
-	int	dirty;
-	Rectangle dirtyr;
-	Rectangle r;
-	uintptr pc;	/* who wrote into xi */
-};
-
-static int	xgcfillcolor;
-static int	xgcfillcolor0;
-static int	xgcsimplecolor0;
-static int	xgcsimplepm0;
-
 static	XDisplay*	xdisplay;	/* used holding draw lock */
-static int				xtblbit;
-static int 			plan9tox11[256]; /* Values for mapping between */
-static int 			x11toplan9[256]; /* X11 and Plan 9 */
-static	GC		xgcfill, xgccopy, xgcsimplesrc, xgczero, xgcreplsrc;
-static	GC		xgcfill0, xgccopy0, xgcsimplesrc0, xgczero0, xgcreplsrc0;
+static int		xtblbit;
+static int 		plan9tox11[256]; /* Values for mapping between */
+static int 		x11toplan9[256]; /* X11 and Plan 9 */
+static	GC		xgccopy;
 static	ulong	xscreenchan;
 static	Drawable	xscreenid;
+static	XImage*		xscreenimage;
 static	Visual		*xvis;
-
-static int xdraw(Memdrawparam*);
 
 #define glenda_width 48
 #define glenda_height 48
@@ -94,133 +68,25 @@ static unsigned short glenda_bits[] = {
    0xffff, 0x8807, 0xffe0, 0xffff, 0x003f, 0xfff0, 0xffff, 0x1fff, 0xfffe
 };
 
-/*
- * Synchronize images between X bitmaps and in-memory bitmaps.
- */
-static void
-addrect(Rectangle *rp, Rectangle r)
-{
-	if(rp->min.x >= rp->max.x)
-		*rp = r;
-	else
-		combinerect(rp, r);
-}
-
-static XImage*
-getXdata(Memimage *m, Rectangle r)
-{
-	uchar *p;
-	int x, y;
-	Xmem *xm;
-	Point xdelta, delta;
-	Point tp;
-
- 	xm = m->X;
- 	if(xm == nil)
- 		return nil;
- 
-	assert(xm != nil && xm->xi != nil);
-	
- 	if(xm->dirty == 0)
- 		return xm->xi;
- 		
- 	r = xm->dirtyr;
-	if(Dx(r)==0 || Dy(r)==0)
-		return xm->xi;
-
-	delta = subpt(r.min, m->r.min);
-	tp = xm->r.min;	/* avoid unaligned access on digital unix */
-	xdelta = subpt(r.min, tp);
-	
-	XGetSubImage(xdisplay, xm->pmid, delta.x, delta.y, Dx(r), Dy(r),
-		AllPlanes, ZPixmap, xm->xi, xdelta.x, xdelta.y);
-		
-	if(xtblbit && m->chan == CMAP8)
-		for(y=r.min.y; y<r.max.y; y++)
-			for(x=r.min.x, p=byteaddr(m, Pt(x,y)); x<r.max.x; x++, p++)
-				*p = x11toplan9[*p];
-				
-	xm->dirty = 0;
-	xm->dirtyr = Rect(0,0,0,0);
-	return xm->xi;
-}
-
-static void
-putXdata(Memimage *m, Rectangle r)
-{
-	Xmem *xm;
-	XImage *xi;
-	GC g;
-	Point xdelta, delta;
-	Point tp;
-	int x, y;
-	uchar *p;
-
-	xm = m->X;
-	if(xm == nil)
-		return;
-		
-	assert(xm != nil);
-	assert(xm->xi != nil);
-
-	xi = xm->xi;
-
-	g = (m->chan == GREY1) ? xgccopy0 : xgccopy;
-
-	delta = subpt(r.min, m->r.min);
-	tp = xm->r.min;	/* avoid unaligned access on digital unix */
-	xdelta = subpt(r.min, tp);
-	
-	if(xtblbit && m->chan == CMAP8)
-		for(y=r.min.y; y<r.max.y; y++)
-			for(x=r.min.x, p=byteaddr(m, Pt(x,y)); x<r.max.x; x++, p++)
-				*p = plan9tox11[*p];
-	
-	XPutImage(xdisplay, xm->pmid, g, xi, xdelta.x, xdelta.y, delta.x, delta.y, Dx(r), Dy(r));
-
-	if(xtblbit && m->chan == CMAP8)
-		for(y=r.min.y; y<r.max.y; y++)
-			for(x=r.min.x, p=byteaddr(m, Pt(x,y)); x<r.max.x; x++, p++)
-				*p = x11toplan9[*p];
-}
-
-static void
-dirtyXdata(Memimage *m, Rectangle r)
-{
-	Xmem *xm;
-	
-	if((xm = m->X) != nil){
-		xm->dirty = 1;
-		addrect(&xm->dirtyr, r);
-	}
-}
-
 Memimage*
-xallocmemimage(Rectangle r, ulong chan, int pmid)
+xallocmemimage(Rectangle r, ulong chan, int pmid, XImage **X)
 {
 	Memimage *m;
-	Xmem *xm;
 	XImage *xi;
 	int offset;
 	int d;
-	
-	m = _allocmemimage(r, chan);
+
+	m = allocmemimage(r, chan);
 	if(m == nil)
 		return nil;
 	if(chan != GREY1 && chan != xscreenchan)
 		return m;
 
 	d = m->depth;
-	xm = mallocz(sizeof(Xmem), 1);
-	if(pmid != PMundef)
-		xm->pmid = pmid;
-	else
-		xm->pmid = XCreatePixmap(xdisplay, xscreenid, Dx(r), Dy(r), (d==32) ? 24 : d);
-		
-	if(m->depth == 24)
+	if(d == 24)
 		offset = r.min.x&(4-1);
 	else
-		offset = r.min.x&(31/m->depth);
+		offset = r.min.x&(31/d);
 	r.min.x -= offset;
 	
 	assert(wordsperline(r, m->depth) <= m->width);
@@ -229,14 +95,10 @@ xallocmemimage(Rectangle r, ulong chan, int pmid)
 		(char*)m->data->bdata, Dx(r), Dy(r), 32, m->width*sizeof(ulong));
 	
 	if(xi == nil){
-		_freememimage(m);
+		freememimage(m);
 		return nil;
 	}
 
-	xm->xi = xi;
-	xm->pc = getcallerpc(&r);
-	xm->r = r;
-	
 	/*
 	 * Set the parameters of the XImage so its memory looks exactly like a
 	 * Memimage, so we can call _memimagedraw on the same data.  All frame
@@ -247,256 +109,12 @@ xallocmemimage(Rectangle r, ulong chan, int pmid)
 	xi->byte_order = LSBFirst;
 	xi->bitmap_bit_order = MSBFirst;
 	xi->bitmap_pad = 32;
-	xm->r = Rect(0,0,0,0);
 	XInitImage(xi);
 	XFlush(xdisplay);
 
-	m->X = xm;
+	*X = xi;
+
 	return m;
-}
-
-void
-xfillcolor(Memimage *m, Rectangle r, ulong v)
-{
-	GC gc;
-	Xmem *dxm;
-
-	dxm = m->X;
-	assert(dxm != nil);
-	r = rectsubpt(r, m->r.min);
-		
-	if(m->chan == GREY1){
-		gc = xgcfill0;
-		if(xgcfillcolor0 != v){
-			XSetForeground(xdisplay, gc, v);
-			xgcfillcolor0 = v;
-		}
-	}else{
-		if(m->chan == CMAP8 && xtblbit)
-			v = plan9tox11[v];
-				
-		gc = xgcfill;
-		if(xgcfillcolor != v){
-			XSetForeground(xdisplay, gc, v);
-			xgcfillcolor = v;
-		}
-	}
-	XFillRectangle(xdisplay, dxm->pmid, gc, r.min.x, r.min.y, Dx(r), Dy(r));
-}
-
-/*
- * Replacements for libmemdraw routines.
- * (They've been underscored.)
- */
-Memimage*
-allocmemimage(Rectangle r, ulong chan)
-{
-	return xallocmemimage(r, chan, PMundef);
-}
-
-void
-freememimage(Memimage *m)
-{
-	Xmem *xm;
-	
-	if(m == nil)
-		return;
-		
-	if(m->data->ref == 1){
-		if((xm = m->X) != nil){
-			if(xm->xi){
-				xm->xi->data = nil;
-				XFree(xm->xi);
-			}
-			XFreePixmap(xdisplay, xm->pmid);
-			free(xm);
-			m->X = nil;
-		}
-	}
-	_freememimage(m);
-}
-
-void
-memfillcolor(Memimage *m, ulong val)
-{
-	_memfillcolor(m, val);
-	if(m->X){
-		if((val & 0xFF) == 0xFF)
-			xfillcolor(m, m->r, _rgbatoimg(m, val));
-		else
-			putXdata(m, m->r);
-	}
-}
-
-int
-loadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
-{
-	int n;
-
-	n = _loadmemimage(i, r, data, ndata);
-	if(n > 0 && i->X)
-		putXdata(i, r);
-	return n;
-}
-
-int
-cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
-{
-	int n;
-
-	n = _cloadmemimage(i, r, data, ndata);
-	if(n > 0 && i->X)
-		putXdata(i, r);
-	return n;
-}
-
-ulong
-pixelbits(Memimage *m, Point p)
-{
-	if(m->X)
-		getXdata(m, Rect(p.x, p.y, p.x+1, p.y+1));
-	return _pixelbits(m, p);
-}
-
-void
-memimageinit(void)
-{
-	static int didinit = 0;
-	
-	if(didinit)
-		return;
-
-	didinit = 1;
-	_memimageinit();
-	
-	xfillcolor(memblack, memblack->r, 0);
-	xfillcolor(memwhite, memwhite->r, 1);
-}
-
-void
-memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point sp, Memimage *mask, Point mp, int op)
-{
-	Memdrawparam *par;
-	
-	if((par = _memimagedrawsetup(dst, r, src, sp, mask, mp, op)) == nil)
-		return;
-	_memimagedraw(par);
-	if(!xdraw(par))
-		putXdata(dst, par->r);
-}
-
-static int
-xdraw(Memdrawparam *par)
-{
-	return 0;
-}
-
-static int
-xdraw_broken(Memdrawparam *par)
-{
-	int dy, dx;
-	unsigned m;
-	Memimage *src, *dst, *mask;
-	Xmem *dxm, *sxm, *mxm;
-	GC gc;
-	Rectangle r, sr, mr;
-	ulong sdval;
-
-	dx = Dx(par->r);
-	dy = Dy(par->r);
-	src = par->src;
-	dst = par->dst;
-	mask = par->mask;
-	r = par->r;
-	sr = par->sr;
-	mr = par->mr;
-	sdval = par->sdval;
-
-	/*
-	 * drawterm was distributed for years with
-	 * "return 0;" right here.
-	 * maybe we should give up on all this?
-	 */
-
-	if((dxm = dst->X) == nil)
-		return 0;
-
-	/*
-	 * If we have an opaque mask and source is one opaque pixel we can convert to the
-	 * destination format and just XFillRectangle.
-	 */
-	m = Simplesrc|Simplemask|Fullmask;
-	if((par->state&m)==m){
-		xfillcolor(dst, r, sdval);
-		dirtyXdata(dst, par->r);
-		return 1;
-	}
-
-	/*
-	 * If no source alpha, an opaque mask, we can just copy the
-	 * source onto the destination.  If the channels are the same and
-	 * the source is not replicated, XCopyArea suffices.
-	 */
-	m = Simplemask|Fullmask;
-	if((par->state&(m|Replsrc))==m && src->chan == dst->chan && src->X){
-		sxm = src->X;
-		r = rectsubpt(r, dst->r.min);		
-		sr = rectsubpt(sr, src->r.min);
-		if(dst->chan == GREY1)
-			gc = xgccopy0;
-		else
-			gc = xgccopy;
-		XCopyArea(xdisplay, sxm->pmid, dxm->pmid, gc, 
-			sr.min.x, sr.min.y, dx, dy, r.min.x, r.min.y);
-		dirtyXdata(dst, par->r);
-		return 1;
-	}
-	
-	/*
-	 * If no source alpha, a 1-bit mask, and a simple source
-	 * we can just copy through the mask onto the destination.
-	 */
-	if(dst->X && mask->X && !(mask->flags&Frepl)
-	&& mask->chan == GREY1 && (par->state&Simplesrc)){
-		Point p;
-
-		mxm = mask->X;
-		r = rectsubpt(r, dst->r.min);		
-		mr = rectsubpt(mr, mask->r.min);
-		p = subpt(r.min, mr.min);
-		if(dst->chan == GREY1){
-			gc = xgcsimplesrc0;
-			if(xgcsimplecolor0 != sdval){
-				XSetForeground(xdisplay, gc, sdval);
-				xgcsimplecolor0 = sdval;
-			}
-			if(xgcsimplepm0 != mxm->pmid){
-				XSetStipple(xdisplay, gc, mxm->pmid);
-				xgcsimplepm0 = mxm->pmid;
-			}
-		}else{
-		/* somehow this doesn't work on rob's mac 
-			gc = xgcsimplesrc;
-			if(dst->chan == CMAP8 && xtblbit)
-				sdval = plan9tox11[sdval];
-				
-			if(xgcsimplecolor != sdval){
-				XSetForeground(xdisplay, gc, sdval);
-				xgcsimplecolor = sdval;
-			}
-			if(xgcsimplepm != mxm->pmid){
-				XSetStipple(xdisplay, gc, mxm->pmid);
-				xgcsimplepm = mxm->pmid;
-			}
-		*/
-			return 0;
-		}
-		XSetTSOrigin(xdisplay, gc, p.x, p.y);
-		XFillRectangle(xdisplay, dxm->pmid, gc, r.min.x, r.min.y, dx, dy);
-		dirtyXdata(dst, par->r);
-		return 1;
-	}
-	return 0;
 }
 
 /*
@@ -507,7 +125,7 @@ xdraw_broken(Memdrawparam *par)
 static XColor			map[256];	/* Plan 9 colormap array */
 static XColor			map7[128];	/* Plan 9 colormap array */
 static uchar			map7to8[128][2];
-static Colormap		xcmap;		/* Default shared colormap  */
+static Colormap			xcmap;		/* Default shared colormap  */
 
 extern int mousequeue;
 
@@ -533,20 +151,34 @@ static	void		graphicscmap(XColor*);
 static	int		xscreendepth;
 static	XDisplay*	xkmcon;	/* used only in xproc */
 static	XDisplay*	xsnarfcon;	/* used holding clip.lk */
-static	ulong		xblack;
-static	ulong		xwhite;
 
 static	int	putsnarf, assertsnarf;
 
-	Memimage *gscreen;
-	Screeninfo screen;
+Memimage *gscreen;
+Screeninfo screen;
 
 void
 flushmemscreen(Rectangle r)
 {
+	int x, y;
+	uchar *p;
+
 	assert(!drawcanqlock());
 	if(r.min.x >= r.max.x || r.min.y >= r.max.y)
 		return;
+
+	if(xtblbit && gscreen->chan == CMAP8)
+		for(y=r.min.y; y<r.max.y; y++)
+			for(x=r.min.x, p=byteaddr(gscreen, Pt(x,y)); x<r.max.x; x++, p++)
+				*p = plan9tox11[*p];
+	
+	XPutImage(xdisplay, xscreenid, xgccopy, xscreenimage, r.min.x, r.min.y, r.min.x, r.min.y, Dx(r), Dy(r));
+
+	if(xtblbit && gscreen->chan == CMAP8)
+		for(y=r.min.y; y<r.max.y; y++)
+			for(x=r.min.x, p=byteaddr(gscreen, Pt(x,y)); x<r.max.x; x++, p++)
+				*p = x11toplan9[*p];
+
 	XCopyArea(xdisplay, xscreenid, xdrawable, xgccopy, r.min.x, r.min.y, Dx(r), Dy(r), r.min.x, r.min.y);
 	XFlush(xdisplay);
 }
@@ -567,14 +199,12 @@ screeninit(void)
 }
 
 uchar*
-attachscreen(Rectangle *r, ulong *chan, int *depth,
-	int *width, int *softscreen, void **X)
+attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
 	*r = gscreen->r;
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
 	*width = gscreen->width;
-	*X = gscreen->X;
 	*softscreen = 1;
 
 	return gscreen->data->bdata;
@@ -708,7 +338,7 @@ static Memimage*
 xinitscreen(void)
 {
 	Memimage *gscreen;
-	int i, xsize, ysize, pmid;
+	int i, xsize, ysize;
 	char *argv[2];
 	char *disp_val;
 	Window rootwin;
@@ -868,31 +498,8 @@ xinitscreen(void)
 	XFlush(xdisplay);
 
 	xscreenid = XCreatePixmap(xdisplay, xdrawable, Dx(r), Dy(r), xscreendepth);
-	gscreen = xallocmemimage(r, xscreenchan, xscreenid);
-	
-	xgcfill = creategc(xscreenid);
-	XSetFillStyle(xdisplay, xgcfill, FillSolid);
+	gscreen = xallocmemimage(r, xscreenchan, xscreenid, &xscreenimage);
 	xgccopy = creategc(xscreenid);
-	xgcsimplesrc = creategc(xscreenid);
-	XSetFillStyle(xdisplay, xgcsimplesrc, FillStippled);
-	xgczero = creategc(xscreenid);
-	xgcreplsrc = creategc(xscreenid);
-	XSetFillStyle(xdisplay, xgcreplsrc, FillTiled);
-
-	pmid = XCreatePixmap(xdisplay, xdrawable, 1, 1, 1);
-	xgcfill0 = creategc(pmid);
-	XSetForeground(xdisplay, xgcfill0, 0);
-	XSetFillStyle(xdisplay, xgcfill0, FillSolid);
-	xgccopy0 = creategc(pmid);
-	xgcsimplesrc0 = creategc(pmid);
-	XSetFillStyle(xdisplay, xgcsimplesrc0, FillStippled);
-	xgczero0 = creategc(pmid);
-	xgcreplsrc0 = creategc(pmid);
-	XSetFillStyle(xdisplay, xgcreplsrc0, FillTiled);
-	XFreePixmap(xdisplay, pmid);
-
-	XSetForeground(xdisplay, xgccopy, plan9tox11[0]);
-	XFillRectangle(xdisplay, xscreenid, xgccopy, 0, 0, xsize, ysize);
 
 	xkmcon = XOpenDisplay(NULL);
 	if(xkmcon == 0){
@@ -917,8 +524,6 @@ xinitscreen(void)
 	text = XInternAtom(xkmcon, "TEXT", False);
 	compoundtext = XInternAtom(xkmcon, "COMPOUND_TEXT", False);
 
-	xblack = screen->black_pixel;
-	xwhite = screen->white_pixel;
 	return gscreen;
 }
 

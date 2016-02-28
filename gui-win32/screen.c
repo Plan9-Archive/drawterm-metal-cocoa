@@ -88,7 +88,7 @@ screeninit(void)
 }
 
 uchar*
-attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen, void **X)
+attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
 	*r = gscreen->r;
 	*chan = gscreen->chan;

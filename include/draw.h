@@ -1,8 +1,3 @@
-#ifdef PLAN9
-#pragma src "/sys/src/libdraw"
-#pragma lib "libdraw.a"
-#endif
-
 typedef struct	Cachefont Cachefont;
 typedef struct	Cacheinfo Cacheinfo;
 typedef struct	Cachesubf Cachesubf;
@@ -17,10 +12,6 @@ typedef struct	RGB RGB;
 typedef struct	Screen Screen;
 typedef struct	Subfont Subfont;
 
-#ifdef VARARGCK
-#pragma varargck	type	"R"	Rectangle
-#pragma varargck	type	"P"	Point
-#endif
 extern	int	Rfmt(Fmt*);
 extern	int	Pfmt(Fmt*);
 
@@ -140,11 +131,12 @@ enum {
 	RGB15	= CHAN4(CIgnore, 1, CRed, 5, CGreen, 5, CBlue, 5),
 	RGB16	= CHAN3(CRed, 5, CGreen, 6, CBlue, 5),
 	RGB24	= CHAN3(CRed, 8, CGreen, 8, CBlue, 8),
-	BGR24	= CHAN3(CBlue, 8, CGreen, 8, CRed, 8),
 	RGBA32	= CHAN4(CRed, 8, CGreen, 8, CBlue, 8, CAlpha, 8),
 	ARGB32	= CHAN4(CAlpha, 8, CRed, 8, CGreen, 8, CBlue, 8),	/* stupid VGAs */
-	XRGB32  = CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8),
-	XBGR32  = CHAN4(CIgnore, 8, CBlue, 8, CGreen, 8, CRed, 8),
+	XRGB32	= CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8),
+	BGR24	= CHAN3(CBlue, 8, CGreen, 8, CRed, 8),
+	ABGR32	= CHAN4(CAlpha, 8, CBlue, 8, CGreen, 8, CRed, 8),
+	XBGR32	= CHAN4(CIgnore, 8, CBlue, 8, CGreen, 8, CRed, 8),
 };
 
 extern	char*	chantostr(char*, ulong);
@@ -175,7 +167,7 @@ struct Screen
 
 struct Display
 {
-	QLock	qlock;
+	QLock		qlock;
 	int		locking;	/*program is using lockdisplay */
 	int		dirno;
 	int		fd;
@@ -194,13 +186,13 @@ struct Display
 	Image		*transparent;
 	Image		*image;
 	uchar		*buf;
-	int			bufsize;
+	int		bufsize;
 	uchar		*bufp;
 	Font		*defaultfont;
 	Subfont		*defaultsubfont;
 	Image		*windows;
 	Image		*screenimage;
-	int			_isnewdisplay;
+	int		_isnewdisplay;
 };
 
 struct Image
@@ -210,7 +202,7 @@ struct Image
 	Rectangle	r;		/* rectangle in data area, local coords */
 	Rectangle 	clipr;		/* clipping region */
 	int		depth;		/* number of bits per pixel */
-	ulong	chan;
+	ulong		chan;
 	int		repl;		/* flag: data replicates to tile clipr */
 	Screen		*screen;	/* 0 if not a window */
 	Image		*next;	/* next in list of windows */
@@ -397,6 +389,7 @@ extern int		cmap2rgb(int);
 extern int		cmap2rgba(int);
 extern void		icossin(int, int*, int*);
 extern void		icossin2(int, int, int*, int*);
+extern int		badrect(Rectangle);
 
 /*
  * Graphics
@@ -480,7 +473,6 @@ extern Subfont*	_getsubfont(Display*, char*);
 extern Subfont*	getdefont(Display*);
 extern void		lockdisplay(Display*);
 extern void	unlockdisplay(Display*);
-extern int		drawlsetrefresh(ulong, int, void*, void*);
 
 /*
  * Predefined 
@@ -495,7 +487,7 @@ extern	Rectangle	ZR;
  */
 extern	Display	*display;
 extern	Font		*font;
-/* extern	Image	*screen; */
+// extern	Image	*screen;
 extern	Screen	*_screen;
 extern	int	_cursorfd;
 extern	int	_drawdebug;	/* set to 1 to see errors from flushimage */
@@ -518,6 +510,6 @@ extern	void	_twiddlecompressed(uchar*, int);
 extern	int	_compblocksize(Rectangle, int);
 
 /* XXX backwards helps; should go */
-extern	int		log2[];
+// extern	int		log2[];	/* was used by libmemlayer/line.c */
 extern	ulong	drawld2chan[];
 extern	void		drawsetdebug(int);

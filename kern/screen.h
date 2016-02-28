@@ -55,7 +55,7 @@ void	setcursor(void);
 void	mouseset(Point);
 void	drawflushr(Rectangle);
 void	flushmemscreen(Rectangle);
-uchar *attachscreen(Rectangle*, ulong*, int*, int*, int*, void**);
+uchar *attachscreen(Rectangle*, ulong*, int*, int*, int*);
 
 void	drawqlock(void);
 void	drawqunlock(void);

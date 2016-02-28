@@ -117,6 +117,7 @@ kbdwrite(Chan *c, void *va, long n, vlong off)
 	USED(n);
 	USED(off);
 	error(Eperm);
+	return -1;		/* never reached */
 }
 
 Dev kbddevtab = {

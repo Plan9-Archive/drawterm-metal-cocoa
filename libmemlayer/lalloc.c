@@ -19,7 +19,7 @@ memlalloc(Memscreen *s, Rectangle screenr, Refreshfn refreshfn, void *refreshptr
 		paint->clipr = Rect(-0x3FFFFFF, -0x3FFFFFF, 0x3FFFFFF, 0x3FFFFFF);
 	}
 
-	n = allocmemimaged(screenr, s->image->chan, s->image->data, s->image->X);
+	n = allocmemimaged(screenr, s->image->chan, s->image->data);
 	if(n == nil)
 		return nil;
 	l = malloc(sizeof(Memlayer));

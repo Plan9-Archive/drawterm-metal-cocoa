@@ -23,18 +23,18 @@ memimagemove(void *from, void *to)
 }
 
 Memimage*
-allocmemimaged(Rectangle r, ulong chan, Memdata *md, void *X)
+allocmemimaged(Rectangle r, ulong chan, Memdata *md)
 {
 	int d;
 	ulong l;
 	Memimage *i;
 
-	if(Dx(r) <= 0 || Dy(r) <= 0){
-		werrstr("bad rectangle %R", r);
-		return nil;
-	}
 	if((d = chantodepth(chan)) == 0) {
 		werrstr("bad channel descriptor %.8lux", chan);
+		return nil;
+	}
+	if(badrect(r)){
+		werrstr("bad rectangle %R", r);
 		return nil;
 	}
 
@@ -44,7 +44,6 @@ allocmemimaged(Rectangle r, ulong chan, Memdata *md, void *X)
 	if(i == nil)
 		return nil;
 
-	i->X = X;
 	i->data = md;
 	i->zero = sizeof(ulong)*l*r.min.y;
 	
@@ -67,11 +66,11 @@ allocmemimaged(Rectangle r, ulong chan, Memdata *md, void *X)
 }
 
 Memimage*
-_allocmemimage(Rectangle r, ulong chan)
+allocmemimage(Rectangle r, ulong chan)
 {
 	int d;
-	u32int l, nw;
 	uchar *p;
+	ulong l, nw;
 	Memdata *md;
 	Memimage *i;
 
@@ -79,8 +78,13 @@ _allocmemimage(Rectangle r, ulong chan)
 		werrstr("bad channel descriptor %.8lux", chan);
 		return nil;
 	}
+	if(badrect(r)){
+		werrstr("bad rectangle %R", r);
+		return nil;
+	}
 
 	l = wordsperline(r, d);
+
 	nw = l*Dy(r);
 	md = malloc(sizeof(Memdata));
 	if(md == nil)
@@ -104,7 +108,7 @@ _allocmemimage(Rectangle r, ulong chan)
 	md->bdata = p;
 	md->allocd = 1;
 
-	i = allocmemimaged(r, chan, md, nil);
+	i = allocmemimaged(r, chan, md);
 	if(i == nil){
 		poolfree(imagmem, md->base);
 		free(md);
@@ -115,11 +119,11 @@ _allocmemimage(Rectangle r, ulong chan)
 }
 
 void
-_freememimage(Memimage *i)
+freememimage(Memimage *i)
 {
 	if(i == nil)
 		return;
-	if(i->data->ref-- == 1 && i->data->allocd){
+	if(--i->data->ref == 0 && i->data->allocd){
 		if(i->data->base)
 			poolfree(imagmem, i->data->base);
 		free(i->data);
@@ -141,8 +145,7 @@ byteaddr(Memimage *i, Point p)
 {
 	uchar *a;
 
-	a = i->data->bdata+i->zero+sizeof(ulong)*p.y*i->width;
-
+	a = i->data->bdata+i->zero+(int)(sizeof(ulong)*p.y*i->width);
 	if(i->depth < 8){
 		/*
 		 * We need to always round down,
