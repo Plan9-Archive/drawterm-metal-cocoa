@@ -244,31 +244,6 @@ wstrtoutf(char *s, Rune *t, int n)
 }
 
 int
-win_hasunicode(void)
-{
-	OSVERSIONINFOA osinfo;
-	int r;
-
-	osinfo.dwOSVersionInfoSize = sizeof(osinfo);
-	if(!GetVersionExA(&osinfo))
-		panic("GetVersionEx failed");
-	switch(osinfo.dwPlatformId) {
-	default:
-		panic("unknown PlatformId");
-	case VER_PLATFORM_WIN32s:
-		panic("Win32s not supported");
-	case VER_PLATFORM_WIN32_WINDOWS:
-		r = 0;
-		break;
-	case VER_PLATFORM_WIN32_NT:
-		r = 1;
-		break;
-	}
-
-	return r;
-}
-
-int
 wstrlen(Rune *s)
 {
 	int n;
@@ -284,15 +259,12 @@ WinMain(HINSTANCE x, HINSTANCE y, LPSTR z, int w)
 {
 	int argc, n;
 	char *arg, *p, **argv;
-	Rune *warg;
+	wchar_t *warg;
 
-	if(0 && win_hasunicode()){
-		warg = GetCommandLineW();
-		n = (wstrlen(warg)+1)*UTFmax;
-		arg = malloc(n);
-		wstrtoutf(arg, warg, n);
-	}else
-		arg = GetCommandLineA();
+	warg = GetCommandLineW();
+	n = wcslen(warg)*UTFmax+1;
+	arg = malloc(n);
+	WideCharToMultiByte(CP_UTF8,0,warg,-1,arg,n,0,0);
 
 	/* conservative guess at the number of args */
 	for(argc=4,p=arg; *p; p++)
@@ -448,23 +420,26 @@ oserrstr(void)
 long
 showfilewrite(char *a, int n)
 {
-	Rune *action, *arg, *cmd, *p;
-	static Rune Lopen[] = { 'o', 'p', 'e', 'n', 0 };
+	wchar_t *action, *arg, *cmd, *p;
+	int m;
 
-	cmd = runesmprint("%.*s", n, a);
+	cmd = malloc((n+1)*sizeof(wchar_t));
 	if(cmd == nil)
 		error("out of memory");
-	if(cmd[runestrlen(cmd)-1] == '\n')
-		cmd[runestrlen(cmd)] = 0;
-	p = runestrchr(cmd, ' ');
+	m = MultiByteToWideChar(CP_UTF8,0,a,n,cmd,n);
+	while(m > 0 && cmd[m-1] == '\n')
+		m--;
+	cmd[m] = 0;
+	p = wcschr(cmd, ' ');
 	if(p){
 		action = cmd;
 		*p++ = 0;
 		arg = p;
 	}else{
-		action = Lopen;
+		action = L"open";
 		arg = cmd;
 	}
-	ShellExecute(0, 0, action, arg, 0, SW_SHOWNORMAL);
+	ShellExecuteW(0, action, arg, 0, 0, SW_SHOWNORMAL);
+	free(cmd);
 	return n;
 }
