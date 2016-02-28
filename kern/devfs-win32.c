@@ -392,7 +392,7 @@ fsopen(Chan *c, int mode)
 	return c;
 }
 
-static void
+static Chan*
 fscreate(Chan *c, char *name, int mode, ulong perm)
 {
 	int m;
@@ -444,6 +444,7 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 	c->offset = 0;
 	c->flag |= COPEN;
 	c->mode = openmode(mode);
+	return c;
 }
 
 

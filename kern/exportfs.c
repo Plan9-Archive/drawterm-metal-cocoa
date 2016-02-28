@@ -661,7 +661,7 @@ Excreate(Export *fs, Fcall *rpc)
 	c = f->chan;
 	if(c->mnt && !(c->flag&CCREATE))
 		c = createdir(c);
-	(*devtab[c->type].create)(c, rpc->name, rpc->mode, rpc->perm);
+	c = (*devtab[c->type].create)(c, rpc->name, rpc->mode, rpc->perm);
 	poperror();
 
 	f->chan = c;

@@ -388,7 +388,7 @@ Return:
 	return c;
 }
 
-void
+Chan*
 devcreate(Chan *c, char *name, int mode, ulong perm)
 {
 	USED(c);
@@ -397,6 +397,7 @@ devcreate(Chan *c, char *name, int mode, ulong perm)
 	USED(perm);
 
 	error(Eperm);
+	return nil;
 }
 
 Block*
