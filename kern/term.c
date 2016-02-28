@@ -34,8 +34,10 @@ static void	termscreenputs(char*, int);
 static void
 screenflush(void)
 {
-	drawflushr(flushr);
+	qlock(&drawlock);
+	flushmemscreen(flushr);
 	flushr = Rect(10000, 10000, -10000, -10000);
+	qunlock(&drawlock);
 }
 
 static void
@@ -54,7 +56,7 @@ screenwin(void)
 	char *greet;
 	Memimage *grey;
 
-	drawqlock();
+	qlock(&drawlock);
 	back = memwhite;
 	conscol = memblack;
 	memfillcolor(gscreen, 0x444488FF);
@@ -86,7 +88,7 @@ screenwin(void)
 	curpos = window.min;
 	window.max.y = window.min.y+((window.max.y-window.min.y)/h)*h;
 	flushmemscreen(gscreen->r);
-	drawqunlock();
+	qunlock(&drawlock);
 }
 
 void
@@ -184,7 +186,7 @@ termscreenputs(char *s, int n)
 	char buf[4];
 
 	lock(&screenlock);
-	locked = drawcanqlock();
+	locked = canqlock(&drawlock);
 	while(n > 0){
 		i = chartorune(&r, s);
 		if(i == 0){
@@ -199,7 +201,7 @@ termscreenputs(char *s, int n)
 		screenputc(buf);
 	}
 	if(locked)
-		drawqunlock();
+		qunlock(&drawlock);
 	screenflush();
 	unlock(&screenlock);
 }

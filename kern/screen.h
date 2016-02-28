@@ -48,16 +48,13 @@ void	screenload(Rectangle, int, uchar *, Point, int);
 void	getcolor(ulong, ulong*, ulong*, ulong*);
 void	setcolor(ulong, ulong, ulong, ulong);
 
-void	refreshrect(Rectangle);
-
 void	cursorarrow(void);
 void	setcursor(void);
 void	mouseset(Point);
-void	drawflushr(Rectangle);
 void	flushmemscreen(Rectangle);
-uchar *attachscreen(Rectangle*, ulong*, int*, int*, int*);
+uchar*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 
-void	drawqlock(void);
-void	drawqunlock(void);
-int	drawcanqlock(void);
+extern	QLock drawlock;
+#define	ishwimage(i)	1
+
 void	terminit(void);

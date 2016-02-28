@@ -313,9 +313,9 @@ leave_full_screen()
 		Rectangle rect =  { { 0, 0 },
  							{ bounds.size.width,
  							  bounds.size.height} };
-		drawqlock();
+		qlock(&drawlock);
  		flushmemscreen(rect);
- 		drawqunlock();
+ 		qunlock(&drawlock);
 	}
 }
 
@@ -331,9 +331,9 @@ full_screen()
 		Rectangle rect =  { { 0, 0 },
  							{ bounds.size.width,
  							  bounds.size.height} };
-		drawqlock();
+		qlock(&drawlock);
  		flushmemscreen(rect);
- 		drawqunlock();
+ 		qunlock(&drawlock);
 	}
 }
 
@@ -556,9 +556,9 @@ static OSStatus MainWindowCommandHandler(EventHandlerCallRef nextHandler,
 				Rectangle rect =  { { 0, 0 },
  									{ bounds.size.width,
  									  bounds.size.height} };
-				drawqlock();
+				qlock(&drawlock);
  				flushmemscreen(rect);
- 				drawqunlock();
+ 				qunlock(&drawlock);
 				break;
 
 			default:

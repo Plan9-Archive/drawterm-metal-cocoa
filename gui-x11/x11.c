@@ -163,7 +163,7 @@ flushmemscreen(Rectangle r)
 	int x, y;
 	uchar *p;
 
-	assert(!drawcanqlock());
+	assert(!canqlock(&drawlock));
 	if(r.min.x >= r.max.x || r.min.y >= r.max.y)
 		return;
 
@@ -193,9 +193,9 @@ screeninit(void)
 
 	memimageinit();
 	terminit();
-	drawqlock();
+	qlock(&drawlock);
 	flushmemscreen(gscreen->r);
-	drawqunlock();
+	qunlock(&drawlock);
 }
 
 uchar*
@@ -230,10 +230,10 @@ revbyte(int b)
 void
 mouseset(Point xy)
 {
-	drawqlock();
+	qlock(&drawlock);
 	XWarpPointer(xdisplay, None, xdrawable, 0, 0, 0, 0, xy.x, xy.y);
 	XFlush(xdisplay);
-	drawqunlock();
+	qunlock(&drawlock);
 }
 
 static XCursor xcursor;
@@ -252,7 +252,7 @@ setcursor(void)
 		mask[i] = revbyte(cursor.set[i] | cursor.clr[i]);
 	}
 
-	drawqlock();
+	qlock(&drawlock);
 	fg = map[0];
 	bg = map[255];
 	xsrc = XCreateBitmapFromData(xdisplay, xdrawable, (char*)src, 16, 16);
@@ -267,20 +267,20 @@ setcursor(void)
 	XFreePixmap(xdisplay, xsrc);
 	XFreePixmap(xdisplay, xmask);
 	XFlush(xdisplay);
-	drawqunlock();
+	qunlock(&drawlock);
 }
 
 void
 cursorarrow(void)
 {
-	drawqlock();
+	qlock(&drawlock);
 	if(xcursor != 0){
 		XFreeCursor(xdisplay, xcursor);
 		xcursor = 0;
 	}
 	XUndefineCursor(xdisplay, xdrawable);
 	XFlush(xdisplay);
-	drawqunlock();
+	qunlock(&drawlock);
 }
 
 static void
@@ -716,7 +716,10 @@ xexpose(XEvent *e)
 	r.min.y = xe->y;
 	r.max.x = xe->x + xe->width;
 	r.max.y = xe->y + xe->height;
-	drawflushr(r);
+
+	qlock(&drawlock);
+	flushmemscreen(r);
+	qunlock(&drawlock);
 }
 
 static void
