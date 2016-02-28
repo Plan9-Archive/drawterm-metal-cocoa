@@ -274,6 +274,7 @@ extern	int	dofmt(Fmt*, char*);
 extern	double	__NaN(void);
 extern	int	__isNaN(double);
 extern	double	strtod(const char*, char**);
+extern	vlong	strtoll(const char *, char **, int);
 extern	int	utfnlen(char*, long);
 extern	double	__Inf(int);
 extern	int	__isInf(double, int);
