@@ -1,8 +1,8 @@
 #define _WIN32_WINNT 0x0500
 #include <windows.h>
 
-#include <u.h>
-#include <libc.h>
+#include "u.h"
+#include "lib.h"
 #include "r16.h"
 
 #define Bit(i) (7-(i))
@@ -138,7 +138,7 @@ widen(char *s)
 	wchar_t *ws;
 
 	n = utflen(s) + 1;
-	ws = smalloc(n*sizeof(wchar_t));
+	ws = malloc(n*sizeof(wchar_t));
 	utftorunes16(ws, s, n);
 	return ws;
 }
@@ -151,7 +151,7 @@ narrowen(wchar_t *ws)
 	int n;
 
 	n = widebytes(ws);
-	s = smalloc(n);
+	s = malloc(n);
 	runes16toutf(s, ws, n);
 	return s;
 }
