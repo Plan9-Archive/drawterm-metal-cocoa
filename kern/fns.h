@@ -368,6 +368,7 @@ int		xmerge(void*, void*);
 void*		xspanalloc(ulong, int, ulong);
 void		xsummary(void);
 void		osyield(void);
+void		osmsleep(int);
 Segment*	data2txt(Segment*);
 Segment*	dupseg(Segment**, int, int);
 Segment*	newseg(int, ulong, ulong);
