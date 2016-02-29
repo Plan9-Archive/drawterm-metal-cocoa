@@ -84,7 +84,7 @@ audiodevwrite(void *v, int n)
 	b = &blk[blkidx++ % nelem(blk)];
 	if(b->h.dwFlags & WHDR_PREPARED){
 		while(waveOutUnprepareHeader(waveout, &b->h, sizeof(b->h)) == WAVERR_STILLPLAYING)
-			osyield();
+			osmsleep(50);
 	}
 	memmove(b->s, v, n);
 	b->h.lpData = (void*)b->s;
