@@ -40,6 +40,7 @@ static int	msgsize = Maxfdata+IOHDRSZ;
 static int	p9auth(int);
 
 char *authserver;
+int aanfilter;
 
 void
 exits(char *s)
@@ -75,27 +76,14 @@ mountfactotum(void)
 	return 0;
 }
 
-void
-rcpu(char *host)
+/*
+ * p9any authentication followed by tls-psk encryption
+ */
+static int
+p9authtls(int fd)
 {
-	static char script[] = 
-"mount -nc /fd/0 /mnt/term || exit\n"
-"bind -q /mnt/term/dev/cons /dev/cons\n"
-"</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
-"bind -q /mnt/term/dev/cons /dev/cons\n"
-"</dev/cons >/dev/cons >[2=1] service=cpu exec rc -li\n";
 	AuthInfo *ai;
 	TLSconn *conn;
-	char *na;
-	int fd;
-
-	na = netmkaddr(host, "tcp", "17019");
-	if((fd = dial(na, 0, 0, 0)) < 0)
-		return;
-
-	/* provide /dev/kbd for kbdfs */
-	if(bind("#b", "/dev", MAFTER) < 0)
-		panic("bind #b: %r");
 
 	ai = p9any(fd);
 	if(ai == nil)
@@ -111,6 +99,84 @@ rcpu(char *host)
 		fatal(1, "tlsClient");
 
 	auth_freeAI(ai);
+	free(conn->sessionID);
+	free(conn);
+
+	return fd;
+}
+
+static int
+startaan(char *host, int fd)
+{
+	static char script[] =
+"~ $#netdir 1 || netdir=/net/tcp/clone\n"
+"netdir=`{basename -d $netdir} || exit\n"
+"<>$netdir/clone {\n"
+"	netdir=$netdir/`{read} || exit\n"
+"	>[3] $netdir/ctl {\n"
+"		echo -n 'announce *!0' >[1=3]\n"
+"		echo `{cat $netdir/local} || exit\n"
+"		bind '#|' /mnt/aan || exit\n"
+"		exec aan $netdir <>/mnt/aan/data1 >[1=0] >[2]/dev/null &\n"
+"	}\n"
+"}\n"
+"<>/mnt/aan/data >[1=0] >[2]/dev/null {\n"
+"	rfork n\n"
+"	fn server {\n"
+"		echo -n aanserver $netdir >/proc/$pid/args\n"
+"		. <{n=`{read} && ! ~ $#n 0 && read -c $n} >[2=1]\n"
+"	}\n"
+"	rm -f /env/^'fn#aanserver'\n"
+"	exec tlssrv -A /bin/rc -c server\n"
+"	exit\n"
+"}\n";
+	char buf[128], *p, *na;
+	int n;
+
+	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
+		fatal(1, "sending aan script");
+	n = read(fd, buf, sizeof(buf)-1);
+	close(fd);
+
+	while(n > 0 && buf[n-1] == '\n') n--;
+	if(n <= 0) return -1;
+	buf[n] = 0;
+	if((p = strrchr(buf, '!')) != nil)
+		na = strdup(netmkaddr(host, "tcp", p+1));
+	else
+		na = strdup(buf);
+
+	return aanclient(na);
+}
+
+void
+rcpu(char *host)
+{
+	static char script[] = 
+"mount -nc /fd/0 /mnt/term || exit\n"
+"bind -q /mnt/term/dev/cons /dev/cons\n"
+"</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
+"bind -q /mnt/term/dev/cons /dev/cons\n"
+"</dev/cons >/dev/cons >[2=1] service=cpu exec rc -li\n";
+	char *na;
+	int fd;
+
+	na = netmkaddr(host, "tcp", "17019");
+	if((fd = dial(na, nil, nil, nil)) < 0)
+		return;
+
+	/* provide /dev/kbd for kbdfs */
+	if(bind("#b", "/dev", MAFTER) < 0)
+		panic("bind #b: %r");
+
+	fd = p9authtls(fd);
+	if(aanfilter){
+		fd = startaan(host, fd);
+		if(fd < 0)
+			fatal(1, "startaan");
+		fd = p9authtls(fd);
+	}
+	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 
 	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
 		fatal(1, "sending script");
@@ -140,6 +206,9 @@ cpumain(int argc, char **argv)
 	authserver = getenv("auth");
 	system = getenv("cpu");
 	ARGBEGIN{
+	case 'p':
+		aanfilter = 1;
+		break;
 	case 'a':
 		authserver = EARGF(usage());
 		break;
@@ -353,6 +422,7 @@ p9auth(int fd)
 	AuthInfo *ai;
 
 	ai = p9any(fd);
+	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 	if(ai == nil)
 		return -1;
 	if(ealgs == nil)
@@ -628,8 +698,6 @@ p9any(int fd)
 
 	u = user;
 	pass = findkey(&u, tr.authdom, proto);
-	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
-
 	if(pass == nil)
 	again:
 		pass = getkey(u, tr.authdom, proto);

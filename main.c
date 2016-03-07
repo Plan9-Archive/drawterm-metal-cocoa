@@ -73,10 +73,14 @@ main(int argc, char **argv)
 char*
 getkey(char *user, char *dom, char *proto)
 {
-	char buf[1024];
+	char buf[1024], *key;
 
 	snprint(buf, sizeof buf, "%s@%s %s password", user, dom, proto);
-	return readcons(buf, nil, 1);
+	key = readcons(buf, nil, 1);
+	if(key != nil)
+		snprint(secstorebuf, sizeof(secstorebuf), "key proto=%q dom=%q user=%q !password=%q\n",
+			proto, dom, user, key);
+	return key;
 }
 
 char*
