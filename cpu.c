@@ -27,6 +27,7 @@ static AuthInfo *p9any(int);
 
 #define system csystem
 static char	*system;
+static int	nokbd;
 static int	cflag;
 extern int	dbg;
 
@@ -155,8 +156,10 @@ rcpu(char *host)
 	static char script[] = 
 "mount -nc /fd/0 /mnt/term || exit\n"
 "bind -q /mnt/term/dev/cons /dev/cons\n"
-"</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
-"bind -q /mnt/term/dev/cons /dev/cons\n"
+"if(test -r /mnt/term/dev/kbd){\n"
+"	</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
+"	bind -q /mnt/term/dev/cons /dev/cons\n"
+"}\n"
 "</dev/cons >/dev/cons >[2=1] service=cpu exec rc -li\n";
 	char *na;
 	int fd;
@@ -166,8 +169,8 @@ rcpu(char *host)
 		return;
 
 	/* provide /dev/kbd for kbdfs */
-	if(bind("#b", "/dev", MAFTER) < 0)
-		panic("bind #b: %r");
+	if(!nokbd)
+		bind("#b", "/dev", MAFTER);
 
 	fd = p9authtls(fd);
 	if(aanfilter){
@@ -206,9 +209,6 @@ cpumain(int argc, char **argv)
 	authserver = getenv("auth");
 	system = getenv("cpu");
 	ARGBEGIN{
-	case 'p':
-		aanfilter = 1;
-		break;
 	case 'a':
 		authserver = EARGF(usage());
 		break;
@@ -246,6 +246,12 @@ cpumain(int argc, char **argv)
 		break;
 	case 'u':
 		user = EARGF(usage());
+		break;
+	case 'B':
+		nokbd = 1;
+		break;
+	case 'p':
+		aanfilter = 1;
 		break;
 	default:
 		usage();
