@@ -2,7 +2,7 @@
  * cpu.c - Make a connection to a cpu server
  *
  *	   Invoked by listen as 'cpu -R | -N service net netdir'
- *	    	   by users  as 'cpu [-h system] [-c cmd args ...]'
+ *	    	   by users  as 'cpu [-h host] [-c cmd args ...]'
  */
 
 #include <u.h>
@@ -14,7 +14,6 @@
 #include "args.h"
 #include "drawterm.h"
 
-#define Maxfdata 8192
 #define MaxStr 128
 
 static void	fatal(int, char*, ...);
@@ -22,20 +21,16 @@ static void	usage(void);
 static void	writestr(int, char*, char*, int);
 static int	readstr(int, char*, int);
 static char	*rexcall(int*, char*, char*);
-static char *keyspec = "";
+static char 	*keyspec = "";
 static AuthInfo *p9any(int);
 
-#define system csystem
-static char	*system;
+static char	*host;
 static int	nokbd;
 static int	cflag;
 extern int	dbg;
 
 static char	*srvname = "ncpu";
 static char	*ealgs = "rc4_256 sha1";
-
-/* message size for exportfs; may be larger so we can do big graphics in CPU window */
-static int	msgsize = Maxfdata+IOHDRSZ;
 
 /* authentication mechanisms */
 static int	p9auth(int);
@@ -56,7 +51,6 @@ usage(void)
 	fprint(2, "usage: drawterm [-a authserver] [-c cpuserver] [-s secstore] [-u user] [-r root]\n");
 	exits("usage");
 }
-int fdd;
 
 int
 mountfactotum(void)
@@ -154,6 +148,7 @@ void
 rcpu(char *host)
 {
 	static char script[] = 
+"syscall fversion 0 65536 9P2000 7 >/dev/null >[2=1]\n"
 "mount -nc /fd/0 /mnt/term || exit\n"
 "bind -q /mnt/term/dev/cons /dev/cons\n"
 "if(test -r /mnt/term/dev/kbd){\n"
@@ -185,7 +180,7 @@ rcpu(char *host)
 		fatal(1, "sending script");
 
 	/* Begin serving the namespace */
-	exportfs(fd, msgsize);
+	exportfs(fd);
 	fatal(1, "starting exportfs");
 }
 
@@ -193,27 +188,18 @@ void
 cpumain(int argc, char **argv)
 {
 	char dat[MaxStr], buf[MaxStr], cmd[MaxStr], *err, *secstoreserver, *p, *s;
-	int fd, ms, data;
-
-	/* see if we should use a larger message size */
-	fd = open("/dev/draw", OREAD);
-	if(fd > 0){
-		ms = iounit(fd);
-		if(msgsize < ms+IOHDRSZ)
-			msgsize = ms+IOHDRSZ;
-		close(fd);
-	}
+	int data;
 
 	user = getenv("USER");
 	secstoreserver = nil;
 	authserver = getenv("auth");
-	system = getenv("cpu");
+	host = getenv("cpu");
 	ARGBEGIN{
 	case 'a':
 		authserver = EARGF(usage());
 		break;
 	case 'c':
-		system = EARGF(usage());
+		host = EARGF(usage());
 		break;
 	case 'd':
 		dbg++;
@@ -263,14 +249,14 @@ cpumain(int argc, char **argv)
 	if(bind("/root", "/", MAFTER) < 0)
 		panic("bind /root: %r");
 
-	if(system == nil)
-		system = readcons("cpu", "cpu", 0);
+	if(host == nil)
+		host = readcons("cpu", "cpu", 0);
 
 	if(user == nil)
 		user = readcons("user", "glenda", 0);
 
 	if(authserver == nil)
-		authserver = readcons("auth", system, 0);
+		authserver = readcons("auth", host, 0);
 
 	if(mountfactotum() < 0){
 		if(secstoreserver == nil)
@@ -285,10 +271,10 @@ cpumain(int argc, char **argv)
 		}
 	}
 
-	rcpu(system);
+	rcpu(host);
 
-	if((err = rexcall(&data, system, srvname)))
-		fatal(1, "%s: %s", err, system);
+	if((err = rexcall(&data, host, srvname)))
+		fatal(1, "%s: %s", err, host);
 
 	/* Tell the remote side the command to execute and where our working directory is */
 	if(cflag)
@@ -318,7 +304,7 @@ cpumain(int argc, char **argv)
 	write(data, "OK", 2);
 
 	/* Begin serving the gnot namespace */
-	exportfs(data, msgsize);
+	exportfs(data);
 	fatal(1, "starting exportfs");
 }
 

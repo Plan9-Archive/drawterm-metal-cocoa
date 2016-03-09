@@ -14,11 +14,6 @@ char Enopsmt[] = "Out of pseudo mount points";
 char Enomem[] = "No memory";
 char Eversion[] = "Bad 9P2000 version";
 
-int iounit(int x)
-{
-	return 8*8192+IOHDRSZ;
-}
-
 void*
 emallocz(ulong n)
 {

@@ -16,6 +16,7 @@
 #undef close
 #undef fstat
 #undef fwstat
+#undef iounit
 
 /*
  * The sys*() routines needn't poperror() as they return directly to syscall().
@@ -1125,6 +1126,23 @@ syswrite(int fd, void *buf, long n)
 	n = _syspwrite(fd, buf, n, (uvlong) ~0);
 	enderror();
 	return n;
+}
+
+ulong
+sysiounit(int fd)
+{
+	Chan *c;
+	ulong m;
+
+	starterror();
+	if(waserror()){
+		_syserror();
+		return (ulong)-1;
+	}
+	c = fdtochan(fd, -1, 0, 0);
+	m = c->iounit;
+	enderror();
+	return m;
 }
 
 int

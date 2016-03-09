@@ -24,3 +24,4 @@
 #undef wstat
 #undef unmount
 #undef pipe
+#undef iounit

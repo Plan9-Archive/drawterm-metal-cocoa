@@ -4,7 +4,7 @@ extern char secstorebuf[65536];
 extern char *secstorefetch(char *addr, char *owner, char *passwd);
 extern char *authserver;
 extern char *readcons(char *prompt, char *def, int secret);
-extern int exportfs(int, int);
+extern int exportfs(int);
 extern char *user;
 extern char *getkey(char*, char*, char*);
 extern char *findkey(char**, char*, char*);
