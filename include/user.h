@@ -25,6 +25,7 @@
 #define pwrite syspwrite
 #undef sleep
 #define	sleep	osmsleep
+#define iounit	sysiounit
 
 extern	int	bind(char*, char*, int);
 extern	int	chdir(char*);
@@ -52,6 +53,7 @@ extern	Dir	*dirfstat(int);
 extern	int	dirwstat(char*, Dir*);
 extern	int	dirfwstat(int, Dir*);
 extern	long	dirread(int, Dir*, long);
+extern	ulong	iounit(int);
 
 extern	int	lfdfd(int);
 
@@ -71,7 +73,6 @@ extern 	char*	argv0;
 
 extern	ulong	truerand(void);
 extern	int	pushssl(int, char*, char*, char*, int*);
-extern	int	iounit(int);
 extern	long	pread(int, void*, long, vlong);
 extern	long	pwrite(int, void*, long, vlong);
 extern	void*	rendezvous(void*, void*);

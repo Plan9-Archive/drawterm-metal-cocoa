@@ -24,7 +24,7 @@ int	ncollision;
 int	netfd;
 
 int
-exportfs(int fd, int msgsz)
+exportfs(int fd)
 {
 	char buf[ERRMAX], ebuf[ERRMAX];
 	Fsrpc *r;
@@ -54,12 +54,9 @@ exportfs(int fd, int msgsz)
 
 //	rfork(RFNOTEG);
 
-	messagesize = msgsz;
-	if(messagesize == 0){
-		messagesize = iounit(netfd);
-		if(messagesize == 0)
-			messagesize = 8*8192+IOHDRSZ;
-	}
+	messagesize = iounit(netfd);
+	if(messagesize == 0)
+		messagesize = 8192+IOHDRSZ;
 
 	Workq = emallocz(sizeof(Fsrpc)*Nr_workbufs);
 //	for(i=0; i<Nr_workbufs; i++)
