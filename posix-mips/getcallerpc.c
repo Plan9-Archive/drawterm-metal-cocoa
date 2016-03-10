@@ -1,7 +1,7 @@
 #include "u.h"
 #include "libc.h"
 
-ulong
+uintptr
 getcallerpc(void *a)
 {
 	return ((ulong*)a)[-1];
