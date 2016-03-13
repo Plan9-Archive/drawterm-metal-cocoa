@@ -814,6 +814,20 @@ xkeyboard(XEvent *e)
 		case XK_Alt_R:
 			k = Kalt;
 			break;
+
+		case XK_Shift_L:
+		case XK_Shift_R:
+			k = Kshift;
+			break;
+		case XK_Control_L:
+		case XK_Control_R:
+			k = Kctl;
+			break;
+		case XK_Shift_Lock:
+		case XK_Caps_Lock:
+			k = Kcaps;
+			break;
+
 		case XK_F1:
 		case XK_F2:
 		case XK_F3:
@@ -828,12 +842,6 @@ xkeyboard(XEvent *e)
 		case XK_F12:
 			k = KF|(k - XK_F1 + 1);
 			break;
-		case XK_Shift_L:
-		case XK_Shift_R:
-		case XK_Control_L:
-		case XK_Control_R:
-		case XK_Caps_Lock:
-		case XK_Shift_Lock:
 
 		case XK_Meta_L:
 		case XK_Meta_R:
