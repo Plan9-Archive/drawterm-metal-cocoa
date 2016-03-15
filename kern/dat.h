@@ -1,5 +1,4 @@
 #define	KNAMELEN		28	/* max length of name held in kernel */
-#define	DOMLEN			64
 
 #define	BLOCKALIGN		8
 

@@ -23,6 +23,8 @@ static int	readstr(int, char*, int);
 static char	*rexcall(int*, char*, char*);
 static char 	*keyspec = "";
 static AuthInfo *p9any(int);
+static int	getkey(Authkey*, char*, char*, char*);
+static int	findkey(Authkey*, char*, char*, char*);
 
 static char	*host;
 static int	nokbd;
@@ -624,8 +626,7 @@ p9anyfactotum(int fd, int afd)
 AuthInfo*
 p9any(int fd)
 {
-	char buf[1024], buf2[1024], *bbuf, *p, *proto, *dom, *u;
-	char *pass;
+	char buf[1024], buf2[1024], *bbuf, *p, *proto, *dom;
 	uchar crand[2*NONCELEN], cchal[CHALLEN], y[PAKYLEN];
 	char tbuf[2*MAXTICKETLEN+MAXAUTHENTLEN+PAKYLEN], trbuf[TICKREQLEN+PAKYLEN];
 	Authkey authkey;
@@ -688,23 +689,15 @@ p9any(int fd)
 	if(readn(fd, trbuf, n) != n || convM2TR(trbuf, TICKREQLEN, &tr) <= 0)
 		fatal(1, "cannot read ticket request in p9sk1");
 
-	u = user;
-	pass = findkey(&u, tr.authdom, proto);
-	if(pass == nil)
-	again:
-		pass = getkey(u, tr.authdom, proto);
-	if(pass == nil)
-		fatal(1, "no password");
+	if(!findkey(&authkey, user, tr.authdom, proto)){
+again:		if(!getkey(&authkey, user, tr.authdom, proto))
+			fatal(1, "no password");
+	}
 
-	passtokey(&authkey, pass);
-	memset(pass, 0, strlen(pass));
-	free(pass);
-
-	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, u);
-	strecpy(tr.uid, tr.uid+sizeof tr.uid, u);
+	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, user);
+	strecpy(tr.uid, tr.uid+sizeof tr.uid, user);
 
 	if(dp9ik){
-		authpak_hash(&authkey, tr.hostid);
 		memmove(y, trbuf+TICKREQLEN, PAKYLEN);
 		n = gettickets(&authkey, &tr, y, tbuf, sizeof(tbuf));
 	} else {
@@ -786,4 +779,117 @@ p9any(int fd)
 	free(proto);
 
 	return ai;
+}
+
+static int
+unhex(char c)
+{
+	if('0' <= c && c <= '9')
+		return c-'0';
+	if('a' <= c && c <= 'f')
+		return c-'a'+10;
+	if('A' <= c && c <= 'F')
+		return c-'A'+10;
+	abort();
+	return -1;
+}
+
+static int
+hexparse(char *hex, uchar *dat, int ndat)
+{
+	int i;
+
+	if(strlen(hex) != 2*ndat)
+		return -1;
+	if(hex[strspn(hex, "0123456789abcdefABCDEF")] != '\0')
+		return -1;
+	for(i=0; i<ndat; i++)
+		dat[i] = (unhex(hex[2*i])<<4)|unhex(hex[2*i+1]);
+	return 0;
+}
+
+static int
+findkey(Authkey *key, char *user, char *dom, char *proto)
+{
+	char buf[1024], *f[50], *p, *ep, *nextp, *hex, *pass, *id, *role;
+	int nf, haveproto,  havedom, i;
+
+	for(p=secstorebuf; *p; p=nextp){
+		nextp = strchr(p, '\n');
+		if(nextp == nil){
+			ep = p+strlen(p);
+			nextp = "";
+		}else{
+			ep = nextp++;
+		}
+		if(ep-p >= sizeof buf){
+			print("warning: skipping long line in secstore factotum file\n");
+			continue;
+		}
+		memmove(buf, p, ep-p);
+		buf[ep-p] = 0;
+		nf = tokenize(buf, f, nelem(f));
+		if(nf == 0 || strcmp(f[0], "key") != 0)
+			continue;
+		id = pass = hex = role = nil;
+		havedom = haveproto = 0;
+		for(i=1; i<nf; i++){
+			if(strncmp(f[i], "user=", 5) == 0)
+				id = f[i]+5;
+			if(strncmp(f[i], "!password=", 10) == 0)
+				pass = f[i]+10;
+			if(strncmp(f[i], "!hex=", 5) == 0)
+				hex = f[i]+5;
+			if(strncmp(f[i], "role=", 5) == 0)
+				role = f[i]+5;
+			if(strncmp(f[i], "dom=", 4) == 0 && strcmp(f[i]+4, dom) == 0)
+				havedom = 1;
+			if(strncmp(f[i], "proto=", 6) == 0 && strcmp(f[i]+6, proto) == 0)
+				haveproto = 1;
+		}
+		if(!haveproto || !havedom)
+			continue;
+		if(role != nil && strcmp(role, "client") != 0)
+			continue;
+		if(id == nil || strcmp(user, id) != 0)
+			continue;
+		if(pass == nil && hex == nil)
+			continue;
+		if(hex != nil){
+			memset(key, 0, sizeof(*key));
+			if(strcmp(proto, "dp9ik") == 0) {
+				if(hexparse(hex, key->aes, AESKEYLEN) != 0)
+					continue;
+			} else {
+				if(hexparse(hex, (uchar*)key->des, DESKEYLEN) != 0)
+					continue;
+			}
+		} else {
+			passtokey(key, pass);
+		}
+		if(strcmp(proto, "dp9ik") == 0)
+			authpak_hash(key, user);
+		memset(buf, 0, sizeof buf);
+		return 1;
+	}
+	memset(buf, 0, sizeof buf);
+	return 0;
+}
+
+static int
+getkey(Authkey *key, char *user, char *dom, char *proto)
+{
+	char buf[1024], *pass;
+
+	snprint(buf, sizeof buf, "%s@%s %s password", user, dom, proto);
+	pass = readcons(buf, nil, 1);
+	memset(buf, 0, sizeof buf);
+	if(pass != nil){
+		snprint(secstorebuf, sizeof(secstorebuf), "key proto=%q dom=%q user=%q !password=%q\n",
+			proto, dom, user, pass);
+		memset(pass, 0, strlen(pass));
+		free(pass);
+		return findkey(key, user, dom, proto);
+	}
+	return 0;
 }
