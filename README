@@ -14,6 +14,8 @@ To build on Solaris using Sun cc, run CONF=sun make.
 
 To build on Windows, you can't use Visual C. Use Mingw on cygwin.
 
+To build on Mac OS X with X11 (xquartz), run CONF=osx-x11 make.
+
 
 BINARIES
 ---------
