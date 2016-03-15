@@ -6,6 +6,8 @@
 
 #include 	"keyboard.h"
 
+#include	<authsrv.h>
+
 void	(*consdebug)(void) = 0;
 void	(*screenputs)(char*, int) = 0;
 

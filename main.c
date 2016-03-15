@@ -3,7 +3,6 @@
 #include "kern/dat.h"
 #include "kern/fns.h"
 #include "user.h"
-
 #include "drawterm.h"
 
 char *argv0;
@@ -69,63 +68,3 @@ main(int argc, char **argv)
 	cpumain(argc, argv);
 	return 0;
 }
-
-char*
-getkey(char *user, char *dom, char *proto)
-{
-	char buf[1024], *key;
-
-	snprint(buf, sizeof buf, "%s@%s %s password", user, dom, proto);
-	key = readcons(buf, nil, 1);
-	if(key != nil)
-		snprint(secstorebuf, sizeof(secstorebuf), "key proto=%q dom=%q user=%q !password=%q\n",
-			proto, dom, user, key);
-	return key;
-}
-
-char*
-findkey(char **puser, char *dom, char *proto)
-{
-	char buf[1024], *f[50], *p, *ep, *nextp, *pass, *user;
-	int nf, haveproto,  havedom, i;
-
-	for(p=secstorebuf; *p; p=nextp){
-		nextp = strchr(p, '\n');
-		if(nextp == nil){
-			ep = p+strlen(p);
-			nextp = "";
-		}else{
-			ep = nextp++;
-		}
-		if(ep-p >= sizeof buf){
-			print("warning: skipping long line in secstore factotum file\n");
-			continue;
-		}
-		memmove(buf, p, ep-p);
-		buf[ep-p] = 0;
-		nf = tokenize(buf, f, nelem(f));
-		if(nf == 0 || strcmp(f[0], "key") != 0)
-			continue;
-		pass = nil;
-		haveproto = havedom = 0;
-		user = nil;
-		for(i=1; i<nf; i++){
-			if(strncmp(f[i], "user=", 5) == 0)
-				user = f[i]+5;
-			if(strncmp(f[i], "!password=", 10) == 0)
-				pass = f[i]+10;
-			if(strncmp(f[i], "dom=", 4) == 0 && strcmp(f[i]+4, dom) == 0)
-				havedom = 1;
-			if(strncmp(f[i], "proto=", 6) == 0 && strcmp(f[i]+6, proto) == 0)
-				haveproto = 1;
-		}
-		if(!haveproto || !havedom || !pass || !user)
-			continue;
-		*puser = estrdup(user);
-		pass = estrdup(pass);
-		memset(buf, 0, sizeof buf);
-		return pass;
-	}
-	return nil;
-}
-

@@ -1,7 +1,6 @@
 #include <u.h>
 #include <libc.h>
 #include <fcall.h>
-#include "drawterm.h"
 
 enum {
 	Hdrsz = 3*4,

@@ -6,8 +6,6 @@ extern char *authserver;
 extern char *readcons(char *prompt, char *def, int secret);
 extern int exportfs(int);
 extern char *user;
-extern char *getkey(char*, char*, char*);
-extern char *findkey(char**, char*, char*);
 extern int dialfactotum(void);
 extern char *getuser(void);
 extern void cpumain(int, char**);
