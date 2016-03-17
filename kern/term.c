@@ -34,10 +34,8 @@ static void	termscreenputs(char*, int);
 static void
 screenflush(void)
 {
-	qlock(&drawlock);
 	flushmemscreen(flushr);
 	flushr = Rect(10000, 10000, -10000, -10000);
-	qunlock(&drawlock);
 }
 
 static void
@@ -115,7 +113,6 @@ scroll(void)
 	memimagedraw(gscreen, r, gscreen, p, nil, p, S);
 	r = Rpt(Pt(window.min.x, window.max.y-o), window.max);
 	memimagedraw(gscreen, r, back, ZP, nil, ZP, S);
-	flushmemscreen(gscreen->r);
 	curpos.y -= o;
 }
 
@@ -133,8 +130,10 @@ screenputc(char *buf)
 
 	switch(buf[0]) {
 	case '\n':
-		if(curpos.y+h >= window.max.y)
+		if(curpos.y+h >= window.max.y){
 			scroll();
+			flushr = window;
+		}
 		curpos.y += h;
 		screenputc("\r");
 		break;
@@ -181,27 +180,25 @@ screenputc(char *buf)
 static void
 termscreenputs(char *s, int n)
 {
-	int i, locked;
-	Rune r;
-	char buf[4];
+	static char rb[UTFmax+1];
+	static int nrb;
+	int locked;
+	char *e;
 
 	lock(&screenlock);
 	locked = canqlock(&drawlock);
-	while(n > 0){
-		i = chartorune(&r, s);
-		if(i == 0){
-			s++;
-			--n;
-			continue;
+	e = s + n;
+	while(s < e){
+		rb[nrb++] = *s++;
+		if(nrb >= UTFmax || fullrune(rb, nrb)){
+			rb[nrb] = 0;
+			screenputc(rb);
+			nrb = 0;
 		}
-		memmove(buf, s, i);
-		buf[i] = 0;
-		n -= i;
-		s += i;
-		screenputc(buf);
 	}
-	if(locked)
+	if(locked){
+		screenflush();
 		qunlock(&drawlock);
-	screenflush();
+	}
 	unlock(&screenlock);
 }
