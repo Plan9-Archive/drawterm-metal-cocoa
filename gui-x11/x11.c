@@ -864,7 +864,7 @@ xkeyboard(XEvent *e)
 	if(k == XK_hyphen)
 		k = XK_minus;
 	/* Do control mapping ourselves if translator doesn't */
-	if(e->xkey.state&ControlMask && k != Kalt)
+	if(e->xkey.state&ControlMask && k != Kalt && k != Kctl)
 		k &= 0x9f;
 	if(k == NoSymbol) {
 		return;
