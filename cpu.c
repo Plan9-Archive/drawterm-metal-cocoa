@@ -346,7 +346,7 @@ rexcall(int *fd, char *host, char *service)
 		return "can't dial";
 
 	/* negotiate authentication mechanism */
-	strcpy(msg, "p9any");
+	strcpy(msg, "p9");
 	if(ealgs != nil){
 		strcat(msg, " ");
 		strcat(msg, ealgs);
