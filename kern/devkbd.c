@@ -39,7 +39,7 @@ static Dirtab kbddir[]={
 static void
 kbdinit(void)
 {
-	keyq = qopen(4*1024, 0, 0, 0);
+	keyq = qopen(4*1024, Qcoalesce, 0, 0);
 	if(keyq == nil)
 		panic("kbdinit");
 	qnoblock(keyq, 1);
