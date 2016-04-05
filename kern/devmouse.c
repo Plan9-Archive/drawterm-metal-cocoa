@@ -12,6 +12,20 @@ int	mousequeue = 1;
 
 Mouseinfo	mouse;
 Cursorinfo	cursor;
+Cursorinfo      arrow = {
+	0,
+	{ -1, -1 },
+	{ 0xFF, 0xFF, 0x80, 0x01, 0x80, 0x02, 0x80, 0x0C,
+	  0x80, 0x10, 0x80, 0x10, 0x80, 0x08, 0x80, 0x04,
+	  0x80, 0x02, 0x80, 0x01, 0x80, 0x02, 0x8C, 0x04,
+	  0x92, 0x08, 0x91, 0x10, 0xA0, 0xA0, 0xC0, 0x40,
+	},
+	{ 0x00, 0x00, 0x7F, 0xFE, 0x7F, 0xFC, 0x7F, 0xF0,
+	  0x7F, 0xE0, 0x7F, 0xE0, 0x7F, 0xF0, 0x7F, 0xF8,
+	  0x7F, 0xFC, 0x7F, 0xFE, 0x7F, 0xFC, 0x73, 0xF8,
+	  0x61, 0xF0, 0x60, 0xE0, 0x40, 0x40, 0x00, 0x00,
+	},
+};
 
 static int	mousechanged(void*);
 
@@ -28,6 +42,13 @@ Dirtab mousedir[]={
 };
 
 #define	NMOUSE	(sizeof(mousedir)/sizeof(Dirtab))
+
+static void
+mouseinit(void)
+{
+	cursor = arrow;
+	setcursor();
+}
 
 static Chan*
 mouseattach(char *spec)
@@ -82,7 +103,8 @@ mouseclose(Chan *c)
 		lock(&mouse.lk);
 		mouse.open = 0;
 		unlock(&mouse.lk);
-		cursorarrow();
+		cursor = arrow;
+		setcursor();
 	}
 }
 
@@ -174,7 +196,8 @@ mousewrite(Chan *c, void *va, long n, vlong offset)
 
 	case Qcursor:
 		if(n < 2*4+2*2*16){
-			cursorarrow();
+			cursor = arrow;
+			setcursor();
 		}else{
 			n = 2*4+2*2*16;
 			lock(&cursor.lk);
@@ -219,7 +242,7 @@ Dev mousedevtab = {
 	"mouse",
 
 	devreset,
-	devinit,
+	mouseinit,
 	devshutdown,
 	mouseattach,
 	mousewalk,
