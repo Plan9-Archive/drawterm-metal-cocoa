@@ -40,6 +40,7 @@ struct Screeninfo {
 extern	Memimage *gscreen;
 extern	Mouseinfo mouse;
 extern	Cursorinfo cursor;
+extern	Cursorinfo arrow;
 extern	Screeninfo screen;
 
 void	screeninit(void);
@@ -48,7 +49,6 @@ void	screenload(Rectangle, int, uchar *, Point, int);
 void	getcolor(ulong, ulong*, ulong*, ulong*);
 void	setcolor(ulong, ulong, ulong, ulong);
 
-void	cursorarrow(void);
 void	setcursor(void);
 void	mouseset(Point);
 void	flushmemscreen(Rectangle);
