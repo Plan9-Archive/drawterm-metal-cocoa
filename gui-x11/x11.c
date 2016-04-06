@@ -1062,7 +1062,7 @@ static char*
 _xgetsnarf(XDisplay *xd)
 {
 	uchar *data, *xdata;
-	Atom clipboard, type, prop;
+	Atom selection, type, prop;
 	unsigned long lastlen;
 	unsigned long dummy, len;
 	int fmt, i;
@@ -1078,7 +1078,7 @@ _xgetsnarf(XDisplay *xd)
 	/*
 	 * Is there a primary selection (highlighted text in an xterm)?
 	 */
-	clipboard = XA_PRIMARY;
+	selection = XA_PRIMARY;
 	w = XGetSelectionOwner(xd, XA_PRIMARY);
 	if(w == xdrawable){
 	mine:
@@ -1089,9 +1089,9 @@ _xgetsnarf(XDisplay *xd)
 	/*
 	 * If not, is there a clipboard selection?
 	 */
-	if(w == None && clipboard != None){
-		clipboard = clipboard;
-		w = XGetSelectionOwner(xd, clipboard);
+	if(w == None && selection != None){
+		selection = clipboard;
+		w = XGetSelectionOwner(xd, selection);
 		if(w == xdrawable)
 			goto mine;
 	}
@@ -1112,7 +1112,7 @@ _xgetsnarf(XDisplay *xd)
 	 */
 	prop = 1;
 	XChangeProperty(xd, xdrawable, prop, utf8string, 8, PropModeReplace, (uchar*)"", 0);
-	XConvertSelection(xd, clipboard, utf8string, prop, xdrawable, CurrentTime);
+	XConvertSelection(xd, selection, utf8string, prop, xdrawable, CurrentTime);
 	XFlush(xd);
 	lastlen = 0;
 	for(i=0; i<10 || (lastlen!=0 && i<30); i++){
