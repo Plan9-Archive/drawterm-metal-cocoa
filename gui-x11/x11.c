@@ -129,6 +129,7 @@ static XColor			map7[128];	/* Plan 9 colormap array */
 static uchar			map7to8[128][2];
 static Colormap			xcmap;		/* Default shared colormap  */
 
+static int	focusarm; /* on focusin undo alt when pressed during focus out by sending second alt */
 extern int mousequeue;
 
 /* for copy/paste, lifted from plan9ports */
@@ -302,6 +303,9 @@ xproc(void *arg)
 		Button4MotionMask|
 		Button5MotionMask|
 		ExposureMask|
+		EnterWindowMask|
+		LeaveWindowMask|
+		FocusChangeMask|
 		StructureNotifyMask;
 
 	XSelectInput(xkmcon, xdrawable, mask);
@@ -729,6 +733,13 @@ xkeyboard(XEvent *e)
 {
 	KeySym k;
 
+	if(e->xany.type == FocusIn && focusarm){
+		focusarm=0;
+		kbdkey(Kalt, 0);
+		kbdkey(Kalt, 1);
+		return;
+	}
+		
 	/*
 	 * I tried using XtGetActionKeysym, but it didn't seem to
 	 * do case conversion properly
@@ -869,6 +880,14 @@ xkeyboard(XEvent *e)
 	if(k == NoSymbol) {
 		return;
 	}
+
+	if(k==Kalt && e->xany.type == KeyPress)
+		if(focusarm == 0)
+			focusarm=2;
+		else
+			focusarm=0;
+	else if(focusarm && e->xany.type == KeyPress)
+		focusarm--;	
 
 	kbdkey(k, e->xany.type == KeyPress);
 }
