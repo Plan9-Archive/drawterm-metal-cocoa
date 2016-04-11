@@ -302,6 +302,9 @@ xproc(void *arg)
 		Button4MotionMask|
 		Button5MotionMask|
 		ExposureMask|
+		EnterWindowMask|
+		LeaveWindowMask|
+		FocusChangeMask|
 		StructureNotifyMask;
 
 	XSelectInput(xkmcon, xdrawable, mask);
@@ -727,15 +730,25 @@ xexpose(XEvent *e)
 static void
 xkeyboard(XEvent *e)
 {
+	static int altdown;
 	KeySym k;
 
-	/*
-	 * I tried using XtGetActionKeysym, but it didn't seem to
-	 * do case conversion properly
-	 * (at least, with Xterminal servers and R4 intrinsics)
-	 */
-	if(e->xany.type != KeyPress && e->xany.type != KeyRelease)
+	switch(e->xany.type){
+	case KeyPress:
+	case KeyRelease:
+		break;
+	case FocusIn:
+	case FocusOut:
+		if(altdown){
+			altdown = 0;
+			kbdkey(Kalt, 0);
+			kbdkey(Kalt, 1);
+			kbdkey(Kalt, 0);
+		}
+		/* wet floor */
+	default:
 		return;
+	}
 
 	XLookupString((XKeyEvent*)e, NULL, 0, &k, NULL);
 
@@ -866,10 +879,9 @@ xkeyboard(XEvent *e)
 	/* Do control mapping ourselves if translator doesn't */
 	if(e->xkey.state&ControlMask && k != Kalt && k != Kctl)
 		k &= 0x9f;
-	if(k == NoSymbol) {
+	if(k == NoSymbol)
 		return;
-	}
-
+	altdown = e->xany.type == KeyPress && k == Kalt;
 	kbdkey(k, e->xany.type == KeyPress);
 }
 
