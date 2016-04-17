@@ -30,7 +30,6 @@ static char	*host;
 static int	norcpu;
 static int	nokbd;
 static int	cflag;
-extern int	dbg;
 
 static char	*srvname = "ncpu";
 static char	*ealgs = "rc4_256 sha1";
@@ -204,9 +203,6 @@ cpumain(int argc, char **argv)
 	case 'h':
 	case 'c':
 		host = EARGF(usage());
-		break;
-	case 'd':
-		dbg++;
 		break;
 	case 'e':
 		ealgs = EARGF(usage());
