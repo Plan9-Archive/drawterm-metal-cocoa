@@ -1,8 +1,5 @@
 /*
  * cpu.c - Make a connection to a cpu server
- *
- *	   Invoked by listen as 'cpu -R | -N service net netdir'
- *	    	   by users  as 'cpu [-h host] [-c cmd args ...]'
  */
 
 #include <u.h>
@@ -20,25 +17,24 @@ static void	fatal(int, char*, ...);
 static void	usage(void);
 static void	writestr(int, char*, char*, int);
 static int	readstr(int, char*, int);
-static char	*rexcall(int*, char*, char*);
 static char 	*keyspec = "";
 static AuthInfo *p9any(int);
 static int	getkey(Authkey*, char*, char*, char*);
 static int	findkey(Authkey*, char*, char*, char*);
 
 static char	*host;
+static int	aanfilter;
 static int	norcpu;
 static int	nokbd;
-static int	cflag;
 
-static char	*srvname = "ncpu";
 static char	*ealgs = "rc4_256 sha1";
 
 /* authentication mechanisms */
-static int	p9auth(int);
+static int	p9authssl(int);
+static int	p9authtls(int);
 
 char *authserver;
-int aanfilter;
+char *secstore;
 
 void
 exits(char *s)
@@ -71,35 +67,6 @@ mountfactotum(void)
 	}
 	close(fd);
 	return 0;
-}
-
-/*
- * p9any authentication followed by tls-psk encryption
- */
-static int
-p9authtls(int fd)
-{
-	AuthInfo *ai;
-	TLSconn *conn;
-
-	ai = p9any(fd);
-	if(ai == nil)
-		fatal(1, "can't authenticate");
-
-	conn = mallocz(sizeof(TLSconn), 1);
-	conn->pskID = "p9secret";
-	conn->psk = ai->secret;
-	conn->psklen = ai->nsecret;
-
-	fd = tlsClient(fd, conn);
-	if(fd < 0)
-		fatal(1, "tlsClient");
-
-	auth_freeAI(ai);
-	free(conn->sessionID);
-	free(conn);
-
-	return fd;
 }
 
 static int
@@ -158,11 +125,9 @@ rcpu(char *host)
 "	bind -q /mnt/term/dev/cons /dev/cons\n"
 "}\n"
 "</dev/cons >/dev/cons >[2=1] service=cpu exec rc -li\n";
-	char *na;
 	int fd;
 
-	na = netmkaddr(host, "tcp", "17019");
-	if((fd = dial(na, nil, nil, nil)) < 0)
+	if((fd = dial(netmkaddr(host, "tcp", "17019"), nil, nil, nil)) < 0)
 		return;
 
 	/* provide /dev/kbd for kbdfs */
@@ -187,13 +152,65 @@ rcpu(char *host)
 }
 
 void
+ncpu(char *host)
+{
+	char buf[MaxStr];
+	int fd;
+
+	if((fd = dial(netmkaddr(host, "tcp", "17010"), nil, nil, nil)) < 0)
+		return;
+
+	/* negotiate authentication mechanism */
+	strcpy(buf, "p9");
+	if(ealgs != nil){
+		strcat(buf, " ");
+		strcat(buf, ealgs);
+	}
+	writestr(fd, buf, "negotiating authentication method", 0);
+	if(readstr(fd, buf, sizeof buf) < 0)
+		fatal(1, "can't negotiate authentication method: %r");
+	if(*buf)
+		fatal(1, "%s", buf);
+
+	/* authenticate and encrypt the channel */
+	fd = p9authssl(fd);
+
+	/* Tell the remote side where our working directory is */
+	if(getcwd(buf, sizeof(buf)) == 0)
+		writestr(fd, "NO", "dir", 0);
+	else
+		writestr(fd, buf, "dir", 0);
+
+	/* 
+	 *  Wait for the other end to execute and start our file service
+	 *  of /mnt/term
+	 */
+	if(readstr(fd, buf, sizeof(buf)) < 0)
+		fatal(1, "waiting for FS: %r");
+	if(strncmp("FS", buf, 2) != 0) {
+		print("remote cpu: %s", buf);
+		exits(buf);
+	}
+
+	if(readstr(fd, buf, sizeof(buf)) < 0)
+		fatal(1, "waiting for remote export: %r");
+	if(strcmp(buf, "/") != 0){
+		print("remote cpu: %s", buf);
+		exits(buf);
+	}
+	write(fd, "OK", 2);
+
+	/* Begin serving the gnot namespace */
+	exportfs(fd);
+	fatal(1, "starting exportfs");
+}
+
+void
 cpumain(int argc, char **argv)
 {
-	char dat[MaxStr], buf[MaxStr], cmd[MaxStr], *err, *secstoreserver, *p, *s;
-	int data;
+	char *s;
 
 	user = getenv("USER");
-	secstoreserver = nil;
 	authserver = getenv("auth");
 	host = getenv("cpu");
 	ARGBEGIN{
@@ -210,22 +227,14 @@ cpumain(int argc, char **argv)
 			ealgs = nil;
 		break;
 	case 'r':
-		snprint(buf, sizeof(buf), "/root/%s", EARGF(usage()));
-		cleanname(buf);
-		if(bind(buf, "/root", MREPL) < 0)
+		s = smprint("/root/%s", EARGF(usage()));
+		cleanname(s);
+		if(bind(s, "/root", MREPL) < 0)
 			panic("bind /root: %r");
-		break;
-	case 'C':
-		cflag++;
-		cmd[0] = '!';
-		cmd[1] = '\0';
-		while((p = ARGF()) != nil) {
-			strcat(cmd, " ");
-			strcat(cmd, p);
-		}
+		free(s);
 		break;
 	case 's':
-		secstoreserver = EARGF(usage());
+		secstore = EARGF(usage());
 		break;
 	case 'k':
 		keyspec = EARGF(usage());
@@ -262,10 +271,10 @@ cpumain(int argc, char **argv)
 		authserver = readcons("auth", host, 0);
 
 	if(mountfactotum() < 0){
-		if(secstoreserver == nil)
-			secstoreserver = authserver;
-	 	if(havesecstore(secstoreserver, user)){
-			s = secstorefetch(secstoreserver, user, nil);
+		if(secstore == nil)
+			secstore = authserver;
+	 	if(havesecstore(secstore, user)){
+			s = secstorefetch(secstore, user, nil);
 			if(s){
 				if(strlen(s) >= sizeof secstorebuf)
 					sysfatal("secstore data too big");
@@ -277,39 +286,9 @@ cpumain(int argc, char **argv)
 	if(!norcpu)
 		rcpu(host);
 
-	if((err = rexcall(&data, host, srvname)))
-		fatal(1, "%s: %s", err, host);
+	ncpu(host);
 
-	/* Tell the remote side the command to execute and where our working directory is */
-	if(cflag)
-		writestr(data, cmd, "command", 0);
-	if(getcwd(dat, sizeof(dat)) == 0)
-		writestr(data, "NO", "dir", 0);
-	else
-		writestr(data, dat, "dir", 0);
-
-	/* 
-	 *  Wait for the other end to execute and start our file service
-	 *  of /mnt/term
-	 */
-	if(readstr(data, buf, sizeof(buf)) < 0)
-		fatal(1, "waiting for FS: %r");
-	if(strncmp("FS", buf, 2) != 0) {
-		print("remote cpu: %s", buf);
-		exits(buf);
-	}
-
-	if(readstr(data, buf, sizeof buf) < 0)
-		fatal(1, "waiting for remote export: %r");
-	if(strcmp(buf, "/") != 0){
-		print("remote cpu: %s" , buf);
-		exits(buf);
-	}
-	write(data, "OK", 2);
-
-	/* Begin serving the gnot namespace */
-	exportfs(data);
-	fatal(1, "starting exportfs");
+	fatal(1, "can't dial %s: %r", host);
 }
 
 void
@@ -330,43 +309,6 @@ fatal(int syserr, char *fmt, ...)
 	str = fmtstrflush(&f);
 	write(2, str, strlen(str));
 	exits(str);
-}
-
-char *negstr = "negotiating authentication method";
-
-char*
-rexcall(int *fd, char *host, char *service)
-{
-	char *na;
-	char dir[MaxStr];
-	char err[ERRMAX];
-	char msg[MaxStr];
-	int n;
-
-	na = netmkaddr(host, "tcp", "17010");
-	if((*fd = dial(na, 0, dir, 0)) < 0)
-		return "can't dial";
-
-	/* negotiate authentication mechanism */
-	strcpy(msg, "p9");
-	if(ealgs != nil){
-		strcat(msg, " ");
-		strcat(msg, ealgs);
-	}
-	writestr(*fd, msg, negstr, 0);
-	n = readstr(*fd, err, sizeof err);
-	if(n < 0)
-		return negstr;
-	if(*err){
-		werrstr(err);
-		return negstr;
-	}
-
-	/* authenticate */
-	*fd = p9auth(*fd);
-	if(*fd < 0)
-		return "can't authenticate";
-	return 0;
 }
 
 void
@@ -408,34 +350,38 @@ mksecret(char *t, uchar *f)
  *  plan9 authentication followed by rc4 encryption
  */
 static int
-p9auth(int fd)
+p9authssl(int fd)
 {
 	uchar key[16];
 	uchar digest[SHA1dlen];
 	char fromclientsecret[21];
 	char fromserversecret[21];
-	int i;
 	AuthInfo *ai;
 
 	ai = p9any(fd);
 	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 	if(ai == nil)
-		return -1;
+		fatal(1, "can't authenticate");
+
 	if(ealgs == nil)
 		return fd;
 
 	if(ai->nsecret < 8){
-		werrstr("secret too small");
+		fatal(1, "p9authssl: secret too small");
 		return -1;
 	}
 	memmove(key+4, ai->secret, 8);
 
 	/* exchange random numbers */
 	genrandom(key, 4);
-	if(write(fd, key, 4) != 4)
+	if(write(fd, key, 4) != 4){
+		fatal(1, "p9authssl: write random: %r");
 		return -1;
-	if(readn(fd, key+12, 4) != 4)
+	}
+	if(readn(fd, key+12, 4) != 4){
+		fatal(1, "p9authssl: read random: %r");
 		return -1;
+	}
 
 	/* scramble into two secrets */
 	sha1(key, sizeof(key), digest, nil);
@@ -443,10 +389,40 @@ p9auth(int fd)
 	mksecret(fromserversecret, digest+10);
 
 	/* set up encryption */
-	i = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
-	if(i < 0)
-		werrstr("can't establish ssl connection: %r");
-	return i;
+	fd = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
+	if(fd < 0)
+		fatal(1, "p9authssl: pushssl: %r");
+
+	return fd;
+}
+
+/*
+ * p9any authentication followed by tls-psk encryption
+ */
+static int
+p9authtls(int fd)
+{
+	AuthInfo *ai;
+	TLSconn *conn;
+
+	ai = p9any(fd);
+	if(ai == nil)
+		fatal(1, "can't authenticate");
+
+	conn = mallocz(sizeof(TLSconn), 1);
+	conn->pskID = "p9secret";
+	conn->psk = ai->secret;
+	conn->psklen = ai->nsecret;
+
+	fd = tlsClient(fd, conn);
+	if(fd < 0)
+		fatal(1, "tlsClient");
+
+	auth_freeAI(ai);
+	free(conn->sessionID);
+	free(conn);
+
+	return fd;
 }
 
 int
