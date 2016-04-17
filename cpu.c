@@ -27,6 +27,7 @@ static int	getkey(Authkey*, char*, char*, char*);
 static int	findkey(Authkey*, char*, char*, char*);
 
 static char	*host;
+static int	norcpu;
 static int	nokbd;
 static int	cflag;
 extern int	dbg;
@@ -50,7 +51,7 @@ exits(char *s)
 void
 usage(void)
 {
-	fprint(2, "usage: drawterm [-a authserver] [-c cpuserver] [-s secstore] [-u user] [-r root]\n");
+	fprint(2, "usage: drawterm [-BOp] [-h host | -c cpuserver] [-a authserver] [-s secstore] [-u user] [-r root]\n");
 	exits("usage");
 }
 
@@ -200,6 +201,7 @@ cpumain(int argc, char **argv)
 	case 'a':
 		authserver = EARGF(usage());
 		break;
+	case 'h':
 	case 'c':
 		host = EARGF(usage());
 		break;
@@ -226,17 +228,20 @@ cpumain(int argc, char **argv)
 			strcat(cmd, p);
 		}
 		break;
-	case 'k':
-		keyspec = EARGF(usage());
-		break;
 	case 's':
 		secstoreserver = EARGF(usage());
+		break;
+	case 'k':
+		keyspec = EARGF(usage());
 		break;
 	case 'u':
 		user = EARGF(usage());
 		break;
 	case 'B':
 		nokbd = 1;
+		break;
+	case 'O':
+		norcpu = 1;
 		break;
 	case 'p':
 		aanfilter = 1;
@@ -273,7 +278,8 @@ cpumain(int argc, char **argv)
 		}
 	}
 
-	rcpu(host);
+	if(!norcpu)
+		rcpu(host);
 
 	if((err = rexcall(&data, host, srvname)))
 		fatal(1, "%s: %s", err, host);
