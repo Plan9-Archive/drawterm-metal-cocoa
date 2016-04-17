@@ -478,6 +478,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 			pval->u.setval = vl;
 		}
 		break;
+
 	case UTF8String:
 	case NumericString:
 	case PrintableString:
@@ -491,13 +492,64 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 	case GeneralString:
 	case UniversalString:
 	case BMPString:
-		/* TODO: figure out when character set conversion is necessary */
 		err = octet_decode(&p, pend, length, isconstr, &va);
 		if(err == ASN_OK) {
-			pval->tag = VString;
-			pval->u.stringval = (char*)emalloc(va->len+1);
-			memmove(pval->u.stringval, va->data, va->len);
-			pval->u.stringval[va->len] = 0;
+			uchar *s;
+			char *d;
+			Rune r;
+			int n;
+
+			switch(kind){
+			case UniversalString:
+				n = va->len / 4;
+				d = emalloc(n*UTFmax+1);
+				pval->u.stringval = d;
+				s = va->data;
+				while(n > 0){
+					r = s[0]<<24 | s[1]<<16 | s[2]<<8 | s[3];
+					if(r == 0)
+						break;
+					n--;
+					s += 4;
+					d += runetochar(d, &r);
+				}
+				*d = 0;
+				break;
+			case BMPString:
+				n = va->len / 2;
+				d = emalloc(n*UTFmax+1);
+				pval->u.stringval = d;
+				s = va->data;
+				while(n > 0){
+					r = s[0]<<8 | s[1];
+					if(r == 0)
+						break;
+					n--;
+					s += 2;
+					d += runetochar(d, &r);
+				}
+				*d = 0;
+				break;
+			default:
+				n = va->len;
+				d = emalloc(n+1);
+				pval->u.stringval = d;
+				s = va->data;
+				while(n > 0){
+					if((*d = *s) == 0)
+						break;
+					n--;
+					s++;
+					d++;
+				}
+				*d = 0;
+				break;
+			}
+			if(n != 0){
+				err = ASN_EINVAL;
+				free(pval->u.stringval);
+			} else 
+				pval->tag = VString;
 			free(va);
 		}
 		break;
@@ -1908,16 +1960,19 @@ decode_rsapubkey(Bytes* a)
 	Elist *el;
 	RSApub* key;
 
-	key = rsapuballoc();
+	key = nil;
 	if(decode(a->data, a->len, &e) != ASN_OK)
 		goto errret;
 	if(!is_seq(&e, &el) || elistlen(el) != 2)
 		goto errret;
+
+	key = rsapuballoc();
 	if((key->n = asn1mpint(&el->hd)) == nil)
 		goto errret;
 	el = el->tl;
 	if((key->ek = asn1mpint(&el->hd)) == nil)
 		goto errret;
+
 	freevalfields(&e.val);
 	return key;
 errret:
@@ -1946,14 +2001,27 @@ decode_rsaprivkey(Bytes* a)
 	Elist *el;
 	RSApriv* key;
 
-	key = rsaprivalloc();
+	key = nil;
 	if(decode(a->data, a->len, &e) != ASN_OK)
 		goto errret;
-	if(!is_seq(&e, &el) || elistlen(el) != 9)
+	if(!is_seq(&e, &el))
 		goto errret;
+
 	if(!is_int(&el->hd, &version) || version != 0)
 		goto errret;
 
+	if(elistlen(el) != 9){
+		if(elistlen(el) == 3
+		&& parse_alg(&el->tl->hd) == ALG_rsaEncryption
+		&& is_octetstring(&el->tl->tl->hd, &a)){
+			key = decode_rsaprivkey(a);
+			if(key != nil)
+				goto done;
+		}
+		goto errret;
+	}
+
+	key = rsaprivalloc();
 	el = el->tl;
 	if((key->pub.n = asn1mpint(&el->hd)) == nil)
 		goto errret;
@@ -1986,6 +2054,7 @@ decode_rsaprivkey(Bytes* a)
 	if((key->c2 = asn1mpint(&el->hd)) == nil)
 		goto errret;
 
+done:
 	freevalfields(&e.val);
 	return key;
 errret:
@@ -2309,6 +2378,9 @@ X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 	Bytes *b;
 	CertX509 *c;
 	RSApub *pub;
+
+	if(name != nil)
+		memset(name, 0, nname);
 
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);

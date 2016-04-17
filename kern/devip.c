@@ -396,7 +396,7 @@ ipread(Chan *ch, void *a, long n, vlong offset)
 	uchar ip[IPaddrlen];
 	char buf[128], *p;
 
-/*print("ipread %s %lux\n", c2name(ch), (long)ch->qid.path);*/
+/*print("ipread %s %lux\n", chanpath(ch), (long)ch->qid.path);*/
 	p = a;
 	switch(TYPE(ch->qid)) {
 	default:

@@ -4,6 +4,7 @@ LIB=libsec.a
 
 OFILES=\
 	aes.$O\
+	aes_gcm.$O\
 	aes_xts.$O\
 	blowfish.$O\
 	ccpoly.$O\

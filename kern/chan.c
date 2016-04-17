@@ -48,7 +48,7 @@ dumpmount(void)		/* DEBUGGING */
 
 
 char*
-c2name(Chan *c)		/* DEBUGGING */
+chanpath(Chan *c)
 {
 	if(c == nil)
 		return "<nil chan>";
