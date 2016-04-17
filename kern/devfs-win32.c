@@ -155,7 +155,7 @@ lastelem(Chan *c)
 {
 	char *s, *t;
 
-	s = c2name(c);
+	s = chanpath(c);
 	if((t = strrchr(s, '/')) == nil)
 		return s;
 	if(t[1] == 0)

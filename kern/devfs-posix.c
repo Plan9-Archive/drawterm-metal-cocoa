@@ -65,7 +65,7 @@ fsattach(char *spec)
 	c->aux = uif;
 	c->dev = devno++;
 	c->qid.type = QTDIR;
-/*print("fsattach %s\n", c2name(c));*/
+/*print("fsattach %s\n", chanpath(c));*/
 
 	return c;
 }
@@ -169,7 +169,7 @@ fsopen(Chan *c, int mode)
 	int m, isdir;
 	Ufsinfo *uif;
 
-/*print("fsopen %s\n", c2name(c));*/
+/*print("fsopen %s\n", chanpath(c));*/
 	m = mode & (OTRUNC|3);
 	switch(m) {
 	case 0:
@@ -299,7 +299,7 @@ fsread(Chan *c, void *va, long n, vlong offset)
 	int fd, r;
 	Ufsinfo *uif;
 
-/*print("fsread %s\n", c2name(c));*/
+/*print("fsread %s\n", chanpath(c));*/
 	if(c->qid.type & QTDIR)
 		return fsdirread(c, va, n, offset);
 
@@ -503,7 +503,7 @@ fsdirread(Chan *c, uchar *va, int count, ulong offset)
 	struct stat stbuf;
 	Ufsinfo *uif;
 
-/*print("fsdirread %s\n", c2name(c));*/
+/*print("fsdirread %s\n", chanpath(c));*/
 	i = 0;
 	uif = c->aux;
 

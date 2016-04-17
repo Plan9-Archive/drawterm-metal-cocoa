@@ -13,7 +13,7 @@ Page*		auxpage(void);
 Block*		bl2mem(uchar*, Block*, int);
 int		blocklen(Block*);
 void		callwithureg(void(*)(Ureg*));
-char*		c2name(Chan*);
+char*		chanpath(Chan*);
 int		cangetc(void*);
 int		canlock(Lock*);
 int		canpage(Proc*);
