@@ -88,9 +88,9 @@ startaan(char *host, int fd)
 "	rfork n\n"
 "	fn server {\n"
 "		echo -n aanserver $netdir >/proc/$pid/args\n"
+"		rm -f /env/^'fn#server'\n"
 "		. <{n=`{read} && ! ~ $#n 0 && read -c $n} >[2=1]\n"
 "	}\n"
-"	rm -f /env/^'fn#aanserver'\n"
 "	exec tlssrv -A /bin/rc -c server\n"
 "	exit\n"
 "}\n";
