@@ -26,6 +26,7 @@ OFILES=\
 	dsasign.$O\
 	dsaverify.$O\
 	ecc.$O\
+	jacobian.$O\
 	egalloc.$O\
 	egdecrypt.$O\
 	egencrypt.$O\

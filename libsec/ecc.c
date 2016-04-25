@@ -3,20 +3,38 @@
 #include <libsec.h>
 #include <ctype.h>
 
+extern void jacobian_affine(mpint *p,
+	mpint *X, mpint *Y, mpint *Z);
+extern void jacobian_dbl(mpint *p, mpint *a,
+	mpint *X1, mpint *Y1, mpint *Z1,
+	mpint *X3, mpint *Y3, mpint *Z3);
+extern void jacobian_add(mpint *p, mpint *a,
+	mpint *X1, mpint *Y1, mpint *Z1,
+	mpint *X2, mpint *Y2, mpint *Z2,
+	mpint *X3, mpint *Y3, mpint *Z3);
+
 void
 ecassign(ECdomain *dom, ECpoint *a, ECpoint *b)
 {
-	USED(dom);
-	b->inf = a->inf;
+	if((b->inf = a->inf) != 0)
+		return;
 	mpassign(a->x, b->x);
 	mpassign(a->y, b->y);
+	if(b->z != nil){
+		mpassign(a->z != nil ? a->z : mpone, b->z);
+		return;
+	}
+	if(a->z != nil){
+		b->z = mpcopy(a->z);
+		jacobian_affine(dom->p, b->x, b->y, b->z);
+		mpfree(b->z);
+		b->z = nil;
+	}
 }
 
 void
 ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s)
 {
-	mpint *l, *k, *sx, *sy;
-
 	if(a->inf && b->inf){
 		s->inf = 1;
 		return;
@@ -29,66 +47,27 @@ ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s)
 		ecassign(dom, a, s);
 		return;
 	}
-	if(mpcmp(a->x, b->x) == 0 && (mpcmp(a->y, mpzero) == 0 || mpcmp(a->y, b->y) != 0)){
-		s->inf = 1;
+
+	if(s->z == nil){
+		s->z = mpcopy(mpone);
+		ecadd(dom, a, b, s);
+		if(!s->inf)
+			jacobian_affine(dom->p, s->x, s->y, s->z);
+		mpfree(s->z);
+		s->z = nil;
 		return;
 	}
-	l = mpnew(0);
-	k = mpnew(0);
-	sx = mpnew(0);
-	sy = mpnew(0);
-	if(mpcmp(a->x, b->x) == 0 && mpcmp(a->y, b->y) == 0){
-		mpadd(mpone, mptwo, k);
-		mpmul(a->x, a->x, l);
-		mpmul(l, k, l);
-		mpadd(l, dom->a, l);
-		mpleft(a->y, 1, k);
-		mpmod(k, dom->p, k);
-		mpinvert(k, dom->p, k);
-		mpmul(k, l, l);
-		mpmod(l, dom->p, l);
 
-		mpleft(a->x, 1, k);
-		mpmul(l, l, sx);
-		mpsub(sx, k, sx);
-		mpmod(sx, dom->p, sx);
-
-		mpsub(a->x, sx, sy);
-		mpmul(l, sy, sy);
-		mpsub(sy, a->y, sy);
-		mpmod(sy, dom->p, sy);
-		mpassign(sx, s->x);
-		mpassign(sy, s->y);
-		mpfree(sx);
-		mpfree(sy);
-		mpfree(l);
-		mpfree(k);
-		return;
-	}
-	mpsub(b->y, a->y, l);
-	mpmod(l, dom->p, l);
-	mpsub(b->x, a->x, k);
-	mpmod(k, dom->p, k);
-	mpinvert(k, dom->p, k);
-	mpmul(k, l, l);
-	mpmod(l, dom->p, l);
-	
-	mpmul(l, l, sx);
-	mpsub(sx, a->x, sx);
-	mpsub(sx, b->x, sx);
-	mpmod(sx, dom->p, sx);
-	
-	mpsub(a->x, sx, sy);
-	mpmul(sy, l, sy);
-	mpsub(sy, a->y, sy);
-	mpmod(sy, dom->p, sy);
-	
-	mpassign(sx, s->x);
-	mpassign(sy, s->y);
-	mpfree(sx);
-	mpfree(sy);
-	mpfree(l);
-	mpfree(k);
+	if(a == b)
+		jacobian_dbl(dom->p, dom->a,
+			a->x, a->y, a->z != nil ? a->z : mpone,
+			s->x, s->y, s->z);
+	else
+		jacobian_add(dom->p, dom->a,
+			a->x, a->y, a->z != nil ? a->z : mpone,
+			b->x, b->y, b->z != nil ? b->z : mpone,
+			s->x, s->y, s->z);
+	s->inf = mpcmp(s->z, mpzero) == 0;
 }
 
 void
@@ -104,8 +83,10 @@ ecmul(ECdomain *dom, ECpoint *a, mpint *k, ECpoint *s)
 	ns.inf = 1;
 	ns.x = mpnew(0);
 	ns.y = mpnew(0);
+	ns.z = mpnew(0);
 	na.x = mpnew(0);
 	na.y = mpnew(0);
+	na.z = mpnew(0);
 	ecassign(dom, a, &na);
 	l = mpcopy(k);
 	l->sign = 1;
@@ -115,15 +96,17 @@ ecmul(ECdomain *dom, ECpoint *a, mpint *k, ECpoint *s)
 		ecadd(dom, &na, &na, &na);
 		mpright(l, 1, l);
 	}
-	if(k->sign < 0){
+	if(k->sign < 0 && !ns.inf){
 		ns.y->sign = -1;
 		mpmod(ns.y, dom->p, ns.y);
 	}
 	ecassign(dom, &ns, s);
 	mpfree(ns.x);
 	mpfree(ns.y);
+	mpfree(ns.z);
 	mpfree(na.x);
 	mpfree(na.y);
+	mpfree(na.z);
 	mpfree(l);
 }
 
@@ -135,16 +118,15 @@ ecverify(ECdomain *dom, ECpoint *a)
 
 	if(a->inf)
 		return 1;
-	
+
+	assert(a->z == nil);	/* need affine coordinates */
 	p = mpnew(0);
 	q = mpnew(0);
-	mpmul(a->y, a->y, p);
-	mpmod(p, dom->p, p);
-	mpmul(a->x, a->x, q);
-	mpadd(q, dom->a, q);
-	mpmul(a->x, q, q);
-	mpadd(q, dom->b, q);
-	mpmod(q, dom->p, q);
+	mpmodmul(a->y, a->y, dom->p, p);
+	mpmodmul(a->x, a->x, dom->p, q);
+	mpmodadd(q, dom->a, dom->p, q);
+	mpmodmul(q, a->x, dom->p, q);
+	mpmodadd(q, dom->b, dom->p, q);
 	r = mpcmp(p, q);
 	mpfree(p);
 	mpfree(q);
@@ -163,10 +145,12 @@ ecpubverify(ECdomain *dom, ECpub *a)
 		return 0;
 	p.x = mpnew(0);
 	p.y = mpnew(0);
+	p.z = mpnew(0);
 	ecmul(dom, a, dom->n, &p);
 	r = p.inf;
 	mpfree(p.x);
 	mpfree(p.y);
+	mpfree(p.z);
 	return r;
 }
 
@@ -273,8 +257,8 @@ mpsqrt(mpint *n, mpint *p, mpint *r)
 	zq = mpnew(0);
 	for(;;){
 		for(;;){
-			mprand(mpsignif(p), genrandom, a);
-			if(mpcmp(a, mpzero) > 0 && mpcmp(a, p) < 0)
+			mpnrand(p, genrandom, a);
+			if(mpcmp(a, mpzero) > 0)
 				break;
 		}
 		mpmul(a, a, t);
@@ -346,11 +330,12 @@ strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *ret)
 		ret->x = mpnew(0);
 		ret->y = mpnew(0);
 	}
+	ret->inf = 0;
 	o = 0;
 	switch(octet(&s)){
 	case 0:
 		ret->inf = 1;
-		return ret;
+		break;
 	case 3:
 		o = 1;
 	case 2:
@@ -371,7 +356,7 @@ strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *ret)
 		mpfree(r);
 		if(!ecverify(dom, ret))
 			goto err;
-		return ret;
+		break;
 	case 4:
 		if(halfpt(dom, s, &s, ret->x) == nil)
 			goto err;
@@ -379,8 +364,12 @@ strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *ret)
 			goto err;
 		if(!ecverify(dom, ret))
 			goto err;
-		return ret;
+		break;
 	}
+	if(ret->z != nil && !ret->inf)
+		mpassign(mpone, ret->z);
+	return ret;
+
 err:
 	if(rptr)
 		*rptr = s;
@@ -404,11 +393,11 @@ ecgen(ECdomain *dom, ECpriv *p)
 		p->d = mpnew(0);
 	}
 	for(;;){
-		mprand(mpsignif(dom->n), genrandom, p->d);
-		if(mpcmp(p->d, mpzero) > 0 && mpcmp(p->d, dom->n) < 0)
+		mpnrand(dom->n, genrandom, p->d);
+		if(mpcmp(p->d, mpzero) > 0)
 			break;
 	}
-	ecmul(dom, &dom->G, p->d, (ECpoint*)p);
+	ecmul(dom, &dom->G, p->d, &p->a);
 	return p;
 }
 
@@ -420,6 +409,7 @@ ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int len, mpint *r, mpint *s)
 
 	tmp.a.x = mpnew(0);
 	tmp.a.y = mpnew(0);
+	tmp.a.z = nil;
 	tmp.d = mpnew(0);
 	E = betomp(dig, len, nil);
 	t = mpnew(0);
@@ -433,8 +423,7 @@ ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int len, mpint *r, mpint *s)
 		mpmul(r, priv->d, s);
 		mpadd(E, s, s);
 		mpinvert(tmp.d, dom->n, t);
-		mpmul(s, t, s);
-		mpmod(s, dom->n, s);
+		mpmodmul(s, t, dom->n, s);
 		if(mpcmp(s, mpzero) != 0)
 			break;
 	}
@@ -462,18 +451,19 @@ ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int len, mpint *r, mpint *s)
 	u2 = mpnew(0);
 	R.x = mpnew(0);
 	R.y = mpnew(0);
+	R.z = mpnew(0);
 	S.x = mpnew(0);
 	S.y = mpnew(0);
+	S.z = mpnew(0);
 	mpinvert(s, dom->n, t);
-	mpmul(E, t, u1);
-	mpmod(u1, dom->n, u1);
-	mpmul(r, t, u2);
-	mpmod(u2, dom->n, u2);
+	mpmodmul(E, t, dom->n, u1);
+	mpmodmul(r, t, dom->n, u2);
 	ecmul(dom, &dom->G, u1, &R);
 	ecmul(dom, pub, u2, &S);
 	ecadd(dom, &R, &S, &R);
 	ret = 0;
 	if(!R.inf){
+		jacobian_affine(dom->p, R.x, R.y, R.z);
 		mpmod(R.x, dom->n, t);
 		ret = mpcmp(r, t) == 0;
 	}
@@ -483,8 +473,10 @@ ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int len, mpint *r, mpint *s)
 	mpfree(u2);
 	mpfree(R.x);
 	mpfree(R.y);
+	mpfree(R.z);
 	mpfree(S.x);
 	mpfree(S.y);
+	mpfree(S.z);
 	return ret;
 }
 
