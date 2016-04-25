@@ -485,6 +485,7 @@ typedef struct ECpoint{
 	int inf;
 	mpint *x;
 	mpint *y;
+	mpint *z;
 } ECpoint;
 
 typedef ECpoint ECpub;
