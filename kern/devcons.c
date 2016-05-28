@@ -8,16 +8,17 @@
 
 #include	<authsrv.h>
 
+#undef write
+#undef read
+
 void	(*consdebug)(void) = 0;
 void	(*screenputs)(char*, int) = 0;
 
 Queue*	kbdq;			/* unprocessed console input */
 Queue*	lineq;			/* processed console input */
-Queue*	serialoq;		/* serial console output */
 Queue*	kprintoq;		/* console output, for /dev/kprint */
 long	kprintinuse;		/* test and set whether /dev/kprint is open */
 Lock	kprintlock;
-int	iprintscreenputs = 0;
 
 int	panicking;
 
@@ -100,25 +101,9 @@ printinit(void)
 	qnoblock(kbdq, 1);
 }
 
-int
-consactive(void)
-{
-	if(serialoq)
-		return qlen(serialoq) > 0;
-	return 0;
-}
-
 void
 prflush(void)
 {
-/*
-	ulong now;
-
-	now = m->ticks;
-	while(consactive())
-		if(m->ticks - now >= HZ)
-			break;
-*/
 }
 
 /*
@@ -146,6 +131,8 @@ putstrn0(char *str, int n, int usewrite)
 			qiwrite(kprintoq, str, n);
 	}else if(screenputs != 0)
 		screenputs(str, n);
+	else
+		write(1, str, n);
 }
 
 void
@@ -154,17 +141,12 @@ putstrn(char *str, int n)
 	putstrn0(str, n, 0);
 }
 
-int noprint;
-
 int
 print(char *fmt, ...)
 {
 	int n;
 	va_list arg;
 	char buf[PRINTSIZE];
-
-	if(noprint)
-		return -1;
 
 	va_start(arg, fmt);
 	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
@@ -193,7 +175,8 @@ panic(char *fmt, ...)
 	n = vseprint(buf+strlen(buf), buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
 	buf[n] = '\n';
-	uartputs(buf, n+1);
+	if(screenputs != 0)
+		write(2, buf, n+1);
 	if(consdebug)
 		(*consdebug)();
 	spllo();
@@ -259,35 +242,6 @@ echoscreen(char *buf, int n)
 	}
 	if(p != ebuf)
 		screenputs(ebuf, p - ebuf);
-}
-
-static void
-echoserialoq(char *buf, int n)
-{
-	char *e, *p;
-	char ebuf[128];
-	int x;
-
-	p = ebuf;
-	e = ebuf + sizeof(ebuf) - 4;
-	while(n-- > 0){
-		if(p >= e){
-			qiwrite(serialoq, ebuf, p - ebuf);
-			p = ebuf;
-		}
-		x = *buf++;
-		if(x == '\n'){
-			*p++ = '\r';
-			*p++ = '\n';
-		} else if(x == 0x15){
-			*p++ = '^';
-			*p++ = 'U';
-			*p++ = '\n';
-		} else
-			*p++ = x;
-	}
-	if(p != ebuf)
-		qiwrite(serialoq, ebuf, p - ebuf);
 }
 
 static void
@@ -368,34 +322,10 @@ echo(char *buf, int n)
 		return;
 	if(screenputs != 0)
 		echoscreen(buf, n);
-	if(serialoq)
-		echoserialoq(buf, n);
+	else
+		write(1, buf, n);
 }
 
-/*
- *  Called by a uart interrupt for console input.
- *
- *  turn '\r' into '\n' before putting it into the queue.
- */
-int
-kbdcr2nl(Queue *q, int ch)
-{
-	char *next;
-
-	USED(q);
-	ilock(&kbd.lockputc);		/* just a mutex */
-	if(ch == '\r' && !kbd.raw)
-		ch = '\n';
-	next = kbd.iw+1;
-	if(next >= kbd.ie)
-		next = kbd.istage;
-	if(next != kbd.ir){
-		*kbd.iw = ch;
-		kbd.iw = next;
-	}
-	iunlock(&kbd.lockputc);
-	return 0;
-}
 static
 void
 _kbdputc(int c)
@@ -409,8 +339,6 @@ _kbdputc(int c)
 	if(n == 0)
 		return;
 	echo(buf, n);
-//	kbd.c = r;
-//	qproduce(kbdq, buf, n);
 }
 
 /* _kbdputc, but with compose translation */
@@ -545,11 +473,6 @@ consinit(void)
 {
 	todinit();
 	randominit();
-	/*
-	 * at 115200 baud, the 1024 char buffer takes 56 ms to process,
-	 * processing it every 22 ms should be fine
-	 */
-/*	addclock0link(kbdputcclock, 22); */
 }
 
 static Chan*
@@ -645,6 +568,23 @@ consclose(Chan *c)
 	}
 }
 
+static int
+readcons(Queue *q, char *buf, int n)
+{
+	while(screenputs==0 && !qcanread(q)){
+		int c;
+
+		if(!isatty(0))
+			return read(0, buf, n);
+		if((c = _getch()) == -1)
+			break;
+		if(c == '\r')
+			c = '\n';
+		kbdputc(q, c);
+	}
+	return qread(q, buf, n);
+}
+
 static long
 consread(Chan *c, void *buf, long n, vlong off)
 {
@@ -672,7 +612,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 			else {
 				/* read as much as possible */
 				do {
-					i = qread(kbdq, cbuf, n);
+					i = readcons(kbdq, cbuf, n);
 					cbuf += i;
 					n -= i;
 				} while (n>0 && qcanread(kbdq));
@@ -680,7 +620,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 			}
 		} else {
 			while(!qcanread(lineq)) {
-				qread(kbdq, &kbd.line[kbd.x], 1);
+				readcons(kbdq, &kbd.line[kbd.x], 1);
 				ch = kbd.line[kbd.x];
 				eol = 0;
 				switch(ch){
@@ -1163,10 +1103,9 @@ iprint(char *fmt, ...)
 	va_start(arg, fmt);
 	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
-	if(screenputs != 0 && iprintscreenputs)
-		screenputs(buf, n);
-#undef write
 	write(2, buf, n);
+	if(screenputs != 0)
+		screenputs(buf, n);
 	splx(s);
 
 	return n;

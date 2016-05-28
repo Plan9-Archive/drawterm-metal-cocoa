@@ -40,7 +40,6 @@ main(int argc, char **argv)
 	osinit();
 	procinit0();
 	printinit();
-	screeninit();
 
 	chandevreset();
 	chandevinit();
@@ -48,10 +47,6 @@ main(int argc, char **argv)
 
 	if(bind("#c", "/dev", MBEFORE) < 0)
 		panic("bind #c: %r");
-	if(bind("#m", "/dev", MBEFORE) < 0)
-		panic("bind #m: %r");
-	if(bind("#i", "/dev", MBEFORE) < 0)
-		panic("bind #i: %r");
 	if(bind("#I", "/net", MBEFORE) < 0)
 		panic("bind #I: %r");
 	if(bind("#U", "/root", MREPL) < 0)

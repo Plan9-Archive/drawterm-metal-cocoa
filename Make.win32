@@ -17,7 +17,6 @@ FS=fs-win32
 IP=win32
 OS=win32
 GUI=win32
-LDFLAGS=-mwindows
 LDADD=-lkernel32 -ladvapi32 -lgdi32 -lmpr -lwsock32 -lmsvcrt -lmingw32 -lwinmm
 TARG=drawterm.exe
 XOFILES=glenda-t.$O
