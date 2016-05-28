@@ -26,6 +26,7 @@ static char	*host;
 static int	aanfilter;
 static int	norcpu;
 static int	nokbd;
+static int	nogfx;
 
 static char	*ealgs = "rc4_256 sha1";
 
@@ -39,14 +40,13 @@ char *secstore;
 void
 exits(char *s)
 {
-	print("\ngoodbye\n");
-	for(;;) osyield();
+	exit(1);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: drawterm [-BOp] [-h host | -c cpuserver] [-a authserver] [-s secstore] [-u user] [-r root]\n");
+	fprint(2, "usage: drawterm [-GBOp] [-h host | -c cpuserver] [-a authserver] [-s secstore] [-u user] [-r root]\n");
 	exits("usage");
 }
 
@@ -242,6 +242,9 @@ cpumain(int argc, char **argv)
 	case 'u':
 		user = EARGF(usage());
 		break;
+	case 'G':
+		nogfx = 1;
+		/* wet floor */
 	case 'B':
 		nokbd = 1;
 		break;
@@ -257,6 +260,14 @@ cpumain(int argc, char **argv)
 
 	if(argc != 0)
 		usage();
+
+	if(!nogfx) {
+		screeninit();
+		if(bind("#m", "/dev", MBEFORE) < 0)
+			panic("bind #m: %r");
+		if(bind("#i", "/dev", MBEFORE) < 0)
+			panic("bind #i: %r");
+	}
 
 	if(bind("/root", "/", MAFTER) < 0)
 		panic("bind /root: %r");
@@ -428,10 +439,7 @@ p9authtls(int fd)
 int
 authdial(char *net, char *dom)
 {
-	int fd;
-	fd = dial(netmkaddr(authserver, "tcp", "567"), 0, 0, 0);
-	//print("authdial %d\n", fd);
-	return fd;
+	return dial(netmkaddr(authserver, "tcp", "567"), 0, 0, 0);
 }
 
 static int

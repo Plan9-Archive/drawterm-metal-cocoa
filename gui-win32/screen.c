@@ -52,6 +52,7 @@ screeninit(void)
 	int fmt;
 	int dx, dy;
 
+	FreeConsole();
 	memimageinit();
 	if(depth == 0)
 		depth = GetDeviceCaps(GetDC(NULL), BITSPIXEL);
@@ -647,10 +648,4 @@ clipwrite(char *buf)
 
 	CloseClipboard();
 	return n;
-}
-
-int
-atlocalconsole(void)
-{
-	return 1;
 }

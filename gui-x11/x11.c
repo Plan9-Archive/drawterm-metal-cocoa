@@ -1002,40 +1002,6 @@ setcolor(ulong i, ulong r, ulong g, ulong b)
 	/* no-op */
 }
 
-int
-atlocalconsole(void)
-{
-	char *p, *q;
-	char buf[128];
-
-	p = getenv("DRAWTERM_ATLOCALCONSOLE");
-	if(p && atoi(p) == 1)
-		return 1;
-
-	p = getenv("DISPLAY");
-	if(p == nil)
-		return 0;
-
-	/* extract host part */
-	q = strchr(p, ':');
-	if(q == nil)
-		return 0;
-	*q = 0;
-
-	if(strcmp(p, "") == 0)
-		return 1;
-
-	/* try to match against system name (i.e. for ssh) */
-	if(gethostname(buf, sizeof buf) == 0){
-		if(strcmp(p, buf) == 0)
-			return 1;
-		if(strncmp(p, buf, strlen(p)) == 0 && buf[strlen(p)]=='.')
-			return 1;
-	}
-
-	return 0;
-}
-
 /*
  * Cut and paste.  Just couldn't stand to make this simple...
  */
