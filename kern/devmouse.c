@@ -47,12 +47,12 @@ static void
 mouseinit(void)
 {
 	cursor = arrow;
-	setcursor();
 }
 
 static Chan*
 mouseattach(char *spec)
 {
+	setcursor();
 	return devattach('m', spec);
 }
 
