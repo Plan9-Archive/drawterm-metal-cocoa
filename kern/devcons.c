@@ -11,6 +11,16 @@
 #undef write
 #undef read
 
+#ifndef WINDOWS
+/* get raw character from console without echo */
+static int
+_getch(void)
+{
+	/* TODO */
+	return -1;
+}
+#endif
+
 void	(*consdebug)(void) = 0;
 void	(*screenputs)(char*, int) = 0;
 
@@ -568,16 +578,15 @@ consclose(Chan *c)
 	}
 }
 
+
 static int
 readcons(Queue *q, char *buf, int n)
 {
 	while(screenputs==0 && !qcanread(q)){
 		int c;
 
-		if(!isatty(0))
-			return read(0, buf, n);
 		if((c = _getch()) == -1)
-			break;
+			return read(0, buf, n);
 		if(c == '\r')
 			c = '\n';
 		kbdputc(q, c);
