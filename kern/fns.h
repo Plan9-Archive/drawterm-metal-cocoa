@@ -381,4 +381,5 @@ void	procwakeup(Proc*);
 void	osinit(void);
 void	screeninit(void);
 extern	void	terminit(void);
+extern	void	settierm(int raw);
 

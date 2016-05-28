@@ -548,6 +548,8 @@ consclose(Chan *c)
 			qlock(&kbd.lk);
 			if(--kbd.ctl == 0)
 				kbd.raw = 0;
+			if(screenputs == 0)
+				setterm(kbd.raw);
 			qunlock(&kbd.lk);
 		}
 		break;
@@ -567,7 +569,6 @@ consclose(Chan *c)
 		break;
 	}
 }
-
 
 static int
 readcons(Queue *q, char *buf, int n)
@@ -776,11 +777,15 @@ conswrite(Chan *c, void *va, long n, vlong off)
 					kbd.x = 0;
 				}
 				kbd.raw = 1;
+				if(screenputs == 0)
+					setterm(1);
 				qunlock(&kbd.lk);
 			} else if(strncmp(a, "rawoff", 6) == 0){
 				qlock(&kbd.lk);
 				kbd.raw = 0;
 				kbd.x = 0;
+				if(screenputs == 0)
+					setterm(0);
 				qunlock(&kbd.lk);
 			} else if(strncmp(a, "ctlpon", 6) == 0){
 				kbd.ctlpoff = 0;
