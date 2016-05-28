@@ -10,6 +10,8 @@
 #include <cursor.h>
 #include "screen.h"
 
+#include <termios.h>
+
 #define argv0 "drawterm"
 
 typedef struct Cursor Cursor;
@@ -1205,3 +1207,16 @@ clipwrite(char *buf)
 	return 0;
 }
 
+void
+setterm(int raw)
+{
+	struct termios t;
+
+	if(tcgetattr(0, &t) < 0)
+		return;
+	if(raw)
+		t.c_lflag &= ~(ECHO|ICANON);
+	else
+		t.c_lflag |= (ECHO|ICANON);
+	tcsetattr(0, TCSAFLUSH, &t);
+}
