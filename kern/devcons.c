@@ -99,6 +99,7 @@ printinit(void)
 	if(kbdq == nil)
 		panic("kbdinit");
 	qnoblock(kbdq, 1);
+	setterm(0);
 }
 
 void
