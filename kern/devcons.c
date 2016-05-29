@@ -626,14 +626,13 @@ consread(Chan *c, void *buf, long n, vlong off)
 					case 0x15:
 						kbd.x = 0;
 						break;
+					case '\n':
+						kbd.x++;
 					case 0x04:
 						eol = 1;
 						break;
-					case '\n':
-						eol = 1;
 					default:
-						kbd.line[kbd.x++] = ch;
-						break;
+						kbd.x++;
 					}
 				}
 				if(kbd.x == sizeof(kbd.line) || eol){
