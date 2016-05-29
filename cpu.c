@@ -262,11 +262,10 @@ cpumain(int argc, char **argv)
 		usage();
 
 	if(!nogfx) {
-		screeninit();
-		if(bind("#m", "/dev", MBEFORE) < 0)
-			panic("bind #m: %r");
 		if(bind("#i", "/dev", MBEFORE) < 0)
 			panic("bind #i: %r");
+		if(bind("#m", "/dev", MBEFORE) < 0)
+			panic("bind #m: %r");
 	}
 
 	if(bind("/root", "/", MAFTER) < 0)

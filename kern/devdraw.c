@@ -1000,6 +1000,8 @@ resetscreenimage(void)
 static Chan*
 drawattach(char *spec)
 {
+	if(gscreen == nil)
+		screeninit();
 	dlock();
 	if(!initscreenimage()){
 		dunlock();
