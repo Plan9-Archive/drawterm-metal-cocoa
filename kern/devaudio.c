@@ -237,10 +237,8 @@ audiowrite(Chan *c, void *vp, long n, vlong off)
 	long m;
 	int i, v, left, right, in, out;
 	Cmdbuf *cb;
-	char *a;
 
 	USED(off);
-	a = vp;
 	switch((ulong)c->qid.path) {
 	default:
 		error(Eperm);
@@ -264,6 +262,7 @@ audiowrite(Chan *c, void *vp, long n, vlong off)
 			 */
 			if(cb->f[i][0] >= '0' && cb->f[i][0] <= '9') {
 				m = strtoul(cb->f[i], 0, 10);
+				USED(in);
 				if(!out)
 					goto cont0;
 				if(left && right)

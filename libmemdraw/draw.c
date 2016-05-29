@@ -94,7 +94,6 @@ static ulong rgbatoimg(Memimage*, ulong);
 void
 memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point p0, Memimage *mask, Point p1, int op)
 {
-	static int n = 0;
 	Memdrawparam par;
 
 	if(mask == nil)
