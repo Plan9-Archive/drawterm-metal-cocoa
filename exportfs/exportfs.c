@@ -80,7 +80,7 @@ exportfs(int fd)
 		DEBUG(DFD, "read9p...");
 		n = read9pmsg(netfd, r->buf, messagesize);
 		if(n <= 0)
-			fatal("eof: n=%d %r", n);
+			fatal(nil);
 
 		if(convM2S(r->buf, n, &r->work) == 0){
 			iprint("convM2S %d byte message\n", n);
@@ -489,7 +489,7 @@ fatal(char *s, ...)
 	char buf[ERRMAX];
 	va_list arg;
 
-	if (s) {
+	if (s != nil) {
 		va_start(arg, s);
 		vsnprint(buf, ERRMAX, s, arg);
 		va_end(arg);
@@ -499,10 +499,10 @@ fatal(char *s, ...)
 //	for(m = Proclist; m; m = m->next)
 //		postnote(PNPROC, m->pid, "kill");
 
-	DEBUG(DFD, "%s\n", buf);
-	if (s) 
-		sysfatal(buf);
-	else
-		sysfatal("");
+	if (s != nil) { 
+		DEBUG(DFD, "%s\n", buf);
+		sysfatal("%s", buf);
+	} else
+		exits(nil);
 }
 

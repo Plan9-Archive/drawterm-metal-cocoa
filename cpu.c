@@ -148,7 +148,6 @@ rcpu(char *host)
 
 	/* Begin serving the namespace */
 	exportfs(fd);
-	sysfatal("starting exportfs: %r");
 }
 
 void
@@ -202,7 +201,6 @@ ncpu(char *host)
 
 	/* Begin serving the gnot namespace */
 	exportfs(fd);
-	sysfatal("starting exportfs: %r");
 }
 
 void
