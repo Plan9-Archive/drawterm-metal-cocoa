@@ -124,7 +124,8 @@ rcpu(char *host)
 "	</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
 "	bind -q /mnt/term/dev/cons /dev/cons\n"
 "}\n"
-"</dev/cons >/dev/cons >[2=1] service=cpu exec rc -li\n";
+"</dev/cons >/dev/cons >[2=1] service=cpu rc -li\n"
+"echo -n hangup >/proc/$pid/notepg\n";
 	int fd;
 
 	if((fd = dial(netmkaddr(host, "tcp", "17019"), nil, nil, nil)) < 0)
