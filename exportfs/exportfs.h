@@ -145,4 +145,4 @@ int		readmessage(int, char*, int);
 
 #define notify(x)
 #define noted(x)
-#define exits(x)
+
