@@ -11,10 +11,7 @@ _sysfatalimpl(char *fmt, va_list arg)
 		fprint(2, "%s: %s\n", argv0, buf);
 	else
 		fprint(2, "%s\n", buf);
-#undef write
-write(2, buf, strlen(buf));
-write(2, "\n", 1);
-	panic("sysfatal");
+	exits("sysfatal");
 }
 
 void (*_sysfatal)(char *fmt, va_list arg) = _sysfatalimpl;

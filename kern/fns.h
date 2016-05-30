@@ -215,7 +215,6 @@ void		pio(Segment *, ulong, ulong, Page **);
 void		portclock(Ureg*);
 int		postnote(Proc*, int, char*, int);
 int		pprint(char*, ...);
-void		prflush(void);
 ulong		procalarm(ulong);
 int		proccounter(char *name);
 void		procctl(Proc*);

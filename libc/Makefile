@@ -3,6 +3,7 @@ include ../Make.config
 LIB=libc.a
 
 OFILES=\
+	atexit.$O\
 	charstod.$O\
 	cleanname.$O\
 	convD2M.$O\

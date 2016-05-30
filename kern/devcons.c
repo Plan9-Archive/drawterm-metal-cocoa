@@ -11,7 +11,6 @@
 #undef write
 #undef read
 
-void	(*consdebug)(void) = 0;
 void	(*screenputs)(char*, int) = 0;
 
 Queue*	kbdq;			/* unprocessed console input */
@@ -38,7 +37,6 @@ static struct
 	char	line[1024];	/* current input line */
 
 	int	count;
-	int	ctlpoff;
 
 	/* a place to save up characters at interrupt time before dumping them in the queue */
 	Lock	lockputc;
@@ -52,7 +50,6 @@ static struct
 	0,
 	0,
 	{ 0 },
-	0,
 	0,
 	{ 0 },
 	{ 0 },
@@ -100,11 +97,6 @@ printinit(void)
 		panic("kbdinit");
 	qnoblock(kbdq, 1);
 	setterm(0);
-}
-
-void
-prflush(void)
-{
 }
 
 /*
@@ -166,25 +158,19 @@ panic(char *fmt, ...)
 
 	kprintoq = nil;	/* don't try to write to /dev/kprint */
 
-	if(panicking)
-		for(;;);
-	panicking = 1;
-
+	if(panicking++)
+		for(;;) osyield();
 	splhi();
 	strcpy(buf, "panic: ");
 	va_start(arg, fmt);
 	n = vseprint(buf+strlen(buf), buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
 	buf[n] = '\n';
-	if(screenputs != 0)
-		write(2, buf, n+1);
-	if(consdebug)
-		(*consdebug)();
 	spllo();
-	prflush();
 	putstrn(buf, n+1);
-	dumpstack();
-
+	while(screenputs != 0)
+		osyield();
+	setterm(0);
 	exit(1);
 }
 
@@ -248,76 +234,6 @@ echoscreen(char *buf, int n)
 static void
 echo(char *buf, int n)
 {
-	static int ctrlt;
-	int x;
-	char *e, *p;
-
-	e = buf+n;
-	for(p = buf; p < e; p++){
-		switch(*p){
-		case 0x10:	/* ^P */
-			if(cpuserver && !kbd.ctlpoff){
-				active.exiting = 1;
-				return;
-			}
-			break;
-		case 0x14:	/* ^T */
-			ctrlt++;
-			if(ctrlt > 2)
-				ctrlt = 2;
-			continue;
-		}
-
-		if(ctrlt != 2)
-			continue;
-
-		/* ^T escapes */
-		ctrlt = 0;
-		switch(*p){
-		case 'S':
-			x = splhi();
-			dumpstack();
-			procdump();
-			splx(x);
-			return;
-		case 's':
-			dumpstack();
-			return;
-		case 'x':
-			xsummary();
-			ixsummary();
-			mallocsummary();
-			pagersummary();
-			return;
-		case 'd':
-			if(consdebug == 0)
-				consdebug = rdb;
-			else
-				consdebug = 0;
-			print("consdebug now 0x%p\n", consdebug);
-			return;
-		case 'D':
-			if(consdebug == 0)
-				consdebug = rdb;
-			consdebug();
-			return;
-		case 'p':
-			x = spllo();
-			procdump();
-			splx(x);
-			return;
-		case 'q':
-			scheddump();
-			return;
-		case 'k':
-			killbig();
-			return;
-		case 'r':
-			exit(0);
-			return;
-		}
-	}
-
 	qproduce(kbdq, buf, n);
 	if(kbd.raw)
 		return;
@@ -789,10 +705,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 				if(screenputs == 0)
 					setterm(0);
 				qunlock(&kbd.lk);
-			} else if(strncmp(a, "ctlpon", 6) == 0){
-				kbd.ctlpoff = 0;
-			} else if(strncmp(a, "ctlpoff", 7) == 0){
-				kbd.ctlpoff = 1;
 			}
 			if((a = strchr(a, ' ')))
 				a++;
