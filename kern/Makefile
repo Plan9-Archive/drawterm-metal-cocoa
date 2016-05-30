@@ -33,7 +33,6 @@ OFILES=\
 	smalloc.$O\
 	stub.$O\
 	sysfile.$O\
-	sysproc.$O\
 	qio.$O\
 	qlock.$O\
 	term.$O\

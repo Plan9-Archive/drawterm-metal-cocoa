@@ -13,7 +13,6 @@
 
 #define MaxStr 128
 
-static void	fatal(int, char*, ...);
 static void	usage(void);
 static void	writestr(int, char*, char*, int);
 static int	readstr(int, char*, int);
@@ -37,10 +36,10 @@ static int	p9authtls(int);
 char *authserver;
 char *secstore;
 
-void
-exits(char *s)
+static void
+ending(void)
 {
-	exit(1);
+	panic("ending");
 }
 
 void
@@ -98,7 +97,7 @@ startaan(char *host, int fd)
 	int n;
 
 	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
-		fatal(1, "sending aan script");
+		sysfatal("sending aan script: %r");
 	n = read(fd, buf, sizeof(buf)-1);
 	close(fd);
 
@@ -139,17 +138,17 @@ rcpu(char *host)
 	if(aanfilter){
 		fd = startaan(host, fd);
 		if(fd < 0)
-			fatal(1, "startaan");
+			sysfatal("startaan: %r");
 		fd = p9authtls(fd);
 	}
 	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 
 	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
-		fatal(1, "sending script");
+		sysfatal("sending script: %r");
 
 	/* Begin serving the namespace */
 	exportfs(fd);
-	fatal(1, "starting exportfs");
+	sysfatal("starting exportfs: %r");
 }
 
 void
@@ -169,9 +168,9 @@ ncpu(char *host)
 	}
 	writestr(fd, buf, "negotiating authentication method", 0);
 	if(readstr(fd, buf, sizeof buf) < 0)
-		fatal(1, "can't negotiate authentication method: %r");
+		sysfatal("can't negotiate authentication method: %r");
 	if(*buf)
-		fatal(1, "%s", buf);
+		sysfatal("%s", buf);
 
 	/* authenticate and encrypt the channel */
 	fd = p9authssl(fd);
@@ -187,14 +186,14 @@ ncpu(char *host)
 	 *  of /mnt/term
 	 */
 	if(readstr(fd, buf, sizeof(buf)) < 0)
-		fatal(1, "waiting for FS: %r");
+		sysfatal("waiting for FS: %r");
 	if(strncmp("FS", buf, 2) != 0) {
 		print("remote cpu: %s", buf);
 		exits(buf);
 	}
 
 	if(readstr(fd, buf, sizeof(buf)) < 0)
-		fatal(1, "waiting for remote export: %r");
+		sysfatal("waiting for remote export: %r");
 	if(strcmp(buf, "/") != 0){
 		print("remote cpu: %s", buf);
 		exits(buf);
@@ -203,7 +202,7 @@ ncpu(char *host)
 
 	/* Begin serving the gnot namespace */
 	exportfs(fd);
-	fatal(1, "starting exportfs");
+	sysfatal("starting exportfs: %r");
 }
 
 void
@@ -267,19 +266,23 @@ cpumain(int argc, char **argv)
 			panic("bind #i: %r");
 		if(bind("#m", "/dev", MBEFORE) < 0)
 			panic("bind #m: %r");
+		atexit(ending);
 	}
 
 	if(bind("/root", "/", MAFTER) < 0)
 		panic("bind /root: %r");
 
 	if(host == nil)
-		host = readcons("cpu", "cpu", 0);
-
-	if(user == nil)
-		user = readcons("user", "glenda", 0);
+		if((host = readcons("cpu", "cpu", 0)) == nil)
+			sysfatal("user terminated input");
 
 	if(authserver == nil)
-		authserver = readcons("auth", host, 0);
+		if((authserver = readcons("auth", host, 0)) == nil)
+			sysfatal("user terminated input");
+
+	if(user == nil)
+		if((user = readcons("user", "glenda", 0)) == nil)
+			sysfatal("user terminated input");
 
 	if(mountfactotum() < 0){
 		if(secstore == nil)
@@ -299,27 +302,7 @@ cpumain(int argc, char **argv)
 
 	ncpu(host);
 
-	fatal(1, "can't dial %s: %r", host);
-}
-
-void
-fatal(int syserr, char *fmt, ...)
-{
-	Fmt f;
-	char *str;
-	va_list arg;
-
-	fmtstrinit(&f);
-	fmtprint(&f, "cpu: ");
-	va_start(arg, fmt);
-	fmtvprint(&f, fmt, arg);
-	va_end(arg);
-	if(syserr)
-		fmtprint(&f, ": %r");
-	fmtprint(&f, "\n");
-	str = fmtstrflush(&f);
-	write(2, str, strlen(str));
-	exits(str);
+	sysfatal("can't dial %s: %r", host);
 }
 
 void
@@ -330,7 +313,7 @@ writestr(int fd, char *str, char *thing, int ignore)
 	l = strlen(str);
 	n = write(fd, str, l+1);
 	if(!ignore && n < 0)
-		fatal(1, "writing network: %s", thing);
+		sysfatal("writing network: %s: %r", thing);
 }
 
 int
@@ -372,13 +355,13 @@ p9authssl(int fd)
 	ai = p9any(fd);
 	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 	if(ai == nil)
-		fatal(1, "can't authenticate");
+		sysfatal("can't authenticate: %r");
 
 	if(ealgs == nil)
 		return fd;
 
 	if(ai->nsecret < 8){
-		fatal(1, "p9authssl: secret too small");
+		sysfatal("p9authssl: secret too small");
 		return -1;
 	}
 	memmove(key+4, ai->secret, 8);
@@ -386,11 +369,11 @@ p9authssl(int fd)
 	/* exchange random numbers */
 	genrandom(key, 4);
 	if(write(fd, key, 4) != 4){
-		fatal(1, "p9authssl: write random: %r");
+		sysfatal("p9authssl: write random: %r");
 		return -1;
 	}
 	if(readn(fd, key+12, 4) != 4){
-		fatal(1, "p9authssl: read random: %r");
+		sysfatal("p9authssl: read random: %r");
 		return -1;
 	}
 
@@ -402,7 +385,7 @@ p9authssl(int fd)
 	/* set up encryption */
 	fd = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
 	if(fd < 0)
-		fatal(1, "p9authssl: pushssl: %r");
+		sysfatal("p9authssl: pushssl: %r");
 
 	return fd;
 }
@@ -418,7 +401,7 @@ p9authtls(int fd)
 
 	ai = p9any(fd);
 	if(ai == nil)
-		fatal(1, "can't authenticate");
+		sysfatal("can't authenticate: %r");
 
 	conn = mallocz(sizeof(TLSconn), 1);
 	conn->pskID = "p9secret";
@@ -427,7 +410,7 @@ p9authtls(int fd)
 
 	fd = tlsClient(fd, conn);
 	if(fd < 0)
-		fatal(1, "tlsClient");
+		sysfatal("tlsClient: %r");
 
 	auth_freeAI(ai);
 	free(conn->sessionID);
@@ -627,7 +610,7 @@ p9any(int fd)
 	werrstr("");
 
 	if(readstr(fd, buf, sizeof buf) < 0)
-		fatal(1, "cannot read p9any negotiation");
+		sysfatal("cannot read p9any negotiation: %r");
 	bbuf = buf;
 	v2 = 0;
 	if(strncmp(buf, "v.2 ", 4) == 0){
@@ -640,7 +623,7 @@ p9any(int fd)
 		if((p = strchr(bbuf, ' ')))
 			*p++ = 0;
 		if((dom = strchr(bbuf, '@')) == nil)
-			fatal(1, "bad p9any domain");
+			sysfatal("bad p9any domain");
 		*dom++ = 0;
 		if(strcmp(bbuf, "p9sk1") == 0 || strcmp(bbuf, "dp9ik") == 0){
 			proto = bbuf;
@@ -652,32 +635,32 @@ p9any(int fd)
 		bbuf = p;
 	}
 	if(proto == nil)
-		fatal(1, "server did not offer p9sk1 or dp9ik");
+		sysfatal("server did not offer p9sk1 or dp9ik");
 	proto = estrdup(proto);
 	sprint(buf2, "%s %s", proto, dom);
 	if(write(fd, buf2, strlen(buf2)+1) != strlen(buf2)+1)
-		fatal(1, "cannot write user/domain choice in p9any");
+		sysfatal("cannot write user/domain choice in p9any");
 	if(v2){
 		if(readstr(fd, buf, sizeof buf) < 0)
-			fatal(1, "cannot read OK in p9any");
+			sysfatal("cannot read OK in p9any: %r");
 		if(memcmp(buf, "OK\0", 3) != 0)
-			fatal(1, "did not get OK in p9any: got %s", buf);
+			sysfatal("did not get OK in p9any: got %s", buf);
 	}
 	genrandom(crand, 2*NONCELEN);
 	genrandom(cchal, CHALLEN);
 	if(write(fd, cchal, CHALLEN) != CHALLEN)
-		fatal(1, "cannot write p9sk1 challenge");
+		sysfatal("cannot write p9sk1 challenge: %r");
 
 	n = TICKREQLEN;
 	if(dp9ik)
 		n += PAKYLEN;
 
 	if(readn(fd, trbuf, n) != n || convM2TR(trbuf, TICKREQLEN, &tr) <= 0)
-		fatal(1, "cannot read ticket request in p9sk1");
+		sysfatal("cannot read ticket request in p9sk1: %r");
 
 	if(!findkey(&authkey, user, tr.authdom, proto)){
 again:		if(!getkey(&authkey, user, tr.authdom, proto))
-			fatal(1, "no password");
+			sysfatal("no password");
 	}
 
 	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, user);
@@ -690,7 +673,7 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto))
 		n = gettickets(&authkey, &tr, nil, tbuf, sizeof(tbuf));
 	}
 	if(n <= 0)
-		fatal(1, "cannot get auth tickets in p9sk1");
+		sysfatal("cannot get auth tickets in p9sk1: %r");
 
 	m = convM2T(tbuf, n, &t, &authkey);
 	if(m <= 0 || t.num != AuthTc){
@@ -701,7 +684,7 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto))
 	memmove(tbuf, tbuf+m, n);
 
 	if(dp9ik && write(fd, y, PAKYLEN) != PAKYLEN)
-		fatal(1, "cannot send authpak public key back");
+		sysfatal("cannot send authpak public key back: %r");
 
 	auth.num = AuthAc;
 	memmove(auth.rand, crand, NONCELEN);
@@ -710,11 +693,11 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto))
 	n += m;
 
 	if(write(fd, tbuf, n) != n)
-		fatal(1, "cannot send ticket and authenticator back");
+		sysfatal("cannot send ticket and authenticator back: %r");
 
 	if((n=readn(fd, tbuf, m)) != m || memcmp(tbuf, "cpu:", 4) == 0){
 		if(n <= 4)
-			fatal(1, "cannot read authenticator");
+			sysfatal("cannot read authenticator");
 
 		/*
 		 * didn't send back authenticator:
@@ -725,15 +708,14 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto))
 		if(i > 0)
 			n += i;
 		buf[n] = 0;
-		werrstr("");
-		fatal(0, "server says: %s", buf);
+		sysfatal("server says: %s", buf);
 	}
 	
 	if(convM2A(tbuf, n, &auth, &t) <= 0
 	|| auth.num != AuthAs || tsmemcmp(auth.chal, cchal, CHALLEN) != 0){
 		print("?you and auth server agree about password.\n");
 		print("?server is confused.\n");
-		fatal(0, "server lies got %llux want %llux", *(vlong*)auth.chal, *(vlong*)cchal);
+		sysfatal("server lies");
 	}
 	memmove(crand+NONCELEN, auth.rand, NONCELEN);
 

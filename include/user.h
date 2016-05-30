@@ -93,4 +93,5 @@ extern	vlong	nsec(void);
 extern	void	lock(Lock*);
 extern	void	unlock(Lock*);
 extern	int	iprint(char*, ...);
+extern	int	atexit(void (*)(void));
 extern	void	exits(char*);
