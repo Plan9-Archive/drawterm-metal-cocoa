@@ -105,7 +105,6 @@ flushmemscreen(Rectangle r)
 {
 	screenload(r, gscreen->depth, byteaddr(gscreen, ZP), ZP,
 		gscreen->width*sizeof(ulong));
-//	Sleep(100);
 }
 
 void
@@ -125,14 +124,13 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 	 */
 	if(rectclip(&r, gscreen->r) == 0)
 		return;
+	if(GetWindowRect(window, &winr)==0)
+		return;
+	if(rectclip(&r, Rect(0, 0, winr.right-winr.left, winr.bottom-winr.top))==0)
+		return;
 
 	if((step&3) != 0 || ((pt.x*depth)%32) != 0 || ((ulong)p&3) != 0)
 		panic("screenload: bad params %d %d %ux", step, pt.x, p);
-	dx = r.max.x - r.min.x;
-	dy = r.max.y - r.min.y;
-
-	if(dx <= 0 || dy <= 0)
-		return;
 
 	if(depth == 24)
 		delx = r.min.x % 4;
@@ -141,11 +139,6 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 
 	p += (r.min.y-pt.y)*step;
 	p += ((r.min.x-delx-pt.x)*depth)>>3;
-
-	if(GetWindowRect(window, &winr)==0)
-		return;
-	if(rectclip(&r, Rect(0, 0, winr.right-winr.left, winr.bottom-winr.top))==0)
-		return;
 	
 	lock(&gdilock);
 
@@ -153,9 +146,8 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 	SelectPalette(hdc, palette, 0);
 	RealizePalette(hdc);
 
-//FillRect(hdc,(void*)&r, GetStockObject(BLACK_BRUSH));
-//GdiFlush();
-//Sleep(100);
+	dx = r.max.x - r.min.x;
+	dy = r.max.y - r.min.y;
 
 	bmi->bmiHeader.biWidth = (step*8)/depth;
 	bmi->bmiHeader.biHeight = -dy;	/* - => origin upper left */
