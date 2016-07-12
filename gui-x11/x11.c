@@ -823,6 +823,9 @@ xkeyboard(XEvent *e)
 		case XK_Caps_Lock:
 			k = Kcaps;
 			break;
+		case XK_Scroll_Lock:
+			k = Kscroll;
+			break;
 
 		case XK_F1:
 		case XK_F2:
