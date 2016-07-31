@@ -487,7 +487,7 @@ consclose(Chan *c)
 }
 
 static int
-readcons(Queue *q, char *buf, int n)
+qreadcons(Queue *q, char *buf, int n)
 {
 	if(screenputs==0 && !qcanread(q))
 		return read(0, buf, n);
@@ -521,7 +521,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 			else {
 				/* read as much as possible */
 				do {
-					i = readcons(kbdq, cbuf, n);
+					i = qreadcons(kbdq, cbuf, n);
 					cbuf += i;
 					n -= i;
 				} while (n>0 && qcanread(kbdq));
@@ -530,7 +530,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 		} else {
 			while(!qcanread(lineq)) {
 				eol = 1;
-				if(readcons(kbdq, &kbd.line[kbd.x], 1) == 1){
+				if(qreadcons(kbdq, &kbd.line[kbd.x], 1) == 1){
 					eol = 0;
 					ch = kbd.line[kbd.x];
 					switch(ch){

@@ -6,7 +6,6 @@ OFILES=\
 	main.$O\
 	cpu.$O\
 	aan.$O\
-	readcons.$O\
 	secstore.$O\
 	latin1.$O\
 	$(OS)-factotum.$O\
