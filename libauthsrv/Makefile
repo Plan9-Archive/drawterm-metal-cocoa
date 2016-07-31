@@ -15,6 +15,7 @@ OFILES=\
 	convTR2M.$O\
 	nvcsum.$O\
 	passtokey.$O\
+	readcons.$O\
 	_asgetpakkey.$O\
 	_asgetresp.$O\
 	_asrequest.$O\

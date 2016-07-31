@@ -7,6 +7,7 @@
 #include <libc.h>
 #include <mp.h>
 #include <libsec.h>
+#include <authsrv.h>
 #include "drawterm.h"
 
 static void*
@@ -185,7 +186,7 @@ verify(uchar secret[SHA1dlen], uchar *data, int len, int seqno, uchar d[SHA1dlen
 	sha1(secret, SHA1dlen, nil, &sha);
 	sha1(data, len, nil, &sha);
 	sha1(seq, 4, digest, &sha);
-	return memcmp(d, digest, SHA1dlen);
+	return tsmemcmp(d, digest, SHA1dlen);
 }
 
 static int

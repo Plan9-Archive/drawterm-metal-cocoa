@@ -36,6 +36,15 @@ static int	p9authtls(int);
 char *authserver;
 char *secstore;
 
+char*
+estrdup(char *s)
+{
+	s = strdup(s);
+	if(s == nil)
+		sysfatal("out of memory");
+	return s;
+}
+
 static void
 ending(void)
 {
