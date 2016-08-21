@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "dat.h"
 #include "fns.h"
-#include <libsec.h>
 
 typedef struct Oproc Oproc;
 struct Oproc {
