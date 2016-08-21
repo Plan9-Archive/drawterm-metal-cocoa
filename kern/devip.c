@@ -756,7 +756,7 @@ static struct
 	"ncpu", 17010,
 	"cpu", 17013,
 	"rcpu", 17019,
-	"glenglenda1", 17020,
+	"t9fs", 17020,
 	"glenglenda2", 17021,
 	"glenglenda3", 17022,
 	"glenglenda4", 17023,
