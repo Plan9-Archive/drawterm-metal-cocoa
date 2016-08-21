@@ -137,29 +137,8 @@ procwakeup(Proc *p)
 	ReleaseSemaphore(op->sema, 1, 0);
 }
 
-void
-random20(uchar *p)
-{
-	LARGE_INTEGER ti;
-	int i, j;
-	FILETIME ft;
-	DigestState ds;
-	vlong tsc;
-	
-	GetSystemTimeAsFileTime(&ft);
-	memset(&ds, 0, sizeof ds);
-	sha1((uchar*)&ft, sizeof(ft), 0, &ds);
-	for(i=0; i<50; i++) {
-		for(j=0; j<10; j++) {
-			QueryPerformanceCounter(&ti);
-			sha1((uchar*)&ti, sizeof(ti), 0, &ds);
-			tsc = GetTickCount();
-			sha1((uchar*)&tsc, sizeof(tsc), 0, &ds);
-		}
-		Sleep(10);
-	}
-	sha1(0, 0, p, &ds);
-}
+#define RtlGenRandom	SystemFunction036
+BOOLEAN WINAPI RtlGenRandom(PVOID, ULONG);
 
 void
 randominit(void)
@@ -169,16 +148,7 @@ randominit(void)
 ulong
 randomread(void *v, ulong n)
 {
-	int i;
-	uchar p[20];
-	
-	for(i=0; i<n; i+=20){
-		random20(p);
-		if(i+20 <= n)
-			memmove((char*)v+i, p, 20);
-		else
-			memmove((char*)v+i, p, n-i);
-	}
+	RtlGenRandom(v, n);
 	return n;
 }
 
@@ -193,22 +163,6 @@ ticks(void)
 {
 	return GetTickCount();
 }
-
-#if 0
-uvlong
-fastticks(uvlong *v)
-{
-	uvlong n;
-
-	n = GetTickCount() * 1000 * 1000;
-	if(v)
-		*v = n;
-	return n;
-}
-#endif
-
-extern int	main(int, char*[]);
-
 
 int
 wstrutflen(Rune *s)
@@ -241,41 +195,6 @@ wstrtoutf(char *s, Rune *t, int n)
 	}
 	*s = 0;
 	return s-s0;
-}
-
-int
-wstrlen(Rune *s)
-{
-	int n;
-
-	for(n=0; *s; s++,n++)
-		;
-	return n;
-}
-static int	args(char *argv[], int n, char *p);
-
-int APIENTRY
-WinMain(HINSTANCE x, HINSTANCE y, LPSTR z, int w)
-{
-	int argc, n;
-	char *arg, *p, **argv;
-	wchar_t *warg;
-
-	warg = GetCommandLineW();
-	n = wcslen(warg)*UTFmax+1;
-	arg = malloc(n);
-	WideCharToMultiByte(CP_UTF8,0,warg,-1,arg,n,0,0);
-
-	/* conservative guess at the number of args */
-	for(argc=4,p=arg; *p; p++)
-		if(*p == ' ' || *p == '\t')
-			argc++;
-	argv = malloc(argc*sizeof(char*));
-	argc = args(argv, argc, arg);
-
-	mymain(argc, argv);
-	ExitThread(0);
-	return 0;
 }
 
 /*
@@ -326,81 +245,47 @@ args(char *argv[], int n, char *p)
 
 	return i;
 }
-/*
- * Windows socket error messages
- * There must be a way to get these strings out of the library.
- * This table is derived from the MSDN online help.
- */
-static struct {
-	int e;
-	char *s;
-} tab[] = {
-	{ 10004, "interrupted function call" },
-	{ 10013, "permission denied" },
-	{ 10014, "bad address" },
-	{ 10022, "invalid argument" },
-	{ 10024, "too many open files" },
-	{ 10035, "resource temporarily unavailable" },
-	{ 10036, "operation now in progress" },
-	{ 10037, "operation already in progress" },
-	{ 10038, "socket operation on nonsocket" },
-	{ 10039, "destination address required" },
-	{ 10040, "message too long" },
-	{ 10041, "protocol wrong type for socket" },
-	{ 10042, "bad protocol option" },
-	{ 10043, "protocol not supported" },
-	{ 10044, "socket type not supported" },
-	{ 10045, "operation not supported" },
-	{ 10046, "protocol family not supported" },
-	{ 10047, "address family not supported by protocol family" },
-	{ 10048, "address already in use" },
-	{ 10049, "cannot assign requested address" },
-	{ 10050, "network is down" },
-	{ 10051, "network is unreachable" },
-	{ 10052, "network dropped connection on reset" },
-	{ 10053, "software caused connection abort" },
-	{ 10054, "connection reset by peer" },
-	{ 10055, "no buffer space available" },
-	{ 10056, "socket is already connected" },
-	{ 10057, "socket is not connected" },
-	{ 10058, "cannot send after socket shutdown" },
-	{ 10060, "connection timed out" },
-	{ 10061, "connection refused" },
-	{ 10064, "host is down" },
-	{ 10065, "no route to host" },
-	{ 10067, "too many processes" },
-	{ 10091, "network subsystem is unavailable" },
-	{ 10092, "winsock.dll version out of range" },
-	{ 10093, "wsastartup not called" },
-	{ 10101, "graceful shutdown in progress" },
-	{ 10109, "class type not found" },
-	{ 11001, "host name not found" },
-	{ 11002, "host not found (non-authoritative)" },
-	{ 11003, "nonrecoverable error" },
-	{ 11004, "valid name, but no data record of requested type" },
-};
+
+extern int	main(int, char*[]);
+
+int APIENTRY
+WinMain(HINSTANCE x, HINSTANCE y, LPSTR z, int w)
+{
+	int argc, n;
+	char *arg, *p, **argv;
+	wchar_t *warg;
+
+	warg = GetCommandLineW();
+	n = wcslen(warg)*UTFmax+1;
+	arg = malloc(n);
+	WideCharToMultiByte(CP_UTF8,0,warg,-1,arg,n,0,0);
+
+	/* conservative guess at the number of args */
+	for(argc=4,p=arg; *p; p++)
+		if(*p == ' ' || *p == '\t')
+			argc++;
+	argv = malloc(argc*sizeof(char*));
+	argc = args(argv, argc, arg);
+
+	main(argc, argv);
+	ExitThread(0);
+	return 0;
+}
 
 void
-osrerrstr(char *buf, uint nbuf)
+oserrstr(void)
 {
 	char *p, *q;
-	int e, i, r;
+	int e, r;
 
 	e = GetLastError();
+	p = up->errstr;	/* up kills last error */
 	r = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM,
 		0, e, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		buf, nbuf, 0);
-	if(r == 0){
-		for(i=0; i<nelem(tab); i++)
-			if(tab[i].e == e){
-				strecpy(buf, buf+nbuf, tab[i].s);
-				break;
-			}
-		if(i==nelem(tab))
-			snprint(buf, nbuf, "windows error %d", e);
-	}
-
-	for(p=q=buf; *p; p++) {
+		p, ERRMAX, 0);
+	if(r == 0)
+		snprint(p, ERRMAX, "windows error %d", e);
+	for(q=p; *p; p++) {
 		if(*p == '\r')
 			continue;
 		if(*p == '\n')
@@ -409,12 +294,6 @@ osrerrstr(char *buf, uint nbuf)
 			*q++ = *p;
 	}
 	*q = '\0';
-}
-
-void
-oserrstr(void)
-{
-	osrerrstr(up->errstr, ERRMAX);
 }
 
 long
