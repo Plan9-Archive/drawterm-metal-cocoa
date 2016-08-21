@@ -162,37 +162,25 @@ procwakeup(Proc *p)
 	pthread_mutex_unlock(&op->mutex);
 }
 
-int randfd;
+static int randfd;
 #undef open
 void
 randominit(void)
 {
-#ifdef USE_RANDOM
-	srandom(getpid()+fastticks(nil)+ticks());
-#else
 	if((randfd = open("/dev/urandom", OREAD)) < 0)
 	if((randfd = open("/dev/random", OREAD)) < 0)
 		panic("open /dev/random: %r");
-#endif
 }
 
 #undef read
 ulong
 randomread(void *v, ulong n)
 {
-#ifdef USE_RANDOM
-	int i;
-
-	for(i=0; i<n; i++)
-		((uchar*)v)[i] = random();
-	return n;
-#else
 	int m;
 
 	if((m = read(randfd, v, n)) != n)
 		panic("short read from /dev/random: %d but %d", n, m);
 	return m;
-#endif
 }
 
 #undef time
