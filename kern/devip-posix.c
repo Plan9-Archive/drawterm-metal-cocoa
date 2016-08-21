@@ -207,54 +207,30 @@ so_bind(int fd, int su, unsigned short port, unsigned char *addr)
 }
 
 int
-so_gethostbyname(char *host, char**hostv, int n)
-{
-	int i;
-	char buf[32];
-	unsigned char *p;
-	struct hostent *hp;
-
-	hp = gethostbyname(host);
-	if(hp == 0)
-		return 0;
-
-	for(i = 0; hp->h_addr_list[i] && i < n; i++) {
-		p = (unsigned char*)hp->h_addr_list[i];
-		sprint(buf, "%d.%d.%d.%d", p[0], p[1], p[2], p[3]);
-		hostv[i] = strdup(buf);
-		if(hostv[i] == 0)
-			break;
-	}
-	return i;
-}
-
-char*
-hostlookup(char *host)
+so_gethostbyname(char *host, char **hostv, int n)
 {
 	char buf[INET6_ADDRSTRLEN];
-	uchar *p;
-	struct hostent *he;
-	struct addrinfo *result;
+	PADDRINFOA r, p;
+	int i;
 
-	he = gethostbyname(host);
-	if(he != 0 && he->h_addr_list[0]) {
-		p = (uchar*)he->h_addr_list[0];
-		sprint(buf, "%ud.%ud.%ud.%ud", p[0], p[1], p[2], p[3]);
-	} else if(getaddrinfo(host, NULL, NULL, &result) == 0) {
-		switch (result->ai_family) {
+	r = NULL;
+	if(getaddrinfo(host, NULL, NULL, &r))
+		return 0;
+	for(i = 0, p = r; i < n && p != NULL; p = p->ai_next){
+		switch (p->ai_family) {
+		default:
+			continue;
 		case AF_INET:
-			inet_ntop(AF_INET, &((struct sockaddr_in*)result->ai_addr)->sin_addr, buf, sizeof(buf));
+			inet_ntop(AF_INET, &((struct sockaddr_in*)p->ai_addr)->sin_addr, buf, sizeof(buf));
 			break;
 		case AF_INET6:
-			inet_ntop(AF_INET6, &((struct sockaddr_in6*)result->ai_addr)->sin6_addr, buf, sizeof(buf));
+			inet_ntop(AF_INET6, &((struct sockaddr_in6*)p->ai_addr)->sin6_addr, buf, sizeof(buf));
 			break;
-		default:
-			return nil;
 		}
-	} else
-		return nil;
-
-	return strdup(buf);
+		hostv[i++] = strdup(buf);
+	}
+	freeaddrinfo(r);
+	return i;
 }
 
 int

@@ -642,14 +642,30 @@ void
 csclose(Chan *c)
 {
 	free(c->aux);
+	c->aux = nil;
 }
 
 long
 csread(Chan *c, void *a, long n, vlong offset)
 {
-	if(c->aux == nil)
+	char *s, *e, *p;
+
+	s = c->aux;
+	if(s == nil)
 		return 0;
-	return readstr(offset, a, n, c->aux);
+	e = strchr(s, 0);
+	s += offset;
+	if(s >= e)
+		return 0;
+	p = strchr(s, '\n');
+	if(p != nil)
+		p++;
+	else
+		p = e;
+	if(p - s < n)
+		n = p - s;
+	memmove(a, s, n);
+	return n;
 }
 
 static struct
@@ -777,26 +793,13 @@ lookupport(char *s)
 	return 0;
 }
 
-static int
-lookuphost(char *s, uchar *to)
-{
-	ipzero(to);
-	if(parseip(to, s) != -1)
-		return 0;
-	if((s = hostlookup(s)) == nil)
-		return -1;
-	parseip(to, s);
-	free(s);
-	return 0;
-}
-
 long
 cswrite(Chan *c, void *a, long n, vlong offset)
 {
-	char *f[4];
+	char *f[4], *ips[8];
 	char *s, *ns;
 	uchar ip[IPaddrlen];
-	int nf, port;
+	int i, nf, port, nips;
 
 	s = malloc(n+1);
 	if(s == nil)
@@ -814,13 +817,22 @@ cswrite(Chan *c, void *a, long n, vlong offset)
 	port = lookupport(f[2]);
 	if(port <= 0)
 		error("no translation for port found");
-
-	if(lookuphost(f[1], ip) < 0)
-		error("no translation for host found");
-
-	ns = smprint("/net/%s/clone %I!%d", f[0], ip, port);
-	if(ns == nil)
-		error(Enomem);
+	if(parseip(ip, f[1]) != -1){
+		ips[0] = smprint("%I", ip);
+		nips = 1;
+	} else {
+		nips = so_gethostbyname(f[1], ips, nelem(ips));
+		if(nips <= 0)
+			error("no translation for host found");
+	}
+	ns = smprint("/net/%s/clone %s!%d", f[0], ips[0], port);
+	free(ips[0]);
+	for(i=1; i<nips; i++){
+		ips[0] = smprint("%s\n/net/%s/clone %s!%d", ns, f[0], ips[i], port);
+		free(ips[i]);
+		free(ns);
+		ns = ips[0];
+	}
 	free(c->aux);
 	c->aux = ns;
 	poperror();

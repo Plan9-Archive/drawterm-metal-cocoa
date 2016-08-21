@@ -212,42 +212,30 @@ so_bind(int fd, int su, unsigned short port, unsigned char *addr)
 }
 
 int
-so_gethostbyname(char *host, char**hostv, int n)
+so_gethostbyname(char *host, char **hostv, int n)
 {
+	char buf[INET6_ADDRSTRLEN];
+	PADDRINFOA r, p;
+	DWORD l;
 	int i;
-	char buf[32];
-	unsigned char *p;
-	struct hostent *hp;
 
-	hp = gethostbyname(host);
-	if(hp == 0)
+	r = NULL;
+	if(getaddrinfo(host, NULL, NULL, &r))
 		return 0;
-
-	for(i = 0; hp->h_addr_list[i] && i < n; i++) {
-		p = (unsigned char*)hp->h_addr_list[i];
-		sprint(buf, "%d.%d.%d.%d", p[0], p[1], p[2], p[3]);
-		hostv[i] = strdup(buf);
-		if(hostv[i] == 0)
+	for(i = 0, p = r; i < n && p != NULL; p = p->ai_next){
+		switch (p->ai_family) {
+		default:
+			continue;
+		case AF_INET:
+		case AF_INET6:
+			l = sizeof(buf);
+			WSAAddressToStringA(p->ai_addr, p->ai_addrlen, NULL, buf, &l);
 			break;
+		}
+		hostv[i++] = strdup(buf);
 	}
+	freeaddrinfo(r);
 	return i;
-}
-
-char*
-hostlookup(char *host)
-{
-	char buf[100];
-	uchar *p;
-	struct hostent *he;
-
-	he = gethostbyname(host);
-	if(he != 0 && he->h_addr_list[0]) {
-		p = (uchar*)he->h_addr_list[0];
-		sprint(buf, "%ud.%ud.%ud.%ud", p[0], p[1], p[2], p[3]);
-	} else
-		strcpy(buf, host);
-
-	return strdup(buf);
 }
 
 int

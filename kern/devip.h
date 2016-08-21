@@ -14,6 +14,3 @@ int		so_recv(int, void*, int, int);
 int		so_accept(int, unsigned char*, unsigned short*);
 int		so_getservbyname(char*, char*, char*);
 int		so_gethostbyname(char*, char**, int);
-
-char*	hostlookup(char*);
-
