@@ -210,7 +210,7 @@ int
 so_gethostbyname(char *host, char **hostv, int n)
 {
 	char buf[INET6_ADDRSTRLEN];
-	PADDRINFOA r, p;
+	struct addrinfo *r, *p;
 	int i;
 
 	r = NULL;
