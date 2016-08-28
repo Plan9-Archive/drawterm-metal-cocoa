@@ -295,6 +295,8 @@ void		sched(void);
 void		scheddump(void);
 void		schedinit(void);
 extern void		(*screenputs)(char*, int);
+void*		secalloc(ulong);
+void		secfree(void*);
 long		seconds(void);
 ulong		segattach(Proc*, ulong, char *, ulong, ulong);
 void		segclock(ulong);

@@ -1468,7 +1468,7 @@ struct Encalg
 static void
 initRC4key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
-	s->enckey = smalloc(sizeof(RC4state));
+	s->enckey = secalloc(sizeof(RC4state));
 	s->enc = rc4enc;
 	s->dec = rc4enc;
 	setupRC4state(s->enckey, p, ea->keylen);
@@ -1477,7 +1477,7 @@ initRC4key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 static void
 initDES3key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
-	s->enckey = smalloc(sizeof(DES3state));
+	s->enckey = secalloc(sizeof(DES3state));
 	s->enc = des3enc;
 	s->dec = des3dec;
 	s->block = 8;
@@ -1487,7 +1487,7 @@ initDES3key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 static void
 initAESkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
-	s->enckey = smalloc(sizeof(AESstate));
+	s->enckey = secalloc(sizeof(AESstate));
 	s->enc = aesenc;
 	s->dec = aesdec;
 	s->block = 16;
@@ -1497,7 +1497,7 @@ initAESkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 static void
 initccpolykey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
-	s->enckey = smalloc(sizeof(Chachastate));
+	s->enckey = secalloc(sizeof(Chachastate));
 	s->aead_enc = ccpoly_aead_enc;
 	s->aead_dec = ccpoly_aead_dec;
 	s->maclen = Poly1305dlen;
@@ -1514,7 +1514,7 @@ initccpolykey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 static void
 initaesgcmkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
-	s->enckey = smalloc(sizeof(AESGCMstate));
+	s->enckey = secalloc(sizeof(AESGCMstate));
 	s->aead_enc = aesgcm_aead_enc;
 	s->aead_dec = aesgcm_aead_dec;
 	s->maclen = 16;
@@ -1670,18 +1670,19 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		ea = parseencalg(cb->f[2]);
 
 		p = cb->f[4];
-		m = (strlen(p)*3)/2;
-		x = smalloc(m);
-		tos = smalloc(sizeof(Secret));
-		toc = smalloc(sizeof(Secret));
+		m = (strlen(p)*3)/2 + 1;
+		x = secalloc(m);
+		tos = secalloc(sizeof(Secret));
+		toc = secalloc(sizeof(Secret));
 		if(waserror()){
+			secfree(x);
 			freeSec(tos);
 			freeSec(toc);
-			free(x);
 			nexterror();
 		}
 
 		m = dec64(x, m, p, strlen(p));
+		memset(p, 0, strlen(p));
 		if(m < 2 * ha->maclen + 2 * ea->keylen + 2 * ea->ivlen)
 			error("not enough secret data provided");
 
@@ -1716,7 +1717,7 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		tos->encalg = ea->name;
 		tos->hashalg = ha->name;
 
-		free(x);
+		secfree(x);
 		poperror();
 	}else if(strcmp(cb->f[0], "changecipher") == 0){
 		if(cb->nf != 1)
@@ -2045,15 +2046,10 @@ tlsstate(int s)
 static void
 freeSec(Secret *s)
 {
-	void *k;
-
 	if(s == nil)
 		return;
-	k = s->enckey;
-	if(k != nil)
-		free(k);
-	memset(s, 0, sizeof(*s));
-	free(s);
+	secfree(s->enckey);
+	secfree(s);
 }
 
 static int
@@ -2157,6 +2153,8 @@ ccpoly_aead_setiv(Secret *sec, uchar seq[8])
 		iv[i+(ChachaIVlen-8)] ^= seq[i];
 
 	chacha_setiv(cs, iv);
+
+	memset(iv, 0, sizeof(iv));
 }
 
 static int
@@ -2191,6 +2189,7 @@ aesgcm_aead_enc(Secret *sec, uchar *aad, int aadlen, uchar *reciv, uchar *data, 
 	for(i=0; i<8; i++) iv[4+i] ^= aad[i];
 	memmove(reciv, iv+4, 8);
 	aesgcm_setiv(sec->enckey, iv, 12);
+	memset(iv, 0, sizeof(iv));
 	aesgcm_encrypt(data, len, aad, aadlen, data+len, sec->enckey);
 	return len + sec->maclen;
 }
@@ -2206,6 +2205,7 @@ aesgcm_aead_dec(Secret *sec, uchar *aad, int aadlen, uchar *reciv, uchar *data, 
 	memmove(iv, sec->mackey, 4);
 	memmove(iv+4, reciv, 8);
 	aesgcm_setiv(sec->enckey, iv, 12);
+	memset(iv, 0, sizeof(iv));
 	if(aesgcm_decrypt(data, len, aad, aadlen, data+len, sec->enckey) != 0)
 		return -1;
 	return len;

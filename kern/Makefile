@@ -3,6 +3,7 @@ include ../Make.config
 LIB=libkern.a
 
 OFILES=\
+	alloc.$O\
 	allocb.$O\
 	cache.$O\
 	chan.$O\
@@ -30,7 +31,6 @@ OFILES=\
 	procinit.$O\
 	rwlock.$O\
 	sleep.$O\
-	smalloc.$O\
 	stub.$O\
 	sysfile.$O\
 	qio.$O\

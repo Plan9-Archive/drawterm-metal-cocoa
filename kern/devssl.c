@@ -373,14 +373,10 @@ sslclose(Chan *c)
 		sslhangup(s);
 		if(s->c)
 			cclose(s->c);
-		if(s->in.secret)
-			free(s->in.secret);
-		if(s->out.secret)
-			free(s->out.secret);
-		if(s->in.state)
-			free(s->in.state);
-		if(s->out.state)
-			free(s->out.state);
+		secfree(s->in.secret);
+		secfree(s->out.secret);
+		secfree(s->in.state);
+		secfree(s->out.state);
 		free(s);
 
 	}
@@ -828,10 +824,8 @@ sslput(Dstate *s, Block * volatile b)
 static void
 setsecret(OneWay *w, uchar *secret, int n)
 {
-	if(w->secret)
-		free(w->secret);
-
-	w->secret = smalloc(n);
+	secfree(w->secret);
+	w->secret = secalloc(n);
 	memmove(w->secret, secret, n);
 	w->slen = n;
 }
@@ -839,12 +833,8 @@ setsecret(OneWay *w, uchar *secret, int n)
 static void
 initDESkey(OneWay *w)
 {
-	if(w->state){
-		free(w->state);
-		w->state = 0;
-	}
-
-	w->state = smalloc(sizeof(DESstate));
+	secfree(w->state);
+	w->state = secalloc(sizeof(DESstate));
 	if(w->slen >= 16)
 		setupDESstate(w->state, w->secret, w->secret+8);
 	else if(w->slen >= 8)
@@ -862,11 +852,6 @@ initDESkey_40(OneWay *w)
 {
 	uchar key[8];
 
-	if(w->state){
-		free(w->state);
-		w->state = 0;
-	}
-
 	if(w->slen >= 8){
 		memmove(key, w->secret, 8);
 		key[0] &= 0x0f;
@@ -874,25 +859,14 @@ initDESkey_40(OneWay *w)
 		key[4] &= 0x0f;
 		key[6] &= 0x0f;
 	}
-
-	w->state = smalloc(sizeof(DESstate));
-	if(w->slen >= 16)
-		setupDESstate(w->state, key, w->secret+8);
-	else if(w->slen >= 8)
-		setupDESstate(w->state, key, 0);
-	else
-		error("secret too short");
+	initDESkey(w);
 }
 
 static void
 initRC4key(OneWay *w)
 {
-	if(w->state){
-		free(w->state);
-		w->state = 0;
-	}
-
-	w->state = smalloc(sizeof(RC4state));
+	secfree(w->state);
+	w->state = secalloc(sizeof(RC4state));
 	setupRC4state(w->state, w->secret, w->slen);
 }
 
@@ -903,16 +877,9 @@ initRC4key(OneWay *w)
 static void
 initRC4key_40(OneWay *w)
 {
-	if(w->state){
-		free(w->state);
-		w->state = 0;
-	}
-
 	if(w->slen > 5)
 		w->slen = 5;
-
-	w->state = smalloc(sizeof(RC4state));
-	setupRC4state(w->state, w->secret, w->slen);
+	initRC4key(w);
 }
 
 /*
@@ -922,16 +889,9 @@ initRC4key_40(OneWay *w)
 static void
 initRC4key_128(OneWay *w)
 {
-	if(w->state){
-		free(w->state);
-		w->state = 0;
-	}
-
 	if(w->slen > 16)
 		w->slen = 16;
-
-	w->state = smalloc(sizeof(RC4state));
-	setupRC4state(w->state, w->secret, w->slen);
+	initRC4key(w);
 }
 
 
@@ -1180,27 +1140,29 @@ sslwrite(Chan *c, void *a, long n, vlong o)
 		break;
 	case Csin:
 		p = cb->f[1];
-		m = (strlen(p)*3)/2;
-		x = smalloc(m);
+		m = (strlen(p)*3)/2 + 1;
+		x = secalloc(m);
 		t = dec64(x, m, p, strlen(p));
+		memset(p, 0, strlen(p));
 		if(t <= 0){
-			free(x);
+			secfree(x);
 			error(Ebadarg);
 		}
 		setsecret(&s->in, x, t);
-		free(x);
+		secfree(x);
 		break;
 	case Csout:
 		p = cb->f[1];
 		m = (strlen(p)*3)/2 + 1;
-		x = smalloc(m);
+		x = secalloc(m);
 		t = dec64(x, m, p, strlen(p));
+		memset(p, 0, strlen(p));
 		if(t <= 0){
-			free(x);
+			secfree(x);
 			error(Ebadarg);
 		}
 		setsecret(&s->out, x, t);
-		free(x);
+		secfree(x);
 		break;
 	}
 	poperror();
