@@ -15,7 +15,6 @@ OFILES=\
 	mpcmp.$O\
 	mpdigdiv.$O\
 	mpdiv.$O\
-	mpeuclid.$O\
 	mpexp.$O\
 	mpextendedgcd.$O\
 	mpfactorial.$O\
