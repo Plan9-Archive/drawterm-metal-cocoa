@@ -104,7 +104,7 @@ aanwriter(void *arg)
 		|| write(c->netfd, &b->hdr, Hdrsz) != Hdrsz
 		|| write(c->netfd, b->buf, n) != n){
 			qunlock(&c->lk);
-			break;
+			continue;
 		}
 		qunlock(&c->lk);
 
