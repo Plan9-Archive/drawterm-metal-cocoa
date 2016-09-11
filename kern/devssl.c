@@ -681,17 +681,6 @@ sslread(Chan *c, void *a, long n, vlong off)
 	return n;
 }
 
-/*
- *  this algorithm doesn't have to be great since we're just
- *  trying to obscure the block fill
- */
-static void
-randfill(uchar *buf, int len)
-{
-	while(len-- > 0)
-		*buf++ = nrand(256);
-}
-
 static long
 sslbwrite(Chan *c, Block *b, ulong o)
 {
@@ -781,7 +770,7 @@ sslput(Dstate *s, Block * volatile b)
 		/* SSL style count */
 		if(pad){
 			nb = padblock(nb, -pad);
-			randfill(nb->wp, pad);
+			prng(nb->wp, pad);
 			nb->wp += pad;
 			m += pad;
 
