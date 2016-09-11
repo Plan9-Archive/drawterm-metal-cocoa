@@ -2,17 +2,6 @@
 #include <libc.h>
 #include "fmtdef.h"
 
-static ulong
-umuldiv(ulong a, ulong b, ulong c)
-{
-	double d;
-
-	d = ((double)a * (double)b) / (double)c;
-	if(d >= 4294967295.)
-		d = 4294967295.;
-	return (ulong)d;
-}
-
 /*
  * This routine will convert to arbitrary precision
  * floating point entirely in multi-precision fixed.
@@ -30,16 +19,13 @@ enum
 {
 	Nbits	= 28,				/* bits safely represented in a ulong */
 	Nmant	= 53,				/* bits of precision required */
+	Bias	= 1022,
 	Prec	= (Nmant+Nbits+1)/Nbits,	/* words of Nbits each to represent mantissa */
 	Sigbit	= 1<<(Prec*Nbits-Nmant),	/* first significant bit of Prec-th word */
 	Ndig	= 1500,
 	One	= (ulong)(1<<Nbits),
 	Half	= (ulong)(One>>1),
 	Maxe	= 310,
-
-	Fsign	= 1<<0,		/* found - */
-	Fesign	= 1<<1,		/* found e- */
-	Fdpoint	= 1<<2,		/* found . */
 
 	S0	= 0,		/* _		_S0	+S1	#S2	.S3 */
 	S1,			/* _+		#S2	.S3 */
@@ -49,6 +35,10 @@ enum
 	S5,			/* _+#.#e	+S6	#S7 */
 	S6,			/* _+#.#e+	#S7 */
 	S7,			/* _+#.#e+#	#S7 */
+
+	Fsign	= 1<<0,		/* found - */
+	Fesign	= 1<<1,		/* found e- */
+	Fdpoint	= 1<<2,		/* found . */
 };
 
 static	int	xcmp(char*, char*);
@@ -56,6 +46,8 @@ static	int	fpcmp(char*, ulong*);
 static	void	frnorm(ulong*);
 static	void	divascii(char*, int*, int*, int*);
 static	void	mulascii(char*, int*, int*, int*);
+static	void	divby(char*, int*, int);
+static ulong	umuldiv(ulong, ulong, ulong);
 
 typedef	struct	Tab	Tab;
 struct	Tab
@@ -72,8 +64,8 @@ struct	Tab
 double
 fmtstrtod(const char *as, char **aas)
 {
-	int na, ex, dp, bp, c, i, flag, state;
-	ulong low[Prec], hig[Prec], mid[Prec];
+	int na, ona, ex, dp, bp, c, i, flag, state;
+	ulong low[Prec], hig[Prec], mid[Prec], num, den;
 	double d;
 	char *s, a[Ndig];
 
@@ -204,7 +196,7 @@ fmtstrtod(const char *as, char **aas)
 	if(flag & Fesign)
 		ex = -ex;
 	dp += ex;
-	if(dp < -Maxe){
+	if(dp < -Maxe-Nmant/3){ /* actually -Nmant*log(2)/log(10), but Nmant/3 close enough */
 		errno = ERANGE;
 		goto ret0;	/* underflow by exp */
 	} else
@@ -220,18 +212,33 @@ fmtstrtod(const char *as, char **aas)
 		divascii(a, &na, &dp, &bp);
 	while(dp < 0 || a[0] < '5')
 		mulascii(a, &na, &dp, &bp);
+	a[na] = 0;
+
+	/*
+	 * very small numbers are represented using
+	 * bp = -Bias+1.  adjust accordingly.
+	 */
+	if(bp < -Bias+1){
+		ona = na;
+		divby(a, &na, -bp-Bias+1);
+		if(na < ona){
+			memmove(a+ona-na, a, na);
+			memset(a, '0', ona-na);
+			na = ona;
+		}
+		a[na] = 0;
+		bp = -Bias+1;
+	}
 
 	/* close approx by naive conversion */
-	mid[0] = 0;
-	mid[1] = 1;
-	for(i=0; (c=a[i]); i++) {
-		mid[0] = mid[0]*10 + (c-'0');
-		mid[1] = mid[1]*10;
-		if(i >= 8)
-			break;
+	num = 0;
+	den = 1;
+	for(i=0; i<9 && (c=a[i]); i++) {
+		num = num*10 + (c-'0');
+		den *= 10;
 	}
-	low[0] = umuldiv(mid[0], One, mid[1]);
-	hig[0] = umuldiv(mid[0]+1, One, mid[1]);
+	low[0] = umuldiv(num, One, den);
+	hig[0] = umuldiv(num+1, One, den);
 	for(i=1; i<Prec; i++) {
 		low[i] = 0;
 		hig[i] = One-1;
@@ -365,7 +372,7 @@ fpcmp(char *a, ulong* f)
 }
 
 static void
-divby(char *a, int *na, int b)
+_divby(char *a, int *na, int b)
 {
 	int n, c;
 	char *p;
@@ -405,6 +412,18 @@ xx:
 		(*na)++;
 	}
 	*p = 0;
+}
+
+static void
+divby(char *a, int *na, int b)
+{
+	while(b > 9){
+		_divby(a, na, 9);
+		a[*na] = 0;
+		b -= 9;
+	}
+	if(b > 0)
+		_divby(a, na, b);
 }
 
 static	Tab	tab1[] =
@@ -506,7 +525,7 @@ xcmp(char *a, char *b)
 {
 	int c1, c2;
 
-	while((c1 = *b++)) {
+	while(c1 = *b++) {
 		c2 = *a++;
 		if(isupper(c2))
 			c2 = tolower(c2);
@@ -514,4 +533,10 @@ xcmp(char *a, char *b)
 			return 1;
 	}
 	return 0;
+}
+
+static ulong
+umuldiv(ulong a, ulong b, ulong c)
+{
+	return ((uvlong)a * (uvlong)b) / c;
 }
