@@ -83,7 +83,18 @@ osyield(void)
 	Sleep(0);
 }
 
-static DWORD WINAPI tramp(LPVOID vp);
+static DWORD WINAPI
+tramp(LPVOID vp)
+{
+	Proc *p = (Proc *) vp;
+	Oproc *op = (Oproc*) p->oproc;
+
+	_setproc(p);
+	op->tid = GetCurrentThreadId();
+ 	(*p->fn)(p->arg);
+	ExitThread(0);
+	return 0;
+}
 
 void
 osproc(Proc *p)
@@ -94,27 +105,6 @@ osproc(Proc *p)
 		oserror();
 		panic("osproc: %r");
 	}
-
-	Sleep(0);
-}
-
-static DWORD WINAPI
-tramp(LPVOID vp)
-{
-	Proc *p = (Proc *) vp;
-	Oproc *op = (Oproc*) p->oproc;
-
-	_setproc(p);
-	op->tid = GetCurrentThreadId();
-	op->sema = CreateSemaphore(0, 0, 1000, 0);
-	if(op->sema == 0) {
-		oserror();
-		panic("could not create semaphore: %r");
-	}
-
- 	(*p->fn)(p->arg);
-	ExitThread(0);
-	return 0;
 }
 
 void
