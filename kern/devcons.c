@@ -297,7 +297,6 @@ enum{
 	Qbintime,
 	Qcons,
 	Qconsctl,
-	Qcpunote,
 	Qcputime,
 	Qdrivers,
 	Qkprint,
@@ -330,7 +329,6 @@ static Dirtab consdir[]={
 	"bintime",	{Qbintime},	24,		0664,
 	"cons",		{Qcons},	0,		0660,
 	"consctl",	{Qconsctl},	0,		0220,
-	"cpunote",	{Qcpunote},	0,		0444,
 	"cputime",	{Qcputime},	6*NUMSIZE,	0444,
 	"drivers",	{Qdrivers},	0,		0444,
 	"hostdomain",	{Qhostdomain},	DOMLEN,		0664,
@@ -560,9 +558,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 		qunlock(&kbd.lk);
 		poperror();
 		return n;
-
-	case Qcpunote:
-		sleep(&up->sleep, return0, nil);
 
 	case Qcputime:
 		return 0;
