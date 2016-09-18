@@ -51,13 +51,6 @@ ending(void)
 	panic("ending");
 }
 
-void
-usage(void)
-{
-	fprint(2, "usage: drawterm [-GBOp] [-h host | -c cpuserver] [-a authserver] [-s secstore] [-u user] [-r root]\n");
-	exits("usage");
-}
-
 int
 mountfactotum(void)
 {
@@ -122,7 +115,7 @@ startaan(char *host, int fd)
 }
 
 void
-rcpu(char *host)
+rcpu(char *host, char *cmd)
 {
 	static char script[] = 
 "syscall fversion 0 65536 buf 256 >/dev/null >[2=1]\n"
@@ -132,11 +125,11 @@ rcpu(char *host)
 "	</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
 "	bind -q /mnt/term/dev/cons /dev/cons\n"
 "}\n"
-"</dev/cons >/dev/cons >[2=1] service=cpu rc -li\n"
+"</dev/cons >/dev/cons >[2=1] service=cpu %s\n"
 "echo -n hangup >/proc/$pid/notepg\n";
 	int fd;
 
-	if((fd = dial(netmkaddr(host, "tcp", "17019"), nil, nil, nil)) < 0)
+	if((fd = dial(netmkaddr(host, "tcp", "rcpu"), nil, nil, nil)) < 0)
 		return;
 
 	/* provide /dev/kbd for kbdfs */
@@ -152,20 +145,28 @@ rcpu(char *host)
 	}
 	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 
-	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
+	if(cmd == nil)
+		cmd = smprint(script, "rc -li");
+	else {
+		char *run = smprint("rc -lc %q", cmd);
+		cmd = smprint(script, run);
+		free(run);
+	}
+	if(fprint(fd, "%7ld\n%s", strlen(cmd), cmd) < 0)
 		sysfatal("sending script: %r");
+	free(cmd);
 
 	/* Begin serving the namespace */
 	exportfs(fd);
 }
 
 void
-ncpu(char *host)
+ncpu(char *host, char *cmd)
 {
 	char buf[MaxStr];
 	int fd;
 
-	if((fd = dial(netmkaddr(host, "tcp", "17010"), nil, nil, nil)) < 0)
+	if((fd = dial(netmkaddr(host, "tcp", "ncpu"), nil, nil, nil)) < 0)
 		return;
 
 	/* negotiate authentication mechanism */
@@ -182,6 +183,13 @@ ncpu(char *host)
 
 	/* authenticate and encrypt the channel */
 	fd = p9authssl(fd);
+
+	/* tell remote side the command */
+	if(cmd != nil){
+		cmd = smprint("!%s", cmd);
+		writestr(fd, cmd, "cmd", 0);
+		free(cmd);
+	}
 
 	/* Tell the remote side where our working directory is */
 	if(getcwd(buf, sizeof(buf)) == 0)
@@ -213,42 +221,25 @@ ncpu(char *host)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-GBOp] "
+		"[-h host] [-u user] [-a authserver] [-s secstore] "
+		"[-e 'crypt hash'] [-k keypattern] "
+		"[-r root] [-c cmd ...]\n", argv0);
+	exits("usage");
+}
+
+void
 cpumain(int argc, char **argv)
 {
-	char *s;
+	char *s, *cmd = nil;
 
 	user = getenv("USER");
-	authserver = getenv("auth");
 	host = getenv("cpu");
+	authserver = getenv("auth");
+
 	ARGBEGIN{
-	case 'a':
-		authserver = EARGF(usage());
-		break;
-	case 'h':
-	case 'c':
-		host = EARGF(usage());
-		break;
-	case 'e':
-		ealgs = EARGF(usage());
-		if(*ealgs == 0 || strcmp(ealgs, "clear") == 0)
-			ealgs = nil;
-		break;
-	case 'r':
-		s = smprint("/root/%s", EARGF(usage()));
-		cleanname(s);
-		if(bind(s, "/root", MREPL) < 0)
-			panic("bind /root: %r");
-		free(s);
-		break;
-	case 's':
-		secstore = EARGF(usage());
-		break;
-	case 'k':
-		keyspec = EARGF(usage());
-		break;
-	case 'u':
-		user = EARGF(usage());
-		break;
 	case 'G':
 		nogfx = 1;
 		/* wet floor */
@@ -260,6 +251,41 @@ cpumain(int argc, char **argv)
 		break;
 	case 'p':
 		aanfilter = 1;
+		break;
+	case 'h':
+		host = EARGF(usage());
+		break;
+	case 'a':
+		authserver = EARGF(usage());
+		break;
+	case 's':
+		secstore = EARGF(usage());
+		break;
+	case 'e':
+		ealgs = EARGF(usage());
+		if(*ealgs == 0 || strcmp(ealgs, "clear") == 0)
+			ealgs = nil;
+		break;
+	case 'k':
+		keyspec = EARGF(usage());
+		break;
+	case 'u':
+		user = EARGF(usage());
+		break;
+	case 'r':
+		s = smprint("/root/%s", EARGF(usage()));
+		cleanname(s);
+		if(bind(s, "/root", MREPL) < 0)
+			panic("bind /root: %r");
+		free(s);
+		break;
+	case 'c':
+		cmd = estrdup(EARGF(usage()));
+		while((s = ARGF()) != nil){
+			char *old = cmd;
+			cmd = smprint("%s %q", cmd, s);
+			free(old);
+		}
 		break;
 	default:
 		usage();
@@ -273,7 +299,8 @@ cpumain(int argc, char **argv)
 			panic("bind #i: %r");
 		if(bind("#m", "/dev", MBEFORE) < 0)
 			panic("bind #m: %r");
-		atexit(ending);
+		if(cmd == nil)
+			atexit(ending);
 	}
 
 	if(bind("/root", "/", MAFTER) < 0)
@@ -305,9 +332,9 @@ cpumain(int argc, char **argv)
 	}
 
 	if(!norcpu)
-		rcpu(host);
+		rcpu(host, cmd);
 
-	ncpu(host);
+	ncpu(host, cmd);
 
 	sysfatal("can't dial %s: %r", host);
 }
