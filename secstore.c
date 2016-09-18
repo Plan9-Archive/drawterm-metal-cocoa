@@ -58,7 +58,7 @@ secdial(char *secstore)
 			break;
 		}
 	}
-	fd = dial(netmkaddr(p, "tcp", "5356"), 0, 0, 0);
+	fd = dial(netmkaddr(p, "tcp", "secstore"), 0, 0, 0);
 	if(fd >= 0)
 		return fd;
 	return -1;
