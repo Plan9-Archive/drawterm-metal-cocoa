@@ -456,7 +456,7 @@ p9authtls(int fd)
 int
 authdial(char *net, char *dom)
 {
-	return dial(netmkaddr(authserver, "tcp", "567"), 0, 0, 0);
+	return dial(netmkaddr(authserver, "tcp", "ticket"), 0, 0, 0);
 }
 
 static int
