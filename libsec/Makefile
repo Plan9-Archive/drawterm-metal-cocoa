@@ -60,6 +60,7 @@ OFILES=\
 	salsa.$O\
 	secp256k1.$O\
 	secp256r1.$O\
+	secp384r1.$O\
 	sha1.$O\
 	sha1pickle.$O\
 	sha2_128.$O\
