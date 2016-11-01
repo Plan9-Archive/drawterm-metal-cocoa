@@ -13,13 +13,6 @@ $(LIB): $(OFILES)
 	$(AR) r $(LIB) $(OFILES)
 	$(RANLIB) $(LIB)
 
-%.$O: %.c
-	$(CC) $(CFLAGS) $*.c
-
-%.$O: %.s
-	$(AS) $(ASFLAGS) -o $*.$O $*.s
-
-%.s: %.spp
-	cpp $*.spp >$*.s
-
-
+tas.$O: tas.s
+	ln -sf tas.s tas.S
+	$(CC) -c -o tas.$O -mips3 tas.S

@@ -1,5 +1,4 @@
-#include <sys/regdef.h>
-#include <sys/asm.h>
+#include <machine/regdef.h>
 
 .globl tas
 .ent tas 2
