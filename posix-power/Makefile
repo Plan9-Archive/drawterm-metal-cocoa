@@ -2,6 +2,8 @@ ROOT=..
 include ../Make.config
 LIB=../libmachdep.a
 
+CFLAGS+= -Wa,-mregnames
+
 OFILES=\
 	getcallerpc.$O\
 	md5block.$O\
