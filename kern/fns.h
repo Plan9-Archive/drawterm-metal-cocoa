@@ -229,7 +229,7 @@ void		putstrn(char*, int);
 void		putswap(Page*);
 ulong		pwait(Waitmsg*);
 Label*	pwaserror(void);
-long		readblist(Block*, uchar *, long, long);
+long		readblist(Block*, uchar*, long, ulong);
 int		qaddlist(Queue*, Block*);
 Block*		qbread(Queue*, int);
 long		qbwrite(Queue*, Block*);
