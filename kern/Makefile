@@ -5,7 +5,6 @@ LIB=libkern.a
 OFILES=\
 	alloc.$O\
 	allocb.$O\
-	cache.$O\
 	chan.$O\
 	data.$O\
 	dev.$O\
