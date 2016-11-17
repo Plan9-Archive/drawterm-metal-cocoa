@@ -89,6 +89,7 @@ memimageinit(void)
 
 static ulong imgtorgba(Memimage*, ulong);
 static ulong rgbatoimg(Memimage*, ulong);
+static ulong pixelbits(Memimage*, Point);
 
 #define DBG if(0)
 void
@@ -453,9 +454,6 @@ struct Param {
 	int	convdx;
 };
 
-static uchar *drawbuf;
-static int	ndrawbuf;
-static int	mdrawbuf;
 static Readfn	greymaskread, replread, readptr;
 static Writefn	nullwrite;
 static Calcfn	alphacalc0, alphacalc14, alphacalc2810, alphacalc3679, alphacalc5, alphacalc11, alphacalcS;
@@ -467,7 +465,6 @@ static Writefn*	writefn(Memimage*);
 
 static Calcfn*	boolcopyfn(Memimage*, Memimage*);
 static Readfn*	convfn(Memimage*, Param*, Memimage*, Param*, int*);
-static Readfn*	ptrfn(Memimage*);
 
 static Calcfn *alphacalc[Ncomp] = 
 {
@@ -1966,7 +1963,7 @@ convfn(Memimage *dst, Param *dpar, Memimage *src, Param *spar, int *ndrawbuf)
 	return genconv;
 }
 
-ulong
+static ulong
 pixelbits(Memimage *i, Point pt)
 {
 	uchar *p;
@@ -2550,31 +2547,6 @@ DBG print("\n");
 }
 #undef DBG
 
-
-/*
- * Fill entire byte with replicated (if necessary) copy of source pixel,
- * assuming destination ldepth is >= source ldepth.
- *
- * This code is just plain wrong for >8bpp.
- *
-ulong
-membyteval(Memimage *src)
-{
-	int i, val, bpp;
-	uchar uc;
-
-	unloadmemimage(src, src->r, &uc, 1);
-	bpp = src->depth;
-	uc <<= (src->r.min.x&(7/src->depth))*src->depth;
-	uc &= ~(0xFF>>bpp);
-	/* pixel value is now in high part of byte. repeat throughout byte 
-	val = uc;
-	for(i=bpp; i<8; i<<=1)
-		val |= val>>i;
-	return val;
-}
- * 
- */
 
 void
 memfillcolor(Memimage *i, ulong val)

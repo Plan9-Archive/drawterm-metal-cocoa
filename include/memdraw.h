@@ -176,5 +176,3 @@ void		memimagemove(void*, void*);
 extern void	rdb(void);
 extern int		iprint(char*, ...);
 extern int		drawdebug;
-
-extern ulong	pixelbits(Memimage*, Point);
