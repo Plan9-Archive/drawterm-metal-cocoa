@@ -439,7 +439,6 @@ static void* erealloc(void*, int);
 static void put32(uchar *p, u32int);
 static void put24(uchar *p, int);
 static void put16(uchar *p, int);
-static u32int get32(uchar *p);
 static int get24(uchar *p);
 static int get16(uchar *p);
 static Bytes* newbytes(int len);
@@ -3012,12 +3011,6 @@ put16(uchar *p, int x)
 {
 	p[0] = x>>8;
 	p[1] = x;
-}
-
-static u32int
-get32(uchar *p)
-{
-	return (p[0]<<24)|(p[1]<<16)|(p[2]<<8)|p[3];
 }
 
 static int
