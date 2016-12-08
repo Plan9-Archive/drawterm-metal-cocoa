@@ -466,6 +466,11 @@ fsclose(Chan *c)
 		} else {
 			CloseHandle(uif->fh);
 		}
+		c->flag &= ~COPEN;
+		if(c->flag & CRCLOSE) {
+			devtab[c->type]->remove(c);
+			return;
+		}
 	}
 	free(uif->path);
 	free(uif);
@@ -544,6 +549,10 @@ fsremove(Chan *c)
 {
 	Ufsinfo *uif;
 
+	if(waserror()){
+		fsclose(c);
+		nexterror();
+	}
 	uif = c->aux;
 	if(c->qid.type & QTDIR){
 		if(!RemoveDirectory(uif->path))
@@ -552,6 +561,8 @@ fsremove(Chan *c)
 		if(!DeleteFile(uif->path))
 			oserror();
 	}
+	poperror();
+	fsclose(c);
 }
 
 static int
