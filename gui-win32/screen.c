@@ -19,7 +19,6 @@
 Memimage	*gscreen;
 Screeninfo	screen;
 
-extern int mousequeue;
 static int depth;
 
 static	HINSTANCE	inst;
@@ -210,8 +209,6 @@ winproc(void *a)
 	readybit = 1;
 	wakeup(&rend);
 
-	screen.reshaped = 0;
-
 	while(GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
@@ -387,28 +384,7 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			else
 				b |= 4;
 		}
-		lock(&mouse.lk);
-		i = mouse.wi;
-		if(mousequeue) {
-			if(i == mouse.ri || mouse.lastb != b || mouse.trans) {
-				mouse.wi = (i+1)%Mousequeue;
-				if(mouse.wi == mouse.ri)
-					mouse.ri = (mouse.ri+1)%Mousequeue;
-				mouse.trans = mouse.lastb != b;
-			} else {
-				i = (i-1+Mousequeue)%Mousequeue;
-			}
-		} else {
-			mouse.wi = (i+1)%Mousequeue;
-			mouse.ri = i;
-		}
-		mouse.queue[i].xy.x = x;
-		mouse.queue[i].xy.y = y;
-		mouse.queue[i].buttons = b;
-		mouse.queue[i].msec = ticks();
-		mouse.lastb = b;
-		unlock(&mouse.lk);
-		wakeup(&mouse.r);
+		absmousetrack(x, y, b, ticks());
 		break;
 
 	case WM_CHAR:

@@ -8,8 +8,6 @@
 #include	"memdraw.h"
 #include	"screen.h"
 
-int	mousequeue = 1;
-
 Mouseinfo	mouse;
 Cursorinfo	cursor;
 Cursorinfo      arrow = {
@@ -96,13 +94,9 @@ mouseopen(Chan *c, int omode)
 			error(Eperm);
 		break;
 	case Qmouse:
-		lock(&mouse.lk);
-		if(mouse.open){
-			unlock(&mouse.lk);
+		if(tas(&mouse.open) != 0)
 			error(Einuse);
-		}
-		mouse.open = 1;
-		unlock(&mouse.lk);
+		mouse.lastcounter = mouse.state.counter;
 		break;
 	}
 	c->mode = openmode(omode);
@@ -119,9 +113,7 @@ mouseclose(Chan *c)
 
 	switch((long)c->qid.path) {
 	case Qmouse:
-		lock(&mouse.lk);
 		mouse.open = 0;
-		unlock(&mouse.lk);
 		cursor = arrow;
 		setcursor();
 	}
@@ -131,9 +123,9 @@ long
 mouseread(Chan *c, void *va, long n, vlong offset)
 {
 	char buf[4*12+1];
+	Mousestate m;
 	uchar *p;
-	int i, nn, b;
-	ulong msec;
+	int b;
 	
 	p = va;
 	switch((long)c->qid.path){
@@ -158,46 +150,27 @@ mouseread(Chan *c, void *va, long n, vlong offset)
 		while(mousechanged(0) == 0)
 			sleep(&mouse.r, mousechanged, 0);
 
-		lock(&screen.lk);
-		if(screen.reshaped) {
-			screen.reshaped = 0;
-			sprint(buf, "t%11d %11d", 0, ticks());
-			if(n > 1+2*12)
-				n = 1+2*12;
-			memmove(va, buf, n);
-			unlock(&screen.lk);
-			return n;
-		}
-		unlock(&screen.lk);
-
 		lock(&mouse.lk);
-		i = mouse.ri;
-		nn = (mouse.wi + Mousequeue - i) % Mousequeue;
-		if(nn < 1)
-			panic("empty mouse queue");
-		msec = ticks();
-		while(nn > 1) {
-			if(mouse.queue[i].msec + Mousewindow > msec)
-				break;
-			i = (i+1)%Mousequeue;
-			nn--;
-		}
-		b = buttonmap[mouse.queue[i].buttons&7];
+		if(mouse.ri != mouse.wi)
+			m = mouse.queue[mouse.ri++ % nelem(mouse.queue)];
+		else
+			m = mouse.state;
+		unlock(&mouse.lk);
+
+		b = buttonmap[m.buttons&7];
 		/* put buttons 4 and 5 back in */
-		b |= mouse.queue[i].buttons & (3<<3);
-		if(scrollswap){
-			if(b == 8)
+		b |= m.buttons & (3<<3);
+		if (scrollswap) {
+			if (b == 8)
 				b = 16;
-			else if(b == 16)
+			else if (b == 16)
 				b = 8;
 		}
-		sprint(buf, "m%11d %11d %11d %11d",
-			mouse.queue[i].xy.x,
-			mouse.queue[i].xy.y,
-			b,
-			mouse.queue[i].msec);
-		mouse.ri = (i+1)%Mousequeue;
-		unlock(&mouse.lk);
+		sprint(buf, "m%11d %11d %11d %11lud ",
+			m.xy.x, m.xy.y, b, m.msec);
+
+		mouse.lastcounter = m.counter;
+
 		if(n > 1+4*12)
 			n = 1+4*12;
 		memmove(va, buf, n);
@@ -335,8 +308,42 @@ int
 mousechanged(void *a)
 {
 	USED(a);
+	return mouse.lastcounter != mouse.state.counter;
+}
 
-	return mouse.ri != mouse.wi || screen.reshaped;
+void
+absmousetrack(int x, int y, int b, int msec)
+{
+	int lastb;
+
+	if(gscreen==nil)
+		return;
+
+	if(x < gscreen->clipr.min.x)
+		x = gscreen->clipr.min.x;
+	if(x >= gscreen->clipr.max.x)
+		x = gscreen->clipr.max.x-1;
+	if(y < gscreen->clipr.min.y)
+		y = gscreen->clipr.min.y;
+	if(y >= gscreen->clipr.max.y)
+		y = gscreen->clipr.max.y-1;
+
+	lock(&mouse.lk);
+	mouse.state.xy = Pt(x, y);
+	lastb = mouse.state.buttons;
+	mouse.state.buttons = b;
+	mouse.state.msec = msec;
+	mouse.state.counter++;
+
+	/*
+	 * if the queue fills, don't queue any more events until a
+	 * reader polls the mouse.
+	 */
+	if(b != lastb && (mouse.wi-mouse.ri) < nelem(mouse.queue))
+		mouse.queue[mouse.wi++ % nelem(mouse.queue)] = mouse.state;
+	unlock(&mouse.lk);
+
+	wakeup(&mouse.r);
 }
 
 Dev mousedevtab = {
