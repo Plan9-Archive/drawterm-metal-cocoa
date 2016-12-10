@@ -134,7 +134,7 @@ typedef struct Lock
 	int init;
 	pthread_mutex_t mutex;
 #else
-	long	key;
+	int key;
 #endif
 } Lock;
 
@@ -262,7 +262,7 @@ extern	char*	strecpy(char*, char*, char*);
 extern	int	tokenize(char*, char**, int);
 extern	int	getfields(char*, char**, int, int, char*);
 extern	char*	utfecpy(char*, char*, char*);
-extern	long	tas(long*);
+extern	int	tas(int*);
 extern	void	quotefmtinstall(void);
 extern	int	dec64(uchar*, int, char*, int);
 extern	int	enc64(char*, int, uchar*, int);
