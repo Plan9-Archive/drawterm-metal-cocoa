@@ -16,8 +16,7 @@ void	(*screenputs)(char*, int) = 0;
 Queue*	kbdq;			/* unprocessed console input */
 Queue*	lineq;			/* processed console input */
 Queue*	kprintoq;		/* console output, for /dev/kprint */
-long	kprintinuse;		/* test and set whether /dev/kprint is open */
-Lock	kprintlock;
+int	kprintinuse;		/* test and set whether /dev/kprint is open */
 
 int	panicking;
 
@@ -420,14 +419,10 @@ consopen(Chan *c, int omode)
 		break;
 
 	case Qkprint:
-		lock(&kprintlock);
-		if(kprintinuse != 0){
+		if(tas(&kprintinuse) != 0){
 			c->flag &= ~COPEN;
-			unlock(&kprintlock);
 			error(Einuse);
 		}
-		kprintinuse = 1;
-		unlock(&kprintlock);
 		if(kprintoq == nil){
 			kprintoq = qopen(8*1024, Qcoalesce, 0, 0);
 			if(kprintoq == nil){

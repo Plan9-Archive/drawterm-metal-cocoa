@@ -69,11 +69,10 @@ kbdopen(Chan *c, int omode)
 	c = devopen(c, omode, kbddir, nelem(kbddir), devgen);
 	switch((ulong)c->qid.path){
 	case Qkbd:
-		if(kbdinuse){
+		if(tas(&kbdinuse) != 0){
 			c->flag &= ~COPEN;
 			error(Einuse);
 		}
-		kbdinuse = 1;
 		break;
 	}
 	return c;
