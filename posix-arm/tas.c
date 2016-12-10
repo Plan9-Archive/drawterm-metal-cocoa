@@ -2,7 +2,7 @@
 #include "libc.h"
 
 int
-tas(long *x)
+tas(int *x)
 {
 	int     v, t, i = 1;
 
