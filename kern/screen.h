@@ -56,4 +56,4 @@ extern	QLock drawlock;
 
 void	terminit(void);
 
-void	absmousetrack(int, int, int, int);
+void	absmousetrack(int, int, int, ulong);
