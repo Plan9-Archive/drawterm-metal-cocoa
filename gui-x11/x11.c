@@ -112,8 +112,6 @@ static XColor			map7[128];	/* Plan 9 colormap array */
 static uchar			map7to8[128][2];
 static Colormap			xcmap;		/* Default shared colormap  */
 
-extern int mousequeue;
-
 /* for copy/paste, lifted from plan9ports */
 static Atom clipboard; 
 static Atom utf8string;
@@ -969,25 +967,7 @@ xmouse(XEvent *e)
 	if(s & Button5Mask)
 		ms.buttons |= 16;
 
-	lock(&mouse.lk);
-	i = mouse.wi;
-	if(mousequeue) {
-		if(i == mouse.ri || mouse.lastb != ms.buttons || mouse.trans) {
-			mouse.wi = (i+1)%Mousequeue;
-			if(mouse.wi == mouse.ri)
-				mouse.ri = (mouse.ri+1)%Mousequeue;
-			mouse.trans = mouse.lastb != ms.buttons;
-		} else {
-			i = (i-1+Mousequeue)%Mousequeue;
-		}
-	} else {
-		mouse.wi = (i+1)%Mousequeue;
-		mouse.ri = i;
-	}
-	mouse.queue[i] = ms;
-	mouse.lastb = ms.buttons;
-	unlock(&mouse.lk);
-	wakeup(&mouse.r);
+	absmousetrack(ms.x, ms.y, ms.buttons, ms.msec);
 }
 
 void

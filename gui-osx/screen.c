@@ -31,7 +31,6 @@
 #define topLeft(r)  (((Point *) &(r))[0])
 #define botRight(r) (((Point *) &(r))[1])
 
-extern int mousequeue;
 static int depth;
 Boolean   gDone;
 RgnHandle gCursorRegionHdl;
@@ -269,32 +268,10 @@ static inline int convert_key(UInt32 key, UInt32 charcode)
 	}
 }
 
-void
+static void
 sendbuttons(int b, int x, int y)
 {
-	int i;
-	lock(&mouse.lk);
-	i = mouse.wi;
-	if(mousequeue) {
-		if(i == mouse.ri || mouse.lastb != b || mouse.trans) {
-			mouse.wi = (i+1)%Mousequeue;
-			if(mouse.wi == mouse.ri)
-				mouse.ri = (mouse.ri+1)%Mousequeue;
-			mouse.trans = mouse.lastb != b;
-		} else {
-			i = (i-1+Mousequeue)%Mousequeue;
-		}
-	} else {
-		mouse.wi = (i+1)%Mousequeue;
-		mouse.ri = i;
-	}
-	mouse.queue[i].xy.x = x;
-	mouse.queue[i].xy.y = y;
-	mouse.queue[i].buttons = b;
-	mouse.queue[i].msec = ticks();
-	mouse.lastb = b;
-	unlock(&mouse.lk);
-	wakeup(&mouse.r);
+	absmousetrack(x, y, b, ticks());
 }
 
 static Ptr fullScreenRestore;

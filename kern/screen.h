@@ -3,23 +3,22 @@ typedef struct Mousestate Mousestate;
 typedef struct Cursorinfo Cursorinfo;
 typedef struct Screeninfo Screeninfo;
 
-#define Mousequeue 16		/* queue can only have Mousequeue-1 elements */
-#define Mousewindow 500		/* mouse event window in millisec */
-
 struct Mousestate {
-	int	buttons;
 	Point	xy;
+	int	buttons;
+	ulong	counter;
 	ulong	msec;
 };
 
 struct Mouseinfo {
-	Lock	lk;
-	Mousestate queue[Mousequeue];
-	int	ri, wi;
-	int	lastb;
-	int	trans;
-	int	open;
-	Rendez	r;
+	Lock		lk;
+	Mousestate	state;
+	ulong		lastcounter;
+	Rendez		r;
+	int		open;
+	Mousestate	queue[16];	/* circular buffer of click events */
+	ulong		ri;		/* read index into queue */
+	ulong		wi;		/* write index into queue */
 };
 
 struct Cursorinfo {
@@ -30,11 +29,9 @@ struct Cursorinfo {
 };
 
 struct Screeninfo {
-	Lock		lk;
-	Memimage	*newsoft;
-	int		reshaped;
-	int		depth;
-	int		dibtype;
+	Lock	lk;
+	int	depth;
+	int	dibtype;
 };
 
 extern	Memimage *gscreen;
@@ -55,6 +52,8 @@ void	flushmemscreen(Rectangle);
 uchar*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 
 extern	QLock drawlock;
-#define	ishwimage(i)	1
+#define	ishwimage(i)	0
 
 void	terminit(void);
+
+void	absmousetrack(int, int, int, int);
