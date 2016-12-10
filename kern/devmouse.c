@@ -312,7 +312,7 @@ mousechanged(void *a)
 }
 
 void
-absmousetrack(int x, int y, int b, int msec)
+absmousetrack(int x, int y, int b, ulong msec)
 {
 	int lastb;
 
