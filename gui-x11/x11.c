@@ -873,9 +873,9 @@ static void
 xmouse(XEvent *e)
 {
 	Mousestate ms;
-	int i, s;
 	XButtonEvent *be;
 	XMotionEvent *me;
+	int s;
 
 	if(putsnarf != assertsnarf){
 		assertsnarf = putsnarf;
@@ -967,7 +967,7 @@ xmouse(XEvent *e)
 	if(s & Button5Mask)
 		ms.buttons |= 16;
 
-	absmousetrack(ms.x, ms.y, ms.buttons, ms.msec);
+	absmousetrack(ms.xy.x, ms.xy.y, ms.buttons, ms.msec);
 }
 
 void
