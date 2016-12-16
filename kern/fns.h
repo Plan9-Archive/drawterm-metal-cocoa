@@ -90,7 +90,6 @@ void		exhausted(char*);
 void		exit(int);
 uvlong		fastticks(uvlong*);
 int		fault(ulong, int);
-void		fdclose(int, int);
 Chan*		fdtochan(int, int, int, int);
 int		fixfault(Segment*, ulong, int, int);
 void		flushmmu(void);
