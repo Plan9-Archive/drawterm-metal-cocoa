@@ -89,6 +89,7 @@ extern	int	encrypt(void*, void*, int);
 extern	int	decrypt(void*, void*, int);
 extern	void	qlock(QLock*);
 extern	void	qunlock(QLock*);
+extern	long	time(long*);
 extern	vlong	nsec(void);
 extern	void	lock(Lock*);
 extern	void	unlock(Lock*);

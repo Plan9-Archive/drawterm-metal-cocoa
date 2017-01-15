@@ -141,6 +141,7 @@ randomread(void *v, ulong n)
 	return n;
 }
 
+#undef time
 long
 seconds(void)
 {
