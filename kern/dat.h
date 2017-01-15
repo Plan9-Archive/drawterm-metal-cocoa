@@ -45,20 +45,7 @@ struct Conf
 {
 	ulong	nmach;		/* processors */
 	ulong	nproc;		/* processes */
-	ulong	monitor;	/* has monitor? */
-	ulong	npage0;		/* total physical pages of memory */
-	ulong	npage1;		/* total physical pages of memory */
-	ulong	npage;		/* total physical pages of memory */
-	ulong	upages;		/* user page pool */
-	ulong	nimage;		/* number of page cache image headers */
-	ulong	nswap;		/* number of swap pages */
-	int	nswppo;		/* max # of pageouts per segment pass */
-	ulong	base0;		/* base of bank 0 */
-	ulong	base1;		/* base of bank 1 */
-	ulong	copymode;	/* 0 is copy on write, 1 is copy on reference */
-	ulong	ialloc;		/* max interrupt time allocation in bytes */
 	ulong	pipeqsize;	/* size in bytes of pipe queues */
-	int	nuart;		/* number of uart devices */
 };
 
 struct Label

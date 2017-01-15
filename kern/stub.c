@@ -28,13 +28,6 @@ spllo(void)
 	return 0;
 }
 
-void
-rebootcmd(int argc, char **argv)
-{
-	USED(argc);
-	USED(argv);
-}
-
 int
 userwrite(char *a, int n)
 {
