@@ -89,6 +89,7 @@ enum
 	ChachaBsize=	64,
 	ChachaKeylen=	256/8,
 	ChachaIVlen=	96/8,
+	XChachaIVlen=	192/8,
 };
 
 typedef struct Chachastate Chachastate;
@@ -103,6 +104,7 @@ struct Chachastate
 			u32int	iv[3];
 		};
 	};
+	u32int	xkey[8];
 	int	rounds;
 	int	ivwords;
 };
@@ -112,6 +114,8 @@ void	chacha_setiv(Chachastate *, uchar*);
 void	chacha_setblock(Chachastate*, u64int);
 void	chacha_encrypt(uchar*, ulong, Chachastate*);
 void	chacha_encrypt2(uchar*, uchar*, ulong, Chachastate*);
+
+void	hchacha(uchar h[32], uchar *key, ulong keylen, uchar nonce[16], int rounds);
 
 void	ccpoly_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Chachastate *cs);
 int	ccpoly_decrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Chachastate *cs);
@@ -131,7 +135,7 @@ typedef struct Salsastate Salsastate;
 struct Salsastate
 {
 	u32int	input[16];
-	u32int	key[8];
+	u32int	xkey[8];
 	int	rounds;
 	int	ivwords;
 };
@@ -141,6 +145,8 @@ void	salsa_setiv(Salsastate*, uchar*);
 void	salsa_setblock(Salsastate*, u64int);
 void	salsa_encrypt(uchar*, ulong, Salsastate*);
 void	salsa_encrypt2(uchar*, uchar*, ulong, Salsastate*);
+
+void	salsa_core(u32int in[16], u32int out[16], int rounds);
 
 void	hsalsa(uchar h[32], uchar *key, ulong keylen, uchar nonce[16], int rounds);
 
@@ -485,7 +491,7 @@ typedef struct ECpoint{
 	int inf;
 	mpint *x;
 	mpint *y;
-	mpint *z;
+	mpint *z;	/* nil when using affine coordinates */
 } ECpoint;
 
 typedef ECpoint ECpub;
@@ -563,6 +569,11 @@ void curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
+
+/* scrypt password-based key derivation function */
+char* scrypt(uchar *p, ulong plen, uchar *s, ulong slen,
+	ulong N, ulong R, ulong P,
+	uchar *d, ulong dlen);
 
 /* hmac-based key derivation function (rfc5869) */
 void hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo, uchar *key, ulong nkey, uchar *d, ulong dlen,
