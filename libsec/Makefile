@@ -58,6 +58,7 @@ OFILES=\
 	rsagen.$O\
 	rsaprivtopub.$O\
 	salsa.$O\
+	scrypt.$O\
 	secp256k1.$O\
 	secp256r1.$O\
 	secp384r1.$O\
