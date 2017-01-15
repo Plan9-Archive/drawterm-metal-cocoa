@@ -118,6 +118,7 @@ wfdtoqid(wchar_t *path, WIN32_FIND_DATA *wfd)
 static void
 wfdtodir(wchar_t *path, Dir *d, WIN32_FIND_DATA *wfd)
 {
+	extern ulong kerndate;
 	WIN32_FIND_DATA f;
 
 	switch(pathtype(path)){
@@ -125,8 +126,8 @@ wfdtodir(wchar_t *path, Dir *d, WIN32_FIND_DATA *wfd)
 	case TPATH_ROOT:
 		wfd = nil;
 		d->mode = 0777 | DMDIR;
-		d->atime = 0;
-		d->mtime = 0;
+		d->atime = seconds();
+		d->mtime = kerndate;
 		d->length = 0;
 		break;
 
