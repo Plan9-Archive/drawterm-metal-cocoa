@@ -35,6 +35,8 @@ static int	p9authtls(int);
 
 char *authserver;
 char *secstore;
+char *user;
+char secstorebuf[65536];
 
 char*
 estrdup(char *s)

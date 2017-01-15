@@ -6,10 +6,7 @@
 #include "drawterm.h"
 
 char *argv0;
-char *user;
-char secstorebuf[65536];
 
-extern int errfmt(Fmt*);
 void
 sizebug(void)
 {
@@ -31,6 +28,9 @@ sizebug(void)
 int
 main(int argc, char **argv)
 {
+	extern ulong kerndate;
+
+	kerndate = seconds();
 	eve = getuser();
 	if(eve == nil)
 		eve = "drawterm";
