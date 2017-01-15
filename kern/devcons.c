@@ -731,7 +731,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		ct = lookupcmd(cb, rebootmsg, nelem(rebootmsg));
 		switch(ct->index) {
 		case CMreboot:
-			rebootcmd(cb->nf-1, cb->f+1);
+			error(Egreg);
 			break;
 		case CMpanic:
 			panic("/dev/reboot");
