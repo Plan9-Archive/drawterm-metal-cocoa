@@ -161,7 +161,6 @@ devclone(Chan *c)
 	nc->pgrpid = c->pgrpid;
 	nc->mid = c->mid;
 	nc->mqid = c->mqid;
-	nc->mcp = c->mcp;
 	return nc;
 }
 

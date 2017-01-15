@@ -2,9 +2,7 @@
 
 #define	BLOCKALIGN		8
 
-typedef struct Alarms	Alarms;
 typedef struct Block	Block;
-typedef struct CSN	CSN;
 typedef struct Chan	Chan;
 typedef struct Cmdbuf	Cmdbuf;
 typedef struct Cmdtab	Cmdtab;
@@ -12,46 +10,26 @@ typedef struct Cname	Cname;
 typedef struct Conf	Conf;
 typedef struct Dev	Dev;
 typedef struct Dirtab	Dirtab;
-typedef struct Edfinterface	Edfinterface;
 typedef struct Egrp	Egrp;
 typedef struct Evalue	Evalue;
 typedef struct Fgrp	Fgrp;
-typedef struct FPsave	FPsave;
 typedef struct DevConf	DevConf;
 typedef struct Label	Label;
-typedef struct List	List;
 typedef struct Log	Log;
 typedef struct Logflag	Logflag;
-typedef struct Mntcache Mntcache;
 typedef struct Mount	Mount;
 typedef struct Mntrpc	Mntrpc;
 typedef struct Mntwalk	Mntwalk;
 typedef struct Mnt	Mnt;
 typedef struct Mhead	Mhead;
-typedef struct Note	Note;
-typedef struct Page	Page;
-typedef struct Palloc	Palloc;
-typedef struct Perf	Perf;
 typedef struct Pgrps	Pgrps;
-typedef struct PhysUart	PhysUart;
 typedef struct Pgrp	Pgrp;
-typedef struct Physseg	Physseg;
 typedef struct Proc	Proc;
-typedef struct Pte	Pte;
-typedef struct Pthash	Pthash;
 typedef struct Queue	Queue;
 typedef struct Ref	Ref;
 typedef struct Rendez	Rendez;
 typedef struct Rgrp	Rgrp;
 typedef struct RWlock	RWlock;
-typedef struct Schedq	Schedq;
-typedef struct Segment	Segment;
-typedef struct Session	Session;
-typedef struct Task	Task;
-typedef struct Talarm	Talarm;
-typedef struct Timer	Timer;
-typedef struct Uart	Uart;
-typedef struct Ureg Ureg;
 typedef struct Waitq	Waitq;
 typedef struct Walkqid	Walkqid;
 typedef int    Devgen(Chan*, char*, Dirtab*, int, int, Dir*);
@@ -187,14 +165,12 @@ struct Chan
 	int	uri;			/* union read index */
 	int	dri;			/* devdirread index */
 	ulong	mountid;
-	Mntcache *mcp;			/* Mount cache pointer */
 	Mnt		*mux;		/* Mnt for clients using me for messages */
 	void*	aux;
 	Qid	pgrpid;		/* for #p/notepg */
 	ulong	mid;		/* for ns in devproc */
 	Chan*	mchan;			/* channel to mounted server */
 	Qid	mqid;			/* qid of root of mount point */
-	Session*session;
 	Cname	*name;
 };
 
@@ -303,12 +279,6 @@ enum
 	NDebug,				/* print debug message */
 };
 
-struct Note
-{
-	char	msg[ERRMAX];
-	int	flag;			/* whether system posted it */
-};
-
 enum
 {
 	RENDLOG	=	5,
@@ -316,8 +286,6 @@ enum
 	MNTLOG	=	5,
 	MNTHASH =	1<<MNTLOG,		/* Hash to walk mount table */
 	NFD =		100,		/* per process file descriptors */
-	PGHLOG  =	9,
-	PGHSIZE	=	1<<PGHLOG,	/* Page hash for image lookup */
 };
 #define REND(p,s)	((p)->rendhash[(s)&((1<<RENDLOG)-1)])
 #define MOUNTH(p,qid)	((p)->mnthash[(qid).path&((1<<MNTLOG)-1)])
@@ -435,26 +403,16 @@ enum
 	READSTR =	1000,		/* temporary buffer size for device reads */
 };
 
-extern	char*	conffile;
 extern	int	cpuserver;
 extern	Dev*	devtab[];
 extern  char	*eve;
 extern	char	hostdomain[];
-extern	uchar	initcode[];
 extern  Queue*	kbdq;
 extern  Queue*	kprintoq;
-extern  Ref	noteidalloc;
-extern	Palloc	palloc;
-extern  Queue	*serialoq;
 extern	char*	statename[];
-extern	int	nsyscall;
 extern	char	*sysname;
 extern	uint	qiomaxatomic;
 extern	Conf	conf;
-enum
-{
-	LRESPROF	= 3,
-};
 
 /*
  *  action log

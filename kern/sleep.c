@@ -15,7 +15,6 @@ sleep(Rendez *r, int (*f)(void*), void *arg)
 	lock(&up->rlock);
 	if(r->p){
 		print("double sleep %lud %lud\n", r->p->pid, up->pid);
-		dumpstack();
 	}
 
 	/*

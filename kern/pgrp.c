@@ -250,23 +250,3 @@ mountfree(Mount *m)
 		m = f;
 	}
 }
-
-#ifdef NOTDEF
-void
-resrcwait(char *reason)
-{
-	char *p;
-
-	if(up == 0)
-		panic("resrcwait");
-
-	p = up->psstate;
-	if(reason) {
-		up->psstate = reason;
-		print("%s\n", reason);
-	}
-
-	tsleep(&up->sleep, return0, 0, 300);
-	up->psstate = p;
-}
-#endif

@@ -4,7 +4,6 @@
 #include "fns.h"
 #include "error.h"
 
-Proc *up;
 Conf conf = 
 {
 	1,
