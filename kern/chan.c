@@ -247,7 +247,6 @@ newchan(void)
 	c->dri = 0;
 	c->aux = 0;
 	c->mchan = 0;
-	c->mcp = 0;
 	c->mux = 0;
 	memset(&c->mqid, 0, sizeof(c->mqid));
 	c->name = 0;

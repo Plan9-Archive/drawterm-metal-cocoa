@@ -58,7 +58,7 @@ static struct
 };
 
 char	*sysname;
-vlong	fasthz;
+vlong	fasthz = 1000;
 
 static int	readtime(ulong, char*, int);
 static int	readbintime(char*, int);
@@ -384,7 +384,6 @@ readstr(ulong off, char *buf, ulong n, char *str)
 static void
 consinit(void)
 {
-	todinit();
 	randominit();
 }
 
@@ -648,8 +647,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 	char buf[256];
 	long l, bp;
 	char *a = va;
-	int fd;
-	Chan *swc;
 	ulong offset = off;
 	Cmdbuf *cb;
 	Cmdtab *ct;
@@ -758,22 +755,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		break;
 
 	case Qswap:
-		if(n >= sizeof buf)
-			error(Egreg);
-		memmove(buf, va, n);	/* so we can NUL-terminate */
-		buf[n] = 0;
-		/* start a pager if not already started */
-		if(strncmp(buf, "start", 5) == 0){
-			kickpager();
-			break;
-		}
-		if(cpuserver && !iseve())
-			error(Eperm);
-		if(buf[0]<'0' || '9'<buf[0])
-			error(Ebadarg);
-		fd = strtoul(buf, 0, 0);
-		swc = fdtochan(fd, -1, 1, 1);
-		setswapchan(swc);
+		error(Egreg);
 		break;
 
 	case Qsysname:
@@ -819,19 +801,6 @@ Dev consdevtab = {
 static uvlong uvorder = (uvlong) 0x0001020304050607ULL;
 
 static uchar*
-le2vlong(vlong *to, uchar *f)
-{
-	uchar *t, *o;
-	int i;
-
-	t = (uchar*)to;
-	o = (uchar*)&uvorder;
-	for(i = 0; i < sizeof(vlong); i++)
-		t[o[i]] = f[i];
-	return f+sizeof(vlong);
-}
-
-static uchar*
 vlong2le(uchar *t, vlong from)
 {
 	uchar *f, *o;
@@ -844,36 +813,6 @@ vlong2le(uchar *t, vlong from)
 	return t+sizeof(vlong);
 }
 
-static long order = 0x00010203;
-
-static uchar*
-le2long(long *to, uchar *f)
-{
-	uchar *t, *o;
-	int i;
-
-	t = (uchar*)to;
-	o = (uchar*)&order;
-	for(i = 0; i < sizeof(long); i++)
-		t[o[i]] = f[i];
-	return f+sizeof(long);
-}
-
-/*
-static uchar*
-long2le(uchar *t, long from)
-{
-	uchar *f, *o;
-	int i;
-
-	f = (uchar*)&from;
-	o = (uchar*)&order;
-	for(i = 0; i < sizeof(long); i++)
-		t[i] = f[o[i]];
-	return t+sizeof(long);
-}
-*/
-
 char *Ebadtimectl = "bad time control";
 
 /*
@@ -884,18 +823,16 @@ char *Ebadtimectl = "bad time control";
 static int
 readtime(ulong off, char *buf, int n)
 {
-	vlong	nsec, ticks;
-	long sec;
+	vlong nsec;
+	ulong sec;
 	char str[7*NUMSIZE];
 
-	nsec = todget(&ticks);
-	if(fasthz == (vlong)0)
-		fastticks((uvlong*)&fasthz);
-	sec = nsec/((uvlong) 1000000000);
+	sec = seconds();
+	nsec = (vlong)sec*1000000000LL;
 	snprint(str, sizeof(str), "%*.0lud %*.0llud %*.0llud %*.0llud ",
 		NUMSIZE-1, sec,
 		VLNUMSIZE-1, nsec,
-		VLNUMSIZE-1, ticks,
+		VLNUMSIZE-1, ticks(),
 		VLNUMSIZE-1, fasthz);
 	return readstr(off, buf, n, str);
 }
@@ -906,20 +843,10 @@ readtime(ulong off, char *buf, int n)
 static int
 writetime(char *buf, int n)
 {
-	char b[13];
-	long i;
-	vlong now;
-
-	if(n >= sizeof(b))
-		error(Ebadtimectl);
-	strncpy(b, buf, n);
-	b[n] = 0;
-	i = strtol(b, 0, 0);
-	if(i <= 0)
-		error(Ebadtimectl);
-	now = i*((vlong) 1000000000);
-	todset(now, 0, 0);
-	return n;
+	USED(buf);
+	USED(n);
+	error(Egreg);
+	return 0;
 }
 
 /*
@@ -930,19 +857,17 @@ static int
 readbintime(char *buf, int n)
 {
 	int i;
-	vlong nsec, ticks;
+	vlong nsec;
 	uchar *b = (uchar*)buf;
 
 	i = 0;
-	if(fasthz == (vlong)0)
-		fastticks((uvlong*)&fasthz);
-	nsec = todget(&ticks);
+	nsec = (ulong)seconds()*1000000000LL;
 	if(n >= 3*sizeof(uvlong)){
 		vlong2le(b+2*sizeof(uvlong), fasthz);
 		i += sizeof(uvlong);
 	}
 	if(n >= 2*sizeof(uvlong)){
-		vlong2le(b+sizeof(uvlong), ticks);
+		vlong2le(b+sizeof(uvlong), ticks());
 		i += sizeof(uvlong);
 	}
 	if(n >= 8){
@@ -961,34 +886,10 @@ readbintime(char *buf, int n)
 static int
 writebintime(char *buf, int n)
 {
-	uchar *p;
-	vlong delta;
-	long period;
-
-	n--;
-	p = (uchar*)buf + 1;
-	switch(*buf){
-	case 'n':
-		if(n < sizeof(vlong))
-			error(Ebadtimectl);
-		le2vlong(&delta, p);
-		todset(delta, 0, 0);
-		break;
-	case 'd':
-		if(n < sizeof(vlong)+sizeof(long))
-			error(Ebadtimectl);
-		p = le2vlong(&delta, p);
-		le2long(&period, p);
-		todset(-1, delta, period);
-		break;
-	case 'f':
-		if(n < sizeof(uvlong))
-			error(Ebadtimectl);
-		le2vlong(&fasthz, p);
-		todsetfreq(fasthz);
-		break;
-	}
-	return n;
+	USED(buf);
+	USED(n);
+	error(Egreg);
+	return 0;
 }
 
 
