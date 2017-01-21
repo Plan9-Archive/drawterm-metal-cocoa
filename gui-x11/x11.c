@@ -29,6 +29,7 @@ typedef struct Cursor Cursor;
 #include <X11/IntrinsicP.h>
 #include <X11/StringDefs.h>
 #include <X11/keysym.h>
+#include <X11/XKBlib.h>
 #include "keysym2ucs.h"
 
 #undef	Font
@@ -495,6 +496,8 @@ xinitscreen(void)
 		iprint("drawterm: open %r, DISPLAY is %s\n", disp_val);
 		exit(0);
 	}
+	XkbSetDetectableAutoRepeat(xkmcon, True, NULL);
+
 	xsnarfcon = XOpenDisplay(NULL);
 	if(xsnarfcon == 0){
 		disp_val = getenv("DISPLAY");
