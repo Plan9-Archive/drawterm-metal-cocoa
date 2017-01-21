@@ -12,8 +12,6 @@
 
 #include <termios.h>
 
-#define argv0 "drawterm"
-
 typedef struct Cursor Cursor;
 
 #undef	long
@@ -327,7 +325,6 @@ xinitscreen(void)
 	Memimage *gscreen;
 	int i, xsize, ysize;
 	char *argv[2];
-	char *disp_val;
 	Window rootwin;
 	Rectangle r;
 	XWMHints hints;
@@ -346,11 +343,8 @@ xinitscreen(void)
 	xdrawable = 0;
 
 	xdisplay = XOpenDisplay(NULL);
-	if(xdisplay == 0){
-		iprint("xinitscreen: XOpenDisplay: %r [DISPLAY=%s]\n",
-			getenv("DISPLAY"));
-		exit(0);
-	}
+	if(xdisplay == 0)
+		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
 
 	XSetErrorHandler(shutup);
 	XSetIOErrorHandler(panicshutup);
@@ -373,13 +367,13 @@ xinitscreen(void)
 	else if(XMatchVisualInfo(xdisplay, rootscreennum, 8, PseudoColor, &xvi)
 	|| XMatchVisualInfo(xdisplay, rootscreennum, 8, StaticColor, &xvi)){
 		if(xscreendepth > 8)
-			panic("drawterm: can't deal with colormapped depth %d screens\n", xscreendepth);
+			panic("can't deal with colormapped depth %d screens", xscreendepth);
 		xvis = xvi.visual;
 		xscreendepth = 8;
 	}
 	else{
 		if(xscreendepth != 8)
-			panic("drawterm: can't deal with depth %d screens\n", xscreendepth);
+			panic("can't deal with depth %d screens", xscreendepth);
 		xvis = DefaultVisual(xdisplay, rootscreennum);
 	}
 
@@ -418,7 +412,7 @@ xinitscreen(void)
 		}
 	}
 	if(xscreenchan == 0)
-		panic("drawterm: unknown screen pixel format\n");
+		panic("unknown screen pixel format");
 		
 	screen = DefaultScreenOfDisplay(xdisplay);
 	xcmap = DefaultColormapOfScreen(screen);
@@ -489,23 +483,13 @@ xinitscreen(void)
 	xgccopy = creategc(xscreenid);
 
 	xkmcon = XOpenDisplay(NULL);
-	if(xkmcon == 0){
-		disp_val = getenv("DISPLAY");
-		if(disp_val == 0)
-			disp_val = "not set";
-		iprint("drawterm: open %r, DISPLAY is %s\n", disp_val);
-		exit(0);
-	}
+	if(xkmcon == 0)
+		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
 	XkbSetDetectableAutoRepeat(xkmcon, True, NULL);
 
 	xsnarfcon = XOpenDisplay(NULL);
-	if(xsnarfcon == 0){
-		disp_val = getenv("DISPLAY");
-		if(disp_val == 0)
-			disp_val = "not set";
-		iprint("drawterm: open %r, DISPLAY is %s\n", disp_val);
-		exit(0);
-	}
+	if(xsnarfcon == 0)
+		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
 
 	clipboard = XInternAtom(xkmcon, "CLIPBOARD", False);
 	utf8string = XInternAtom(xkmcon, "UTF8_STRING", False);
@@ -607,7 +591,7 @@ initmap(Window w)
 		c = map[19];
 		/* find out index into colormap for our RGB */
 		if(!XAllocColor(xdisplay, xcmap, &c))
-			panic("drawterm: screen-x11 can't alloc color");
+			panic("screen-x11 can't alloc color");
 
 		p  = c.pixel;
 		pp = rgb2cmap((p>>16)&0xff,(p>>8)&0xff,p&0xff);
@@ -642,10 +626,8 @@ initmap(Window w)
 		else {
 			for(i = 0; i < 128; i++) {
 				c = map7[i];
-				if(!XAllocColor(xdisplay, xcmap, &c)) {
-					iprint("drawterm: can't alloc colors in default map, don't use -7\n");
-					exit(0);
-				}
+				if(!XAllocColor(xdisplay, xcmap, &c))
+					panic("can't alloc colors in default map, don't use -7");
 				plan9tox11[map7to8[i][0]] = c.pixel;
 				plan9tox11[map7to8[i][1]] = c.pixel;
 				x11toplan9[c.pixel] = map7to8[i][0];
@@ -653,7 +635,7 @@ initmap(Window w)
 		}
 	}
 	else
-		panic("drawterm: unsupported visual class %d\n", xvis->class);
+		panic("unsupported visual class %d", xvis->class);
 }
 
 static void
@@ -1163,7 +1145,7 @@ if(0) iprint("xselect target=%d requestor=%d property=%d selection=%d\n",
 			}else if(strcmp(name, "text/plain") == 0 || strcmp(name, "text/plain;charset=UTF-8") == 0){
 				goto text;
 			}else
-				iprint("%s: cannot handle selection request for '%s' (%d)\n", argv0, name, (int)xe->target);
+				iprint("cannot handle selection request for '%s' (%d)\n", name, (int)xe->target);
 		}
 		r.xselection.property = None;
 	}
