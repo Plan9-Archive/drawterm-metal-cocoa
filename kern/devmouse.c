@@ -122,7 +122,7 @@ mouseclose(Chan *c)
 long
 mouseread(Chan *c, void *va, long n, vlong offset)
 {
-	char buf[4*12+1];
+	char buf[1+4*12+1];
 	Mousestate m;
 	uchar *p;
 	int b;
