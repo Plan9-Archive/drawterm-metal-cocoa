@@ -138,8 +138,8 @@ static void
 aanreader(void *arg)
 {
 	Client *c = (Client*)arg;
-	Buf *b, *x, **l;
-	long a, m;
+	long a, m, lastacked = 0;
+	Buf *b, *x;
 	int n;
 
 Restart:
@@ -150,34 +150,42 @@ Restart:
 		a = GBIT32(b->hdr.acked);
 		m = GBIT32(b->hdr.msg);
 		n = GBIT32(b->hdr.nb);
-		if(n > Bufsize)
-			break;
-
-		qlock(&c->lk);
-		l = &c->unackedhead;
-		for(x = c->unackedhead; x != nil; x = *l){
-			if(a >= GBIT32(x->hdr.msg)){
-				if((*l = x->next) == nil)
-					c->unackedtail = l;
-				free(x);
-			} else {
-				l = &x->next;
-			}
-		}
-		qunlock(&c->lk);
+		if(n == 0){
+			if(m < 0)
+				continue;
+			goto Closed;
+		} else if(n < 0 || n > Bufsize)
+			goto Closed;
 
 		if(readn(c->netfd, b->buf, n) != n)
 			break;
 		if(m < c->inmsg)
 			continue;
 		c->inmsg++;
+
+		if(lastacked != a){
+			qlock(&c->lk);
+			while((x = c->unackedhead) != nil){
+				assert(GBIT32(x->hdr.msg) == lastacked);
+				c->unackedhead = x->next;
+				free(x);
+				if(++lastacked == a)
+					break;
+			}
+			qunlock(&c->lk);
+		}
+
 		if(c->pipefd < 0)
-			return;
+			goto Closed;
 		write(c->pipefd, b->buf, n);
 	}
 	free(b);
 	reconnect(c);
 	goto Restart;
+Closed:
+	free(b);
+	if(c->pipefd >= 0)
+		write(c->pipefd, "", 0);
 }
 
 int
