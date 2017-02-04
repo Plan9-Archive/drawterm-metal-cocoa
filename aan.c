@@ -35,8 +35,8 @@ struct Client {
 	int	writer;
 	int	syncer;
 
-	long	inmsg;
-	long	outmsg;
+	ulong	inmsg;
+	ulong	outmsg;
 
 	Buf	*unackedhead;
 	Buf	**unackedtail;
@@ -77,7 +77,7 @@ aanwriter(void *arg)
 	Client *c = (Client*)arg;
 	Buf *b;
 	int n;
-	long m;
+	ulong m;
 
 	for(;;){
 		b = malloc(sizeof(Buf));
@@ -138,7 +138,7 @@ static void
 aanreader(void *arg)
 {
 	Client *c = (Client*)arg;
-	long a, m, lastacked = 0;
+	ulong a, m, lastacked = 0;
 	Buf *b, *x;
 	int n;
 
@@ -151,7 +151,7 @@ Restart:
 		m = GBIT32(b->hdr.msg);
 		n = GBIT32(b->hdr.nb);
 		if(n == 0){
-			if(m < 0)
+			if(m == (ulong)-1)
 				continue;
 			goto Closed;
 		} else if(n < 0 || n > Bufsize)
@@ -159,11 +159,11 @@ Restart:
 
 		if(readn(c->netfd, b->buf, n) != n)
 			break;
-		if(m < c->inmsg)
+		if(m != c->inmsg)
 			continue;
 		c->inmsg++;
 
-		if(lastacked != a){
+		if((long)(a - lastacked) > 0){
 			qlock(&c->lk);
 			while((x = c->unackedhead) != nil){
 				assert(GBIT32(x->hdr.msg) == lastacked);
