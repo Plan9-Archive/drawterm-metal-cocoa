@@ -2314,17 +2314,26 @@ end:
 }
 
 ECpub*
-X509toECpub(uchar *cert, int ncert, ECdomain *dom)
+X509toECpub(uchar *cert, int ncert, char *name, int nname, ECdomain *dom)
 {
 	CertX509 *c;
 	ECpub *pub;
 	Bytes *b;
+
+	if(name != nil)
+		memset(name, 0, nname);
 
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);
 	freebytes(b);
 	if(c == nil)
 		return nil;
+	if(name != nil && c->subject != nil){
+		char *e = strchr(c->subject, ',');
+		if(e != nil)
+			*e = 0;	/* take just CN part of Distinguished Name */
+		strncpy(name, c->subject, nname);
+	}
 	pub = nil;
 	if(c->publickey_alg == ALG_ecPublicKey){
 		ecdominit(dom, namedcurves[c->curve]);
@@ -2365,7 +2374,6 @@ X509ecdsaverify(uchar *cert, int ncert, ECdomain *dom, ECpub *pk)
 RSApub*
 X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 {
-	char *e;
 	Bytes *b;
 	CertX509 *c;
 	RSApub *pub;
@@ -2379,7 +2387,7 @@ X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 	if(c == nil)
 		return nil;
 	if(name != nil && c->subject != nil){
-		e = strchr(c->subject, ',');
+		char *e = strchr(c->subject, ',');
 		if(e != nil)
 			*e = 0;	/* take just CN part of Distinguished Name */
 		strncpy(name, c->subject, nname);
