@@ -1,5 +1,6 @@
 #include	"u.h"
 #include	<sys/types.h>
+#include	<sys/time.h>
 #include	<sys/stat.h>
 #include	<dirent.h>
 #include	<fcntl.h>
@@ -406,7 +407,14 @@ fswstat(Chan *c, uchar *buf, int n)
 		uif->mode &= ~0777;
 		uif->mode |= d.mode&0777;
 	}
-
+	if(~d.atime != 0 || ~d.mtime != 0){
+		struct timeval t[2];
+		t[0].tv_sec = ~d.atime != 0 ? d.atime : stbuf->st_atime;
+		t[0].tv_usec = 0;
+		t[1].tv_sec = ~d.mtime != 0 ? d.mtime : stbuf->st_mtime;
+		t[1].tv_usec = 0;
+		utimes(uif->path, t);
+	}
 	if(d.name[0] && strcmp(d.name, lastelem(uif->path)) != 0) {
 		char *base, *newpath;
 
