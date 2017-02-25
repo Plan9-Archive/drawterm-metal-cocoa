@@ -61,6 +61,17 @@ unixtime(FILETIME *ft)
 	return ((t<0)?(-1 - (-t - 1)) : t)/10000000;
 }
 
+static FILETIME
+filetime(ulong ut)
+{
+	FILETIME ft;
+	vlong t = (vlong)ut * 10000000LL;
+	t += 116444736000000000LL;
+	ft.dwLowDateTime = t;
+	ft.dwHighDateTime = t >> 32;
+	return ft;
+}
+
 static uvlong
 pathhash(wchar_t *p)
 {
@@ -578,6 +589,29 @@ fswstat(Chan *c, uchar *buf, int n)
 	uif = c->aux;
 	if(pathtype(uif->path) != TPATH_FILE)
 		error(Ebadstat);
+	if(~d.atime != 0 || ~d.mtime != 0){
+		FILETIME ta, *pta = NULL;
+		FILETIME tm, *ptm = NULL;
+		HANDLE h;
+		if(~d.atime != 0){
+			ta = filetime(d.atime);
+			pta = &ta;
+		}
+		if(~d.mtime != 0){
+			tm = filetime(d.mtime);
+			ptm = &tm;
+		}
+		if((h = CreateFile(uif->path,
+			FILE_WRITE_ATTRIBUTES,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL,
+			0)) != INVALID_HANDLE_VALUE){
+			SetFileTime(h, NULL, pta, ptm);
+			CloseHandle(h);
+		}
+	}
 	/* change name */
 	if(d.name[0]){
 		wchar_t *base, *newpath;
