@@ -409,9 +409,9 @@ fswstat(Chan *c, uchar *buf, int n)
 	}
 	if(~d.atime != 0 || ~d.mtime != 0){
 		struct timeval t[2];
-		t[0].tv_sec = ~d.atime != 0 ? d.atime : stbuf->st_atime;
+		t[0].tv_sec = ~d.atime != 0 ? d.atime : stbuf.st_atime;
 		t[0].tv_usec = 0;
-		t[1].tv_sec = ~d.mtime != 0 ? d.mtime : stbuf->st_mtime;
+		t[1].tv_sec = ~d.mtime != 0 ? d.mtime : stbuf.st_mtime;
 		t[1].tv_usec = 0;
 		utimes(uif->path, t);
 	}
