@@ -821,6 +821,12 @@ static struct codepair {
   { 0x13bd, 0x0153 }, /*                          oe œ LATIN SMALL LIGATURE OE */
   { 0x13be, 0x0178 }, /*                  Ydiaeresis Ÿ LATIN CAPITAL LETTER Y WITH DIAERESIS */
   { 0x20ac, 0x20ac }, /*                    EuroSign € EURO SIGN */
+
+  { 0xfe50, 0x0060 }, /* dead grave */
+  { 0xfe51, 0x00b4 }, /* dead acute */
+  { 0xfe52, 0x005e }, /* dead circumflex */
+  { 0xfe53, 0x007e }, /* dead tilde */
+
 };
 
 VISIBLE
