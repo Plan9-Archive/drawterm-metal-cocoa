@@ -49,8 +49,6 @@ typedef struct Refresh Refresh;
 typedef struct Refx Refx;
 typedef struct DName DName;
 
-ulong blanktime = 30;	/* in minutes; a half hour */
-
 struct Draw
 {
 	int		clientid;
@@ -60,8 +58,6 @@ struct Draw
 	DName*		name;
 	int		vers;
 	int		softscreen;
-	int		blanked;	/* screen turned off */
-	ulong		blanktime;	/* time of last operation */
 };
 
 struct Client
