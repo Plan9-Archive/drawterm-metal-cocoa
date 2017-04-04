@@ -24,7 +24,7 @@ devno(int c, int user)
 			return i;
 	}
 	if(user == 0)
-		panic("devno %C 0x%ux", c, c);
+		panic("devno %C %#ux", c, c);
 
 	return -1;
 }
@@ -124,6 +124,7 @@ devshutdown(void)
 Chan*
 devattach(int tc, char *spec)
 {
+	int n;
 	Chan *c;
 	char *buf;
 
@@ -132,9 +133,10 @@ devattach(int tc, char *spec)
 	c->type = devno(tc, 0);
 	if(spec == nil)
 		spec = "";
-	buf = smalloc(4+strlen(spec)+1);
-	sprint(buf, "#%C%s", tc, spec);
-	c->name = newcname(buf);
+	n = 1+UTFmax+strlen(spec)+1;
+	buf = smalloc(n);
+	snprint(buf, n, "#%C%s", tc, spec);
+	c->path = newpath(buf);
 	free(buf);
 	return c;
 }
@@ -146,7 +148,7 @@ devclone(Chan *c)
 	Chan *nc;
 
 	if(c->flag & COPEN)
-		panic("clone of open file type %C\n", devtab[c->type]->dc);
+		panic("clone of open file type %C", devtab[c->type]->dc);
 
 	nc = newchan();
 
@@ -156,10 +158,7 @@ devclone(Chan *c)
 	nc->qid = c->qid;
 	nc->offset = c->offset;
 	nc->umh = nil;
-	nc->mountid = c->mountid;
 	nc->aux = c->aux;
-	nc->pgrpid = c->pgrpid;
-	nc->mid = c->mid;
 	nc->mqid = c->mqid;
 	return nc;
 }
@@ -175,18 +174,17 @@ devwalk(Chan *c, Chan *nc, char **name, int nname, Dirtab *tab, int ntab, Devgen
 	if(nname > 0)
 		isdir(c);
 
-	alloc = 0;
+	alloc = (nc == nil);
 	wq = smalloc(sizeof(Walkqid)+(nname-1)*sizeof(Qid));
 	if(waserror()){
-		if(alloc && wq->clone!=nil)
+		if(alloc && wq->clone != nil)
 			cclose(wq->clone);
 		free(wq);
 		return nil;
 	}
-	if(nc == nil){
+	if(alloc){
 		nc = devclone(c);
 		nc->type = 0;	/* device doesn't know about this channel yet */
-		alloc = 1;
 	}
 	wq->clone = nc;
 
@@ -251,7 +249,7 @@ Done:
 		if(alloc)
 			cclose(wq->clone);
 		wq->clone = nil;
-	}else if(wq->clone){
+	}else if(wq->clone != nil){
 		/* attach cloned channel to same device */
 		wq->clone->type = c->type;
 	}
@@ -265,16 +263,16 @@ devstat(Chan *c, uchar *db, int n, Dirtab *tab, int ntab, Devgen *gen)
 	Dir dir;
 	char *p, *elem;
 
-	for(i=0;; i++)
+	for(i=0;; i++){
 		switch((*gen)(c, nil, tab, ntab, i, &dir)){
 		case -1:
 			if(c->qid.type & QTDIR){
-				if(c->name == nil)
+				if(c->path == nil)
 					elem = "???";
-				else if(strcmp(c->name->s, "/") == 0)
+				else if(strcmp(c->path->s, "/") == 0)
 					elem = "/";
 				else
-					for(elem=p=c->name->s; *p; p++)
+					for(elem=p=c->path->s; *p; p++)
 						if(*p == '/')
 							elem = p+1;
 				devdir(c, c->qid, elem, 0, eve, DMDIR|0555, &dir);
@@ -283,7 +281,6 @@ devstat(Chan *c, uchar *db, int n, Dirtab *tab, int ntab, Devgen *gen)
 					error(Ebadarg);
 				return n;
 			}
-			print("devstat %C %llux\n", devtab[c->type]->dc, c->qid.path);
 
 			error(Enonexist);
 		case 0:
@@ -299,21 +296,17 @@ devstat(Chan *c, uchar *db, int n, Dirtab *tab, int ntab, Devgen *gen)
 			}
 			break;
 		}
-	error(Egreg);	/* not reached? */
-	return -1;
+	}
 }
 
 long
 devdirread(Chan *c, char *d, long n, Dirtab *tab, int ntab, Devgen *gen)
 {
 	long m, dsz;
-	struct{
-		Dir d;
-		char slop[100];
-	}dir;
+	Dir dir;
 
 	for(m=0; m<n; c->dri++) {
-		switch((*gen)(c, nil, tab, ntab, c->dri, &dir.d)){
+		switch((*gen)(c, nil, tab, ntab, c->dri, &dir)){
 		case -1:
 			return m;
 
@@ -321,7 +314,7 @@ devdirread(Chan *c, char *d, long n, Dirtab *tab, int ntab, Devgen *gen)
 			break;
 
 		case 1:
-			dsz = convD2M(&dir.d, (uchar*)d, n-m);
+			dsz = convD2M(&dir, (uchar*)d, n-m);
 			if(dsz <= BIT16SZ){	/* <= not < because this isn't stat; read is stuck */
 				if(m == 0)
 					error(Eshort);
@@ -396,7 +389,7 @@ devcreate(Chan *c, char *name, int mode, ulong perm)
 	USED(perm);
 
 	error(Eperm);
-	return nil;
+	return 0;
 }
 
 Block*
