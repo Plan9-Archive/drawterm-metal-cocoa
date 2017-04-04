@@ -18,8 +18,8 @@ procinit0(void)
 	_setproc(p);
 
 	up->slash = namec("#/", Atodir, 0, 0);
-	cnameclose(up->slash->name);
-	up->slash->name = newcname("/");
+	pathclose(up->slash->path);
+	up->slash->path = newpath("/");
 	up->dot = cclone(up->slash);
 }
 

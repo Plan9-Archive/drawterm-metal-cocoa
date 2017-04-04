@@ -7,39 +7,6 @@
 static Ref pgrpid;
 static Ref mountid;
 
-#ifdef NOTDEF
-void
-pgrpnote(ulong noteid, char *a, long n, int flag)
-{
-	Proc *p, *ep;
-	char buf[ERRMAX];
-
-	if(n >= ERRMAX-1)
-		error(Etoobig);
-
-	memmove(buf, a, n);
-	buf[n] = 0;
-	p = proctab(0);
-	ep = p+conf.nproc;
-	for(; p < ep; p++) {
-		if(p->state == Dead)
-			continue;
-		if(up != p && p->noteid == noteid && p->kp == 0) {
-			qlock(&p->debug);
-			if(p->pid == 0 || p->noteid != noteid){
-				qunlock(&p->debug);
-				continue;
-			}
-			if(!waserror()) {
-				postnote(p, 0, buf, flag);
-				poperror();
-			}
-			qunlock(&p->debug);
-		}
-	}
-}
-#endif
-
 Pgrp*
 newpgrp(void)
 {
@@ -71,29 +38,24 @@ closergrp(Rgrp *r)
 void
 closepgrp(Pgrp *p)
 {
-	Mhead **h, **e, *f, *next;
+	Mhead **h, **e, *f;
+	Mount *m;
 
-	if(decref(&p->ref) != 0)
+	if(decref(&p->ref))
 		return;
-
-	qlock(&p->debug);
-	wlock(&p->ns);
-	p->pgrpid = -1;
 
 	e = &p->mnthash[MNTHASH];
 	for(h = p->mnthash; h < e; h++) {
-		for(f = *h; f; f = next) {
+		while((f = *h) != nil){
+			*h = f->hash;
 			wlock(&f->lock);
-			cclose(f->from);
-			mountfree(f->mount);
+			m = f->mount;
 			f->mount = nil;
-			next = f->hash;
 			wunlock(&f->lock);
+			mountfree(m);
 			putmhead(f);
 		}
 	}
-	wunlock(&p->ns);
-	qunlock(&p->debug);
 	free(p);
 }
 
@@ -102,12 +64,12 @@ pgrpinsert(Mount **order, Mount *m)
 {
 	Mount *f;
 
-	m->order = 0;
-	if(*order == 0) {
+	m->order = nil;
+	if(*order == nil) {
 		*order = m;
 		return;
 	}
-	for(f = *order; f; f = f->order) {
+	for(f = *order; f != nil; f = f->order) {
 		if(m->mountid < f->mountid) {
 			m->order = f;
 			*order = m;
@@ -124,25 +86,31 @@ pgrpinsert(Mount **order, Mount *m)
 void
 pgrpcpy(Pgrp *to, Pgrp *from)
 {
-	int i;
 	Mount *n, *m, **link, *order;
 	Mhead *f, **tom, **l, *mh;
+	int i;
 
-	wlock(&from->ns);
-	order = 0;
+	wlock(&to->ns);
+	rlock(&from->ns);
+	order = nil;
 	tom = to->mnthash;
 	for(i = 0; i < MNTHASH; i++) {
 		l = tom++;
-		for(f = from->mnthash[i]; f; f = f->hash) {
+		for(f = from->mnthash[i]; f != nil; f = f->hash) {
 			rlock(&f->lock);
 			mh = newmhead(f->from);
 			*l = mh;
 			l = &mh->hash;
 			link = &mh->mount;
-			for(m = f->mount; m; m = m->next) {
-				n = newmount(mh, m->to, m->mflag, m->spec);
-				m->copy = n;
-				pgrpinsert(&order, m);
+			for(m = f->mount; m != nil; m = m->next) {
+				n = smalloc(sizeof(Mount));
+				n->mountid = m->mountid;
+				n->mflag = m->mflag;
+				n->to = m->to;
+				incref(&n->to->ref);
+				if(m->spec != nil)
+					kstrdup(&n->spec, m->spec);
+				pgrpinsert(&order, n);
 				*link = n;
 				link = &n->next;
 			}
@@ -152,11 +120,10 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 	/*
 	 * Allocate mount ids in the same sequence as the parent group
 	 */
-	lock(&mountid.lk);
-	for(m = order; m; m = m->order)
-		m->copy->mountid = mountid.ref++;
-	unlock(&mountid.lk);
-	wunlock(&from->ns);
+	for(m = order; m != nil; m = m->order)
+		m->mountid = incref(&mountid);
+	runlock(&from->ns);
+	wunlock(&to->ns);
 }
 
 Fgrp*
@@ -181,15 +148,16 @@ dupfgrp(Fgrp *f)
 	if(i != 0)
 		new->nfd += DELTAFD - i;
 	new->fd = malloc(new->nfd*sizeof(Chan*));
-	if(new->fd == 0){
+	if(new->fd == nil){
 		unlock(&f->ref.lk);
+		free(new);
 		error("no memory for fgrp");
 	}
 	new->ref.ref = 1;
 
 	new->maxfd = f->maxfd;
 	for(i = 0; i <= f->maxfd; i++) {
-		if((c = f->fd[i])){
+		if((c = f->fd[i]) != nil){
 			incref(&c->ref);
 			new->fd[i] = c;
 		}
@@ -205,32 +173,30 @@ closefgrp(Fgrp *f)
 	int i;
 	Chan *c;
 
-	if(f == 0)
-		return;
-
-	if(decref(&f->ref) != 0)
+	if(f == nil || decref(&f->ref))
 		return;
 
 	for(i = 0; i <= f->maxfd; i++)
-		if((c = f->fd[i]))
+		if((c = f->fd[i]) != nil){
+			f->fd[i] = nil;
 			cclose(c);
+		}
 
 	free(f->fd);
 	free(f);
 }
 
 Mount*
-newmount(Mhead *mh, Chan *to, int flag, char *spec)
+newmount(Chan *to, int flag, char *spec)
 {
 	Mount *m;
 
 	m = smalloc(sizeof(Mount));
 	m->to = to;
-	m->head = mh;
 	incref(&to->ref);
 	m->mountid = incref(&mountid);
 	m->mflag = flag;
-	if(spec != 0)
+	if(spec != nil)
 		kstrdup(&m->spec, spec);
 
 	return m;
@@ -241,12 +207,10 @@ mountfree(Mount *m)
 {
 	Mount *f;
 
-	while(m) {
-		f = m->next;
-		cclose(m->to);
-		m->mountid = 0;
-		free(m->spec);
-		free(m);
-		m = f;
+	while((f = m) != nil) {
+		m = m->next;
+		cclose(f->to);
+		free(f->spec);
+		free(f);
 	}
 }

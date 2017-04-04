@@ -190,10 +190,10 @@ _sysfd2path(int fd, char *buf, uint nbuf)
 
 	c = fdtochan(fd, -1, 0, 1);
 
-	if(c->name == nil)
+	if(c->path == nil)
 		snprint(buf, nbuf, "<null>");
 	else
-		snprint(buf, nbuf, "%s", c->name->s);
+		snprint(buf, nbuf, "%s", c->path->s);
 	cclose(c);
 	return 0;
 }

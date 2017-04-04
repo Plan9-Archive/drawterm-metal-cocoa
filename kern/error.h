@@ -48,3 +48,4 @@ extern char Eshortstat[];	/* stat buffer too small */
 extern char Ebadstat[];		/* malformed stat buffer */
 extern char Enegoff[];		/* negative i/o offset */
 extern char Ecmdargs[];		/* wrong #args in control message */
+extern char Etoolong[];		/* name too long */

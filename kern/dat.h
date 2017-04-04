@@ -6,7 +6,6 @@ typedef struct Block	Block;
 typedef struct Chan	Chan;
 typedef struct Cmdbuf	Cmdbuf;
 typedef struct Cmdtab	Cmdtab;
-typedef struct Cname	Cname;
 typedef struct Conf	Conf;
 typedef struct Dev	Dev;
 typedef struct Dirtab	Dirtab;
@@ -22,6 +21,7 @@ typedef struct Mntrpc	Mntrpc;
 typedef struct Mntwalk	Mntwalk;
 typedef struct Mnt	Mnt;
 typedef struct Mhead	Mhead;
+typedef struct Path	Path;
 typedef struct Pgrps	Pgrps;
 typedef struct Pgrp	Pgrp;
 typedef struct Proc	Proc;
@@ -135,38 +135,49 @@ struct Block
 
 struct Chan
 {
-	Ref ref;
+	Ref	ref;
+	Lock	lk;
 	Chan*	next;			/* allocation */
 	Chan*	link;
-	vlong	offset;			/* in file */
+	vlong	offset;			/* in fd */
+	vlong	devoffset;		/* in underlying device; see read */
 	ushort	type;
 	ulong	dev;
 	ushort	mode;			/* read/write */
 	ushort	flag;
 	Qid	qid;
 	int	fid;			/* for devmnt */
-	ulong	iounit;	/* chunk size for i/o; 0==default */
+	ulong	iounit;			/* chunk size for i/o; 0==default */
 	Mhead*	umh;			/* mount point that derived Chan; used in unionread */
 	Chan*	umc;			/* channel in union; held for union read */
 	QLock	umqlock;		/* serialize unionreads */
 	int	uri;			/* union read index */
 	int	dri;			/* devdirread index */
-	ulong	mountid;
-	Mnt		*mux;		/* Mnt for clients using me for messages */
-	void*	aux;
-	Qid	pgrpid;		/* for #p/notepg */
-	ulong	mid;		/* for ns in devproc */
+	uchar*	dirrock;		/* directory entry rock for translations */
+	int	nrock;
+	int	mrock;
+	QLock	rockqlock;
+	int	ismtpt;
+	Mnt*	mux;			/* Mnt for clients using me for messages */
+	union {
+		void*	aux;
+		Qid	pgrpid;		/* for #p/notepg */
+		ulong	mid;		/* for ns in devproc */
+	};
 	Chan*	mchan;			/* channel to mounted server */
 	Qid	mqid;			/* qid of root of mount point */
-	Cname	*name;
+	Path*	path;
 };
 
-struct Cname
+struct Path
 {
-	Ref ref;
-	int	alen;			/* allocated length */
-	int	len;			/* strlen(s) */
+	Ref	ref;
 	char	*s;
+	Chan	**mtpt;			/* mtpt history */
+	int	len;			/* strlen(s) */
+	int	alen;			/* allocated length of s */
+	int	mlen;			/* number of path elements */
+	int	malen;			/* allocated length of mtpt */
 };
 
 struct Dev
@@ -198,7 +209,7 @@ struct Dirtab
 	char	name[KNAMELEN];
 	Qid	qid;
 	vlong length;
-	ulong	perm;
+	long	perm;
 };
 
 struct Walkqid
@@ -315,7 +326,7 @@ struct Evalue
 
 struct Fgrp
 {
-	Ref ref;
+	Ref	ref;
 	Chan	**fd;
 	int	nfd;			/* number allocated */
 	int	maxfd;			/* highest fd in use */
