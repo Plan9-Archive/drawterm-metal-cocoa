@@ -169,10 +169,3 @@ extern	Memcmap	*memdefcmap;
  * Kernel interface
  */
 void		memimagemove(void*, void*);
-
-/*
- * Kernel cruft
- */
-extern void	rdb(void);
-extern int		iprint(char*, ...);
-extern int		drawdebug;
