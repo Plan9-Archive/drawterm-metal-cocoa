@@ -364,7 +364,8 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			b |=8;
 		else
 			b |=16;
-		// fallthrough
+		mousetrack(0, 0, b, ticks());
+		break;
 	case WM_MOUSEMOVE:
 	case WM_LBUTTONUP:
 	case WM_MBUTTONUP:
