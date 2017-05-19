@@ -312,6 +312,12 @@ mousechanged(void *a)
 }
 
 void
+mousetrack(int dx, int dy, int b, ulong msec)
+{
+	absmousetrack(mouse.state.xy.x + dx, mouse.state.xy.y + dy, b, msec);
+}
+
+void
 absmousetrack(int x, int y, int b, ulong msec)
 {
 	int lastb;
