@@ -17,25 +17,27 @@ typedef struct AESstate AESstate;
 struct AESstate
 {
 	ulong	setup;
+	ulong	offset;
 	int	rounds;
 	int	keybytes;
+	void	*ekey;				/* expanded encryption round key */
+	void	*dkey;				/* expanded decryption round key */
 	uchar	key[AESmaxkey];			/* unexpanded key */
-	ulong	ekey[4*(AESmaxrounds + 1)];	/* encryption key */
-	ulong	dkey[4*(AESmaxrounds + 1)];	/* decryption key */
 	uchar	ivec[AESbsize];			/* initialization vector */
-	uchar	mackey[3 * AESbsize];	/* 3 XCBC mac 96 keys */
+	uchar	storage[512];			/* storage for expanded keys */
 };
 
 /* block ciphers */
-void	aes_encrypt(ulong rk[], int Nr, uchar pt[16], uchar ct[16]);
-void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
+extern void (*aes_encrypt)(ulong rk[], int Nr, uchar pt[16], uchar ct[16]);
+extern void (*aes_decrypt)(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
 
-void	setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec);
+void	setupAESstate(AESstate *s, uchar key[], int nkey, uchar *ivec);
+
 void	aesCBCencrypt(uchar *p, int len, AESstate *s);
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s);
-
-void	setupAESXCBCstate(AESstate *s);
-uchar*	aesXCBCmac(uchar *p, int len, AESstate *s);
+void	aesCFBencrypt(uchar *p, int len, AESstate *s);
+void	aesCFBdecrypt(uchar *p, int len, AESstate *s);
+void	aesOFBencrypt(uchar *p, int len, AESstate *s);
 
 typedef struct AESGCMstate AESGCMstate;
 struct AESGCMstate
@@ -351,6 +353,7 @@ RSApriv*	rsaprivalloc(void);
 void		rsaprivfree(RSApriv*);
 RSApub*		rsaprivtopub(RSApriv*);
 RSApub*		X509toRSApub(uchar*, int, char*, int);
+RSApub*		asn1toRSApub(uchar*, int);
 RSApriv*	asn1toRSApriv(uchar*, int);
 void		asn1dump(uchar *der, int len);
 uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
@@ -361,6 +364,13 @@ char*		X509rsaverify(uchar *cert, int ncert, RSApub *pk);
 char*		X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
 
 void		X509dump(uchar *cert, int ncert);
+
+mpint*		pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
+int		pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
+int		asn1encodeRSApub(RSApub *pk, uchar *buf, int len);
+int		asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
+			uchar *digest, uchar *buf, int len);
+
 
 /*
  * elgamal
@@ -486,8 +496,8 @@ uchar	*readcert(char *filename, int *pcertlen);
 PEMChain*readcertchain(char *filename);
 
 /* aes_xts.c */
-int aes_xts_encrypt(ulong tweak[], ulong ecb[],  vlong sectorNumber, uchar *input, uchar *output, ulong len) ;
-int aes_xts_decrypt(ulong tweak[], ulong ecb[], vlong sectorNumber, uchar *input, uchar *output, ulong len);
+void aes_xts_encrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len);
+void aes_xts_decrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len);
 
 typedef struct ECpoint{
 	int inf;

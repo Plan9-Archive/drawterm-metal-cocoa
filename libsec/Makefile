@@ -3,12 +3,12 @@ include ../Make.config
 LIB=libsec.a
 
 OFILES=\
-	aes.$O\
+	aes.$O aesni.$O aesCBC.$O aesCFB.$O aesOFB.$O\
 	aes_gcm.$O\
 	aes_xts.$O\
 	blowfish.$O\
 	ccpoly.$O\
-	chacha.$O\
+	chacha.$O chachablock.$O\
 	curve25519.$O\
 	curve25519_dh.$O\
 	decodepem.$O\
