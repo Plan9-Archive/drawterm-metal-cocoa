@@ -310,7 +310,6 @@ enum{
 	Qreboot,
 	Qshowfile,
 	Qsnarf,
-	Qswap,
 	Qsysname,
 	Qsysstat,
 	Qtime,
@@ -342,7 +341,6 @@ static Dirtab consdir[]={
 	"reboot",	{Qreboot},	0,		0664,
 	"showfile",	{Qshowfile},	0,	0220,
 	"snarf",	{Qsnarf},		0,		0666,
-	"swap",		{Qswap},	0,		0664,
 	"sysname",	{Qsysname},	0,		0664,
 	"sysstat",	{Qsysstat},	0,		0666,
 	"time",		{Qtime},	NUMSIZE+3*VLNUMSIZE,	0664,
@@ -598,9 +596,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qsysstat:
 		return 0;
 
-	case Qswap:
-		return 0;
-
 	case Qsysname:
 		if(sysname == nil)
 			return 0;
@@ -752,10 +747,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 
 	case Qsysstat:
 		n = 0;
-		break;
-
-	case Qswap:
-		error(Egreg);
 		break;
 
 	case Qsysname:
