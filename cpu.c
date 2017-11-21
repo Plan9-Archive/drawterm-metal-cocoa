@@ -18,7 +18,7 @@ static void	writestr(int, char*, char*, int);
 static int	readstr(int, char*, int);
 static char 	*keyspec = "";
 static AuthInfo *p9any(int);
-static int	getkey(Authkey*, char*, char*, char*);
+static int	getkey(Authkey*, char*, char*, char*, char*);
 static int	findkey(Authkey*, char*, char*, char*);
 
 static char	*host;
@@ -35,7 +35,7 @@ static int	p9authtls(int);
 
 char *authserver;
 char *secstore;
-char *user;
+char *user, *pass;
 char secstorebuf[65536];
 
 char*
@@ -238,6 +238,7 @@ cpumain(int argc, char **argv)
 	char *s, *cmd = nil;
 
 	user = getenv("USER");
+	pass = getenv("PASS");
 	host = getenv("cpu");
 	authserver = getenv("auth");
 
@@ -324,7 +325,7 @@ cpumain(int argc, char **argv)
 		if(secstore == nil)
 			secstore = authserver;
 	 	if(havesecstore(secstore, user)){
-			s = secstorefetch(secstore, user, nil);
+			s = secstorefetch(secstore, user, pass);
 			if(s){
 				if(strlen(s) >= sizeof secstorebuf)
 					sysfatal("secstore data too big");
@@ -695,7 +696,7 @@ p9any(int fd)
 		sysfatal("cannot read ticket request in p9sk1: %r");
 
 	if(!findkey(&authkey, user, tr.authdom, proto)){
-again:		if(!getkey(&authkey, user, tr.authdom, proto))
+again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 			sysfatal("no password");
 	}
 
@@ -714,6 +715,8 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto))
 	m = convM2T(tbuf, n, &t, &authkey);
 	if(m <= 0 || t.num != AuthTc){
 		print("?password mismatch with auth server\n");
+		if(pass != nil && *pass)
+			sysfatal("wrong password");
 		goto again;
 	}
 	n -= m;
@@ -881,13 +884,17 @@ findkey(Authkey *key, char *user, char *dom, char *proto)
 }
 
 static int
-getkey(Authkey *key, char *user, char *dom, char *proto)
+getkey(Authkey *key, char *user, char *dom, char *proto, char *pass)
 {
-	char buf[1024], *pass;
+	char buf[1024];
 
-	snprint(buf, sizeof buf, "%s@%s %s password", user, dom, proto);
-	pass = readcons(buf, nil, 1);
-	memset(buf, 0, sizeof buf);
+	if(pass != nil && *pass)
+		pass = estrdup(pass);
+	else {
+		snprint(buf, sizeof buf, "%s@%s %s password", user, dom, proto);
+		pass = readcons(buf, nil, 1);
+		memset(buf, 0, sizeof buf);
+	}
 	if(pass != nil){
 		snprint(secstorebuf, sizeof(secstorebuf), "key proto=%q dom=%q user=%q !password=%q\n",
 			proto, dom, user, pass);
