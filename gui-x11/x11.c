@@ -317,6 +317,7 @@ shutup(XDisplay *d, XErrorEvent *e)
 static int
 panicshutup(XDisplay *d)
 {
+	screenputs = 0;
 	panic("x error");
 	return -1;
 }
