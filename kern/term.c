@@ -47,7 +47,7 @@ addflush(Rectangle r)
 		combinerect(&flushr, r);
 }
 
-static void
+void
 screenwin(void)
 {
 	Point p;
@@ -61,10 +61,7 @@ screenwin(void)
 	
 	h = memdefont->height;
 
-	window.min = addpt(gscreen->r.min, Pt(20,20));
-	window.max.x = window.min.x + Dx(gscreen->r)*3/4-40;
-	window.max.y = window.min.y + Dy(gscreen->r)*3/4-100;
-
+	window = insetrect(gscreen->clipr, 20);
 	memimagedraw(gscreen, window, memblack, ZP, memopaque, ZP, S);
 	window = insetrect(window, 4);
 	memimagedraw(gscreen, window, memwhite, ZP, memopaque, ZP, S);

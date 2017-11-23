@@ -83,6 +83,7 @@ screeninit(void)
 	dy = GetDeviceCaps(GetDC(NULL), VERTRES);
 
 	gscreen = allocmemimage(Rect(0,0,dx,dy), fmt);
+	gscreen->clipr = ZR;
 	kproc("winscreen", winproc, 0);
 	ksleep(&rend, isready, 0);
 }
@@ -90,7 +91,7 @@ screeninit(void)
 uchar*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
-	*r = gscreen->r;
+	*r = gscreen->clipr;
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
 	*width = gscreen->width;
@@ -111,7 +112,6 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 {
 	int dx, dy, delx;
 	HDC hdc;
-	RECT winr;
 
 	if(depth != gscreen->depth)
 		panic("screenload: bad ldepth");
@@ -121,13 +121,8 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 	 * screen to the negative axes, for example, when
 	 * dragging around a window border in a Move operation.
 	 */
-	if(rectclip(&r, gscreen->r) == 0)
+	if(rectclip(&r, gscreen->clipr) == 0)
 		return;
-	if(GetWindowRect(window, &winr)==0)
-		return;
-	if(rectclip(&r, Rect(0, 0, winr.right-winr.left, winr.bottom-winr.top))==0)
-		return;
-
 	if((step&3) != 0 || ((pt.x*depth)%32) != 0 || ((ulong)p&3) != 0)
 		panic("screenload: bad params %d %d %ux", step, pt.x, p);
 
@@ -344,6 +339,7 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	HDC hdc;
 	LONG x, y, b;
 	int i;
+	RECT winr;
 	Rectangle r;
 	Rune k;
 
@@ -352,6 +348,7 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	switch(msg) {
 	case WM_CREATE:
 		break;
+
 	case WM_SETCURSOR:
 		/* User set */
 		if(hcursor != NULL) {
@@ -444,6 +441,22 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		flushmemscreen(r);
 		EndPaint(hwnd, &paint);
 		break;
+
+	case WM_SIZE:
+		if(GetClientRect(hwnd, &winr) == 0)
+			break;
+		r = Rect(0, 0, winr.right - winr.left, winr.bottom - winr.top);
+		if(rectclip(&r, gscreen->r) == 0 || badrect(r))
+			break;
+		qlock(&drawlock);
+		gscreen->clipr = r;
+		qunlock(&drawlock);
+		screenwin();
+		deletescreenimage();
+		resetscreenimage();
+		mouseresize();
+		break;
+
 	case WM_COMMAND:
 	case WM_SETFOCUS:
 	case WM_DEVMODECHANGE:
