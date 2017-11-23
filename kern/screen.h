@@ -14,6 +14,7 @@ struct Mouseinfo {
 	Lock		lk;
 	Mousestate	state;
 	ulong		lastcounter;
+	int		resize;		/* generate resize event */
 	Rendez		r;
 	int		open;
 	Mousestate	queue[16];	/* circular buffer of click events */
@@ -50,11 +51,15 @@ void	setcursor(void);
 void	mouseset(Point);
 void	flushmemscreen(Rectangle);
 uchar*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
+void	deletescreenimage(void);
+void	resetscreenimage(void);
 
 extern	QLock drawlock;
 #define	ishwimage(i)	0
 
 void	terminit(void);
+void	screenwin(void);
 
+void	mouseresize(void);
 void	mousetrack(int, int, int, ulong);
 void	absmousetrack(int, int, int, ulong);

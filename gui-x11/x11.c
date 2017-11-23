@@ -120,6 +120,7 @@ static Atom compoundtext;
 
 static	Drawable	xdrawable;
 static	void		xexpose(XEvent*);
+static	void		xresize(XEvent*);
 static	void		xmouse(XEvent*);
 static	void		xkeyboard(XEvent*);
 static	void		xmapping(XEvent*);
@@ -146,7 +147,7 @@ flushmemscreen(Rectangle r)
 	uchar *p;
 
 	assert(!canqlock(&drawlock));
-	if(r.min.x >= r.max.x || r.min.y >= r.max.y)
+	if(rectclip(&r, gscreen->clipr) == 0)
 		return;
 
 	if(xtblbit && gscreen->chan == CMAP8)
@@ -176,14 +177,14 @@ screeninit(void)
 	memimageinit();
 	terminit();
 	qlock(&drawlock);
-	flushmemscreen(gscreen->r);
+	flushmemscreen(gscreen->clipr);
 	qunlock(&drawlock);
 }
 
 uchar*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
-	*r = gscreen->r;
+	*r = gscreen->clipr;
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
 	*width = gscreen->width;
@@ -294,6 +295,7 @@ xproc(void *arg)
 		xselect(&event, xkmcon);
 		xkeyboard(&event);
 		xmouse(&event);
+		xresize(&event);
 		xexpose(&event);
 		xmapping(&event);
 		xdestroy(&event);
@@ -480,6 +482,7 @@ xinitscreen(void)
 
 	xscreenid = XCreatePixmap(xdisplay, xdrawable, Dx(r), Dy(r), xscreendepth);
 	gscreen = xallocmemimage(r, xscreenchan, xscreenid, &xscreenimage);
+	gscreen->clipr = Rect(0,0,xsize,ysize);
 	xgccopy = creategc(xscreenid);
 
 	xkmcon = XOpenDisplay(NULL);
@@ -647,6 +650,25 @@ xdestroy(XEvent *e)
 	xe = (XDestroyWindowEvent*)e;
 	if(xe->window == xdrawable)
 		exit(0);
+}
+
+static void
+xresize(XEvent *e)
+{
+	Rectangle r;
+
+	if(e->type != ConfigureNotify)
+		return;
+	r = Rect(0, 0, ((XConfigureEvent*)e)->width, ((XConfigureEvent*)e)->height);
+	if(rectclip(&r, gscreen->r) == 0 || badrect(r) || eqrect(r, gscreen->clipr))
+		return;
+	qlock(&drawlock);
+	gscreen->clipr = r;
+	qunlock(&drawlock);
+	screenwin();
+	deletescreenimage();
+	resetscreenimage();
+	mouseresize();
 }
 
 static void

@@ -96,6 +96,7 @@ mouseopen(Chan *c, int omode)
 	case Qmouse:
 		if(tas(&mouse.open) != 0)
 			error(Einuse);
+		mouse.resize = 0;
 		mouse.lastcounter = mouse.state.counter;
 		break;
 	}
@@ -170,6 +171,10 @@ mouseread(Chan *c, void *va, long n, vlong offset)
 			m.xy.x, m.xy.y, b, m.msec);
 
 		mouse.lastcounter = m.counter;
+		if(mouse.resize){
+			mouse.resize = 0;
+			buf[0] = 'r';
+		}
 
 		if(n > 1+4*12)
 			n = 1+4*12;
@@ -304,11 +309,21 @@ mousewrite(Chan *c, void *va, long n, vlong offset)
 	return -1;
 }
 
+/*
+ * notify reader that screen has been resized
+ */
+void
+mouseresize(void)
+{
+	mouse.resize = 1;
+	wakeup(&mouse.r);
+}
+
 int
 mousechanged(void *a)
 {
 	USED(a);
-	return mouse.lastcounter != mouse.state.counter;
+	return mouse.lastcounter != mouse.state.counter || mouse.resize;
 }
 
 void
