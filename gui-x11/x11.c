@@ -656,20 +656,9 @@ xdestroy(XEvent *e)
 static void
 xresize(XEvent *e)
 {
-	Rectangle r;
-
 	if(e->type != ConfigureNotify)
 		return;
-	r = Rect(0, 0, ((XConfigureEvent*)e)->width, ((XConfigureEvent*)e)->height);
-	if(rectclip(&r, gscreen->r) == 0 || badrect(r) || eqrect(r, gscreen->clipr))
-		return;
-	qlock(&drawlock);
-	gscreen->clipr = r;
-	qunlock(&drawlock);
-	screenwin();
-	deletescreenimage();
-	resetscreenimage();
-	mouseresize();
+	screenresize(Rect(0, 0, ((XConfigureEvent*)e)->width, ((XConfigureEvent*)e)->height));
 }
 
 static void

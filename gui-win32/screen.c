@@ -445,16 +445,7 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	case WM_SIZE:
 		if(GetClientRect(hwnd, &winr) == 0)
 			break;
-		r = Rect(0, 0, winr.right - winr.left, winr.bottom - winr.top);
-		if(rectclip(&r, gscreen->r) == 0 || badrect(r))
-			break;
-		qlock(&drawlock);
-		gscreen->clipr = r;
-		qunlock(&drawlock);
-		screenwin();
-		deletescreenimage();
-		resetscreenimage();
-		mouseresize();
+		screenresize(Rect(0, 0, winr.right - winr.left, winr.bottom - winr.top));
 		break;
 
 	case WM_COMMAND:
