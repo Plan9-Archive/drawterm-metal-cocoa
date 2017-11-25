@@ -58,7 +58,7 @@ extern	QLock drawlock;
 #define	ishwimage(i)	0
 
 void	terminit(void);
-void	screenwin(void);
+void	screenresize(Rectangle);
 
 void	mouseresize(void);
 void	mousetrack(int, int, int, ulong);

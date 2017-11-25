@@ -47,7 +47,7 @@ addflush(Rectangle r)
 		combinerect(&flushr, r);
 }
 
-void
+static void
 screenwin(void)
 {
 	Point p;
@@ -86,6 +86,55 @@ screenwin(void)
 	qunlock(&drawlock);
 }
 
+static struct {
+	Rectangle	r;
+	Rendez		z;
+	int		f;
+} resize;
+
+static int
+isresized(void *arg)
+{
+	return resize.f != 0;
+}
+
+static void
+resizeproc(void *arg)
+{
+	USED(arg);
+	for(;;){
+		sleep(&resize.z, isresized, nil);
+		qlock(&drawlock);
+		resize.f = 0;
+		if(gscreen == nil
+		|| badrect(resize.r)
+		|| rectclip(&resize.r, gscreen->r) == 0
+		|| eqrect(resize.r, gscreen->clipr)){
+			qunlock(&drawlock);
+			continue;
+		}
+		gscreen->clipr = resize.r;
+		qunlock(&drawlock);
+
+		screenwin();
+		deletescreenimage();
+		resetscreenimage();
+		mouseresize();
+
+		osmsleep(1000);
+	}
+}
+
+void
+screenresize(Rectangle r)
+{
+	qlock(&drawlock);
+	resize.r = r;
+	resize.f = 1;
+	wakeup(&resize.z);
+	qunlock(&drawlock);
+}
+
 void
 terminit(void)
 {
@@ -95,6 +144,7 @@ terminit(void)
 	out.bwid = memdefont->info[' '].width;
 	screenwin();
 	screenputs = termscreenputs;
+	kproc("resize", resizeproc, nil);
 }
 
 static void
