@@ -966,6 +966,7 @@ initscreenimage(void)
 		return 0;
 	screenimage = screendimage->image;
 // iprint("initscreenimage %p %p\n", screendimage, screenimage);
+	mouseresize();
 	return 1;
 }
 

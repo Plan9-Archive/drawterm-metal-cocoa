@@ -119,8 +119,6 @@ resizeproc(void *arg)
 		screenwin();
 		deletescreenimage();
 		resetscreenimage();
-		mouseresize();
-
 		osmsleep(1000);
 	}
 }
