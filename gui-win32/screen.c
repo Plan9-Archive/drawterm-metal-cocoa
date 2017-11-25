@@ -166,7 +166,6 @@ winproc(void *a)
 
 	paletteinit();
 	bmiinit();
-	terminit();
 
 	wc.style = 0;
 	wc.lpfnWndProc = WindowProc;
@@ -200,6 +199,8 @@ winproc(void *a)
 
 	ShowWindow(window, SW_SHOWDEFAULT);
 	UpdateWindow(window);
+
+	terminit();
 
 	readybit = 1;
 	wakeup(&rend);
@@ -347,6 +348,10 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 	switch(msg) {
 	case WM_CREATE:
+		if(GetClientRect(hwnd, &winr) == 0)
+			break;
+		gscreen->clipr = Rect(0, 0, winr.right - winr.left, winr.bottom - winr.top);
+		rectclip(&gscreen->clipr, gscreen->r);
 		break;
 
 	case WM_SETCURSOR:
