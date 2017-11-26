@@ -350,15 +350,15 @@ enum
 
 struct Proc
 {
-	uint		state;
-	uint		mach;
+	uint	state;
+	uint	mach;
 
 	ulong	pid;
 	ulong	parentpid;
 
 	Pgrp	*pgrp;		/* Process group for namespace */
 	Fgrp	*fgrp;		/* File descriptor group */
-	Rgrp *rgrp;
+	Rgrp	*rgrp;
 
 	Lock	rlock;		/* sync sleep/wakeup with postnote */
 	Rendez	*r;		/* rendezvous point slept on */
@@ -372,21 +372,21 @@ struct Proc
 
 	int	nerrlab;
 	Label	errlab[NERR];
-	char user[KNAMELEN];
+	char	user[KNAMELEN];
 	char	*syserrstr;	/* last error from a system call, errbuf0 or 1 */
 	char	*errstr;	/* reason we're unwinding the error stack, errbuf1 or 0 */
 	char	errbuf0[ERRMAX];
 	char	errbuf1[ERRMAX];
 	char	genbuf[128];	/* buffer used e.g. for last name element from namec */
-	char text[KNAMELEN];
+	char	text[KNAMELEN];
 
 	Chan	*slash;
 	Chan	*dot;
 
-	Proc		*qnext;
+	Proc	*qnext;
 
 	void	(*fn)(void*);
-	void *arg;
+	void	*arg;
 
 	char oproc[1024];	/* reserved for os */
 
@@ -469,6 +469,16 @@ enum
 
 #define DEVDOTDOT -1
 
-extern Proc *_getproc(void);
-extern void _setproc(Proc*);
+extern Proc	*_getproc(void);
+extern void	_setproc(Proc*);
 #define	up	(_getproc())
+
+/*
+ * Log console output so it can be retrieved via /dev/kmesg.
+ * This is good for catching boot-time messages after the fact.
+ */
+struct {
+	Lock lk;
+	uint n;
+	char buf[16384];
+} kmesg;
