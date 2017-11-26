@@ -8,28 +8,18 @@
 #include	<memdraw.h>
 #include	"screen.h"
 
-#define	MINX	8
-#define	Backgnd		0xFF	/* white */
+extern Memimage		*gscreen;
 
-		Memsubfont	*memdefont;
-		
-struct{
-	Point	pos;
-	int	bwid;
-}out;
+static Memsubfont	*memdefont;
+static Lock		screenlock;
+static Memimage		*conscol;
+static Memimage		*back;
+static Rectangle	flushr;
+static Rectangle	window;
+static Point		curpos;
+static int		h;
 
-Lock	screenlock;
-
-Memimage *conscol;
-Memimage *back;
-extern Memimage *gscreen;
-
-static Rectangle flushr;
-static Rectangle window;
-static Point curpos;
-static int h;
-static void	termscreenputs(char*, int);
-
+static void termscreenputs(char*, int);
 
 static void
 screenflush(void)
@@ -84,6 +74,8 @@ screenwin(void)
 	window.max.y = window.min.y+((window.max.y-window.min.y)/h)*h;
 	flushmemscreen(gscreen->r);
 	qunlock(&drawlock);
+
+	termscreenputs(kmesg.buf, kmesg.n);
 }
 
 static struct {
@@ -137,9 +129,6 @@ void
 terminit(void)
 {
 	memdefont = getmemdefont();
-	out.pos.x = MINX;
-	out.pos.y = 0;
-	out.bwid = memdefont->info[' '].width;
 	screenwin();
 	screenputs = termscreenputs;
 	kproc("resize", resizeproc, nil);
