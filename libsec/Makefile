@@ -66,6 +66,7 @@ OFILES=\
 	sha1pickle.$O\
 	sha2_128.$O\
 	sha2_64.$O\
+	sha1block.$O\
 	sha2block128.$O\
 	sha2block64.$O\
 	smallprimes.$O\
