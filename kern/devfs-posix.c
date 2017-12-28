@@ -55,6 +55,9 @@ fsattach(char *spec)
 	static int devno;
 	Ufsinfo *uif;
 
+	if(stat("/", &stbuf) < 0)
+		error(strerror(errno));
+
 	c = devattach('U', spec);
 
 	uif = mallocz(sizeof(Ufsinfo), 1);
