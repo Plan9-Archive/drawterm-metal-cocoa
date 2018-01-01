@@ -789,33 +789,6 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 }
 
 static int
-unhex(char c)
-{
-	if('0' <= c && c <= '9')
-		return c-'0';
-	if('a' <= c && c <= 'f')
-		return c-'a'+10;
-	if('A' <= c && c <= 'F')
-		return c-'A'+10;
-	abort();
-	return -1;
-}
-
-static int
-hexparse(char *hex, uchar *dat, int ndat)
-{
-	int i;
-
-	if(strlen(hex) != 2*ndat)
-		return -1;
-	if(hex[strspn(hex, "0123456789abcdefABCDEF")] != '\0')
-		return -1;
-	for(i=0; i<ndat; i++)
-		dat[i] = (unhex(hex[2*i])<<4)|unhex(hex[2*i+1]);
-	return 0;
-}
-
-static int
 findkey(Authkey *key, char *user, char *dom, char *proto)
 {
 	char buf[1024], *f[50], *p, *ep, *nextp, *hex, *pass, *id, *role;
@@ -865,10 +838,10 @@ findkey(Authkey *key, char *user, char *dom, char *proto)
 		if(hex != nil){
 			memset(key, 0, sizeof(*key));
 			if(strcmp(proto, "dp9ik") == 0) {
-				if(hexparse(hex, key->aes, AESKEYLEN) != 0)
+				if(dec16(key->aes, AESKEYLEN, hex, strlen(hex)) != AESKEYLEN)
 					continue;
 			} else {
-				if(hexparse(hex, (uchar*)key->des, DESKEYLEN) != 0)
+				if(dec16((uchar*)key->des, DESKEYLEN, hex, strlen(hex)) != DESKEYLEN)
 					continue;
 			}
 		} else {
