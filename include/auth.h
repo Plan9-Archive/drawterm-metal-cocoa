@@ -17,7 +17,7 @@ typedef struct	AuthRpc		AuthRpc;
 enum
 {
 	MAXCHLEN=	256,		/* max challenge length	*/
-	AMAXNAMELEN=	256,		/* maximum name length */
+	MAXNAMELEN=	256,		/* maximum name length */
 	MD5LEN=		16,
 
 	ARok = 0,			/* rpc return values */
@@ -37,7 +37,7 @@ enum
 struct AuthRpc
 {
 	int afd;
-	char ibuf[AuthRpcMax];
+	char ibuf[AuthRpcMax+1];	/* +1 for NUL in auth_rpc.c */
 	char obuf[AuthRpcMax];
 	char *arg;
 	uint narg;
@@ -63,7 +63,7 @@ struct Chalstate
 /* for implementation only */
 	int	afd;			/* to factotum */
 	AuthRpc	*rpc;			/* to factotum */
-	char	userbuf[AMAXNAMELEN];	/* temp space if needed */
+	char	userbuf[MAXNAMELEN];	/* temp space if needed */
 	int	userinchal;		/* user was sent to obtain challenge */
 };
 
@@ -91,16 +91,13 @@ extern	int	addns(char*, char*);
 extern	int	noworld(char*);
 extern	int	amount(int, char*, int, char*);
 
-/* these two may get generalized away -rsc */
 extern	int	login(char*, char*, char*);
-extern	int	httpauth(char*, char*);
 
 typedef struct Attr Attr;
-typedef struct String String;
 enum {
 	AttrNameval,		/* name=val -- when matching, must have name=val */
 	AttrQuery,		/* name? -- when matching, must be present */
-	AttrDefault,		/* name:=val -- when matching, if present must match INTERNAL */
+	AttrDefault,		/* name=val -- when matching, if present must match INTERNAL */
 };
 struct Attr
 {
@@ -141,11 +138,9 @@ extern AuthRpc*		auth_allocrpc(int afd);
 extern Attr*		auth_attr(AuthRpc *rpc);
 extern void		auth_freerpc(AuthRpc *rpc);
 extern uint		auth_rpc(AuthRpc *rpc, char *verb, void *a, int n);
-extern int		auth_wep(char*, char*, ...);
-
 #ifdef VARARGCK
 #pragma varargck argpos auth_proxy 3
 #pragma varargck argpos auth_challenge 1
-#pragma varargck argpos auth_respond 3
+#pragma varargck argpos auth_respond 8
 #pragma varargck argpos auth_getuserpasswd 2
 #endif
