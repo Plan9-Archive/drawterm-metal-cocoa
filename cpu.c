@@ -23,6 +23,7 @@ static int	findkey(Authkey*, char*, char*, char*);
 
 static char	*host;
 static int	aanfilter;
+static int	aanto = 3600 * 24;
 static int	norcpu;
 static int	nokbd;
 static int	nogfx;
@@ -84,7 +85,7 @@ startaan(char *host, int fd)
 "		echo -n 'announce *!0' >[1=3]\n"
 "		echo `{cat $netdir/local} || exit\n"
 "		bind '#|' /mnt/aan || exit\n"
-"		exec aan $netdir <>/mnt/aan/data1 >[1=0] >[2]/dev/null &\n"
+"		exec aan -m $aanto $netdir <>/mnt/aan/data1 >[1=0] >[2]/dev/null &\n"
 "	}\n"
 "}\n"
 "<>/mnt/aan/data >[1=0] >[2]/dev/null {\n"
@@ -100,7 +101,8 @@ startaan(char *host, int fd)
 	char buf[128], *p, *na;
 	int n;
 
-	if(fprint(fd, "%7ld\n%s", strlen(script), script) < 0)
+	snprint(buf, sizeof buf, "aanto=%d\n", aanto);
+	if(fprint(fd, "%7ld\n%s%s", strlen(buf)+strlen(script), buf, script) < 0)
 		sysfatal("sending aan script: %r");
 	n = read(fd, buf, sizeof(buf)-1);
 	close(fd);
@@ -225,9 +227,10 @@ ncpu(char *host, char *cmd)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-GBOp] "
+	fprint(2, "usage: %s [-GBO] "
 		"[-h host] [-u user] [-a authserver] [-s secstore] "
 		"[-e 'crypt hash'] [-k keypattern] "
+		"[-p] [-t timeout] "
 		"[-r root] [-c cmd ...]\n", argv0);
 	exits("usage");
 }
@@ -254,6 +257,9 @@ cpumain(int argc, char **argv)
 		break;
 	case 'p':
 		aanfilter = 1;
+		break;
+	case 't':
+		aanto = (int)strtol(EARGF(usage()), nil, 0);
 		break;
 	case 'h':
 		host = EARGF(usage());
