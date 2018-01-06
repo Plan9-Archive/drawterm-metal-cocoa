@@ -115,7 +115,7 @@ startaan(char *host, int fd)
 	else
 		na = strdup(buf);
 
-	return aanclient(na);
+	return aanclient(na, aanto);
 }
 
 void
