@@ -30,6 +30,7 @@ struct Client {
 	char	*addr;
 	int	netfd;
 	int	pipefd;
+	int	timeout;
 
 	int	reader;
 	int	writer;
@@ -47,8 +48,10 @@ reconnect(Client *c)
 {
 	Buf *b;
 	int n;
+	ulong to;
 
 	qlock(&c->lk);
+	to = (ulong)time(0) + c->timeout;
 Again:
 	for(;;){
 		if(c->netfd >= 0){
@@ -56,7 +59,9 @@ Again:
 			c->netfd = -1;
 		}
 		if((c->netfd = dial(c->addr,nil,nil,nil)) >= 0)
-			break;
+			break;		
+		if((ulong)time(0) >= to)
+			sysfatal("dial timed out: %r");
 		sleep(1000);
 	}
 	for(b = c->unackedhead; b != nil; b = b->next){
@@ -189,7 +194,7 @@ Closed:
 }
 
 int
-aanclient(char *addr)
+aanclient(char *addr, int timeout)
 {
 	Client *c;
 	int pfd[2];
@@ -203,7 +208,9 @@ aanclient(char *addr)
 	c->pipefd = pfd[1];
 	c->inmsg = 0;
 	c->outmsg = 0;
+	c->timeout = 60;
 	reconnect(c);
+	c->timeout = timeout;
 	c->writer = kproc("aanwriter", aanwriter, c);
 	c->reader = kproc("aanreader", aanreader, c);
 	c->syncer = kproc("aansyncer", aansyncer, c);
