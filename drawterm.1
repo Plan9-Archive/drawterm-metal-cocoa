@@ -1,0 +1,230 @@
+.TH DRAWTERM 1
+
+.SH NAME
+drawterm  \- connection to cpu, fs, and auth servers
+
+.SH SYNOPSIS
+.B drawterm
+[
+.B -GBO
+] [
+.B -h
+.I host
+] [
+.B -u
+.I user
+] [
+.B -a
+.I authserver
+] [
+.B -s
+.I secstore
+] [
+.B -e
+\fR'\fIcrypt hash\fR'
+] [
+.B -k
+.I keypattern
+] [
+.B -p
+] [
+.B -t
+.I timeout
+] [
+.B -r
+.I root
+] [
+.B -c
+.I cmd \fR...]
+
+.SH DESCRIPTION
+.I Drawterm
+is a client for connecting venerable systems to Plan 9 systems. The standard behavior with no options provided is to begin a graphical session which will prompt for a cpu server, auth server, and password. If $USER is not set, drawterm will prompt for a username as well. 
+
+The goal of drawterm is to provide an abstraction layer from the client operating system to the desired Plan 9 system. Client-side devices that can be represented as filesystems will be and are served from the namespace drawterm operates in. Generally, this means that drawterm behaves like a Plan 9 kernel and will attempt to reconstruct a Plan 9 terminal-like experience from a non-Plan 9 system.
+
+.PP
+The options are:
+.PD
+
+.TP
+.B -G
+Start drawterm in text-only mode (no graphics).
+
+.TP
+.B -B
+Disable kbdfs.
+
+.TP
+.B -O
+Use the old
+.IR cpu (1)
+to connect to the cpu server rather than 
+.IR rcpu (1)\fR.
+
+.TP
+.B -h \fIhost
+Connect to \fIhost\fR for cpu.
+
+.TP
+.B -u \fIuser
+Remote user id.
+
+.TP
+.B -a \fIauthserver
+Connect to \fIauthserver\fR for auth.
+
+.TP
+.B -s \fIsecstore
+Sets the address of the
+.IR secstore (8)
+server. If the -s option is absent,
+.IR secstore (1)
+will attempt to dial tcp!$auth!secstore (or the otherwise specified auth server).
+
+.TP
+.B -e \fR'\fIcrypt hash\fR'
+Specifies the \fR'\fIcrypt hash\fR'
+for the connection. The default is 'rc4_256 sha1'. Usage of no encryption can be specified by 'clear' as per
+.IR ssl (3)\fR. Note that this option is deprecated and only relevant to the outdated
+.IR cpu (1)
+protocol.
+
+.TP
+.B -k \fIkeypattern
+Use keypattern to select a key to authenticate to the remote side (see 
+.IR auth (2)\fR).
+
+.TP
+.B -p
+Protect the connection against connection resets by establishing
+.IR aan (8)
+tunnel.
+
+.TP
+.B -t \fItimeout
+Set the timeout for
+.IR aan (8)
+to a value in 
+.I seconds\fR (default is one day).
+
+.TP
+.B -r \fIroot
+Specifies the root directory on the client. The default is
+.I /root
+and all further paths are relative thereto.
+
+.TP
+.B -c \fIcmd \fR...
+The command to run can be passed with -c cmd ..., otherwise an interactive shell is started. The user's profile is run before the command with $service set to cpu to allow further customization of the environment (see 
+.IR rc (1)
+for more information).
+
+.PP
+.SH ENVIRONMENT VARIABLES
+.IP USER
+Unless otherwise specified, the user stored in $USER is used for authentication.
+
+.IP PASS
+If $PASS is set, no password will be prompted for in authentication and the contents of $PASS will be used instead.
+
+.IP cpu
+Unless otherwise specified, the address stored in $cpu is used for the
+.IR rcpu (1)
+connection (if set).
+
+.IP auth
+Unless otherwise specified, the address stored in $auth is used for the 
+.IR rcpu (1)
+connection (if set).
+
+.PP
+.SH SERVICES
+A number of services are provided in drawterm. The exact functionality and availability of certain features may be dependent on your platform or architecture: 
+
+.TP
+.B /mnt/term
+A mount of the client machine's root filesystem as well as certain virtual filesystems to present Plan 9 devices and interfaces that are not available on non-Plan 9 systems. On Windows this is a directory containing the available lettered disks (C:, A:, etc.). Additionally, there is always a /mnt/term/root folder which is a copy of the client machine's namespace with no virtual filesystems present as to avoid conflicting names (such as with Linux's /root).
+
+.TP
+.B #b
+Assuming the -B flag is not set, /dev/kbd will be provided for kbdfs (see
+.IR kbd (3)\fR).
+
+.TP
+.B #i
+Assuming the -G flag is not set, various drawing device files will be provided in /dev (see
+.IR draw (3)\fR).
+
+.TP
+.B #m
+Assuming the -G flag is not set, files for controlling the mouse will provided in /dev (see
+.IR mouse (3)\fR).
+
+.TP
+.B #c
+A number of console device files giving access to the console screen and miscellaneous information are provided and mounted in /dev (see
+.IR cons (3)\fR).
+
+.TP
+.B #I
+The network filesystem is served and bound over /net, providing the interface to Internet Protocol stacks (see
+.IR ip (3)\fR).
+
+.TP
+.B #A
+An audio device filesystem is served, if possible, as a one-level directory in /dev (see
+.IR audio (3)\fR).
+Note that this device, if unable to be served, will not cause a panic in drawterm.
+
+.PP
+.SH EXAMPLES
+Make a headless rcpu session connecting to 10.30.167.25 using plan9.postnix.us as the auth server with
+.IR aan (8)
+enabled:
+.IP
+.EX
+drawterm -G -h 10.30.167.25 -a plan9.postnix.us -p
+.EE
+.PP
+
+Make a session using cpu rather than rcpu to tenshi.postnix.us; this command is the same for connecting to a Plan 9 4th edition system:
+.IP
+.EX
+drawterm -O -h tenshi.postnix.us
+.EE
+.PP
+
+.PP
+.SH SOURCE
+.B https://code.9front.org/hg/drawterm
+
+.PP
+.SH "SEE ALSO"
+.IR rc (1),
+.IR cpu (1),
+.IR rcpu(1),
+.IR con (1),
+.IR import (4),
+.IR exportfs (4),
+.IR tlssrv (8),
+.IR aan (8)
+
+.PP
+.SH BUGS
+Drawterm is 
+.I not
+a Plan 9 program.
+
+.PP
+.SH HISTORY
+Drawterm was originally developed by Russ Cox (rsc) for Plan 9 4th edition. This original version is still usable on Plan 9 and its forks which use the p9sk1 and older
+.IR authsrv (6)
+protocols.
+.B https://swtch.com/drawterm/
+
+The 9front project has forked drawterm to incorporate features from 9front, most importantly dp9ik authentication support (see 
+.IR authsrv (6)\fR)
+and the TLS-based
+.IR rcpu (1)
+protocol.
