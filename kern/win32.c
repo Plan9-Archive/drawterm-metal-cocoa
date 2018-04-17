@@ -126,12 +126,16 @@ procwakeup(Proc *p)
 	ReleaseSemaphore(op->sema, 1, 0);
 }
 
-#define RtlGenRandom	SystemFunction036
-BOOLEAN WINAPI RtlGenRandom(PVOID, ULONG);
+BOOLEAN WINAPI (*RtlGenRandom)(PVOID, ULONG);
 
 void
 randominit(void)
 {
+	HMODULE mod;
+	
+	mod = LoadLibraryW(L"ADVAPI32.DLL");
+	if(mod != NULL)
+		RtlGenRandom = (void *) GetProcAddress(mod, "SystemFunction036");
 }
 
 ulong
