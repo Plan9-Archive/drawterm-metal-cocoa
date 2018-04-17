@@ -1,3 +1,4 @@
+#define  _WIN32_WINNT 0x0501
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2tcpip.h>
@@ -215,7 +216,7 @@ int
 so_gethostbyname(char *host, char **hostv, int n)
 {
 	char buf[INET6_ADDRSTRLEN];
-	PADDRINFOA r, p;
+	struct addrinfo *r, *p;
 	DWORD l;
 	int i;
 
