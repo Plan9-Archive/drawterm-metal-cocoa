@@ -307,6 +307,32 @@ bmiinit(void)
 		p[i] = i;
 }
 
+void
+togglefull(HWND hwnd)
+{
+	static int full;
+	static LONG style, exstyle;
+	static WINDOWPLACEMENT pl;
+	MONITORINFO mi;
+	
+	full = !full;
+	if(full){
+		SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+		style = GetWindowLong(hwnd, GWL_STYLE);
+		exstyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+		pl.length = sizeof(WINDOWPLACEMENT);
+		GetWindowPlacement(hwnd, &pl);
+		SetWindowLong(hwnd, GWL_STYLE, style & ~(WS_CAPTION | WS_THICKFRAME));
+		SetWindowLong(hwnd, GWL_EXSTYLE, exstyle & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+		mi.cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi);
+		SetWindowPos(hwnd, NULL, mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	}else{
+		SetWindowLong(hwnd, GWL_STYLE, style);
+		SetWindowLong(hwnd, GWL_EXSTYLE, exstyle);
+		SetWindowPlacement(hwnd, &pl);
+	}
+}
 
 Rune vk2rune[256] = {
 [VK_CANCEL] Kbreak,
@@ -409,6 +435,8 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		break;
 	case WM_SYSKEYUP:
 	case WM_KEYUP:
+		if(wparam == VK_PAUSE)
+			togglefull(hwnd);
 		i = (lparam>>16)&0xFF;
 		k = scdown[i];
 		if(k != 0){
