@@ -423,7 +423,7 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 	if(perm & DMDIR) {
 		wchar_t *p;
 		DIR *d;
-		if(m || t!=TPATH_FILE)
+		if(m || t==TPATH_ROOT)
 			error(Eperm);
 		if(!CreateDirectory(newpath, NULL))
 			oserror();
