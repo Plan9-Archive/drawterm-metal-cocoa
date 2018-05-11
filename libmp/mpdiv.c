@@ -9,7 +9,7 @@
 void
 mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 {
-	int j, s, vn, sign;
+	int j, s, vn, sign, qsign, rsign;
 	mpdigit qd, *up, *vp, *qp;
 	mpint *u, *v, *t;
 
@@ -22,7 +22,9 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 
 	// division by one or small powers of two
 	if(divisor->top == 1 && (divisor->p[0] & divisor->p[0]-1) == 0){
-		vlong r = (vlong)dividend->sign * (dividend->p[0] & divisor->p[0]-1);
+		vlong r = 0;
+		if(dividend->top > 0)
+			r = (vlong)dividend->sign * (dividend->p[0] & divisor->p[0]-1);
 		if(quotient != nil){
 			sign = divisor->sign;
 			for(s = 0; ((divisor->p[0] >> s) & 1) == 0; s++)
@@ -47,6 +49,9 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 			mpassign(mpzero, quotient);
 		return;
 	}
+	
+	qsign = divisor->sign * dividend->sign;
+	rsign = dividend->sign;
 
 	// D1: shift until divisor, v, has hi bit set (needed to make trial
 	//     divisor accurate)
@@ -119,14 +124,15 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 	if(qp != nil){
 		assert((quotient->flags & MPtimesafe) == 0);
 		mpnorm(quotient);
-		if(dividend->sign != divisor->sign)
-			quotient->sign = -1;
+		if(quotient->top != 0)
+			quotient->sign = qsign;
 	}
 
 	if(remainder != nil){
 		assert((remainder->flags & MPtimesafe) == 0);
 		mpright(u, s, remainder);	// u is the remainder shifted
-		remainder->sign = dividend->sign;
+		if(remainder->top != 0)
+			remainder->sign = rsign;
 	}
 
 	mpfree(t);
