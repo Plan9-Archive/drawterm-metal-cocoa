@@ -594,7 +594,7 @@ char*
 clipread(void)
 {
 	HANDLE h;
-	char *p;
+	char *p, *q, *r;
 
 	if(!OpenClipboard(window)){
 		oserror();
@@ -609,9 +609,40 @@ clipread(void)
 		oserror();
 		return strdup("");
 	}
+
+	for(q = r = p; *q != 0; q++)
+		if(*q != '\r')
+			*r++ = *q;
+	*r = 0;
 	
 	CloseClipboard();
 	return p;
+}
+
+static char *
+addcr(char *buf, int *lp)
+{
+	int nlen;
+	char *r, *p, *q;
+
+	nlen = 0;
+	for(p = buf; *p != 0; p++){
+		if(*p == '\n')
+			nlen++;
+		nlen++;
+	}
+	*lp = nlen;
+	r = malloc(nlen + 1);
+	if(r == nil)
+		panic("malloc: %r");
+	q = r;
+	for(p = buf; *p != 0; p++){
+		if(*p == '\n')
+			*q++ = '\r';
+		*q++ = *p;
+	}
+	*q = 0;
+	return r;
 }
 
 int
@@ -620,7 +651,8 @@ clipwrite(char *buf)
 	HANDLE h;
 	char *p;
 	Rune16 *rp;
-	int n = strlen(buf);
+	char *crbuf;
+	int n;
 
 	if(!OpenClipboard(window)) {
 		oserror();
@@ -633,11 +665,13 @@ clipwrite(char *buf)
 		return -1;
 	}
 
+	crbuf = addcr(buf, &n);
+
 	h = GlobalAlloc(GMEM_MOVEABLE|GMEM_DDESHARE, (n+1)*sizeof(Rune));
 	if(h == NULL)
 		panic("out of memory");
 	rp = GlobalLock(h);
-	utftorunes16(rp, buf, n+1);
+	utftorunes16(rp, crbuf, n+1);
 	GlobalUnlock(h);
 
 	SetClipboardData(CF_UNICODETEXT, h);
@@ -646,13 +680,14 @@ clipwrite(char *buf)
 	if(h == NULL)
 		panic("out of memory");
 	p = GlobalLock(h);
-	memcpy(p, buf, n);
+	memcpy(p, crbuf, n);
 	p[n] = 0;
 	GlobalUnlock(h);
 	
 	SetClipboardData(CF_TEXT, h);
 
 	CloseClipboard();
+	free(crbuf);
 	return n;
 }
 
