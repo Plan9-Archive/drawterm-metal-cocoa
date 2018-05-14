@@ -25,6 +25,7 @@ mpmagadd(mpint *b1, mpint *b2, mpint *sum)
 	}
 	if(m == 0){
 		mpassign(b1, sum);
+		sum->sign = 1;
 		return;
 	}
 	mpbits(sum, (n+1)*Dbits);
