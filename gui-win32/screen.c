@@ -103,18 +103,8 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 void
 flushmemscreen(Rectangle r)
 {
-	screenload(r, gscreen->depth, byteaddr(gscreen, ZP), ZP,
-		gscreen->width*sizeof(ulong));
-}
-
-void
-screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
-{
-	int dx, dy, delx;
+	int dx, dy;
 	HDC hdc;
-
-	if(depth != gscreen->depth)
-		panic("screenload: bad ldepth");
 
 	/*
 	 * Sometimes we do get rectangles that are off the
@@ -123,16 +113,6 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 	 */
 	if(rectclip(&r, gscreen->clipr) == 0)
 		return;
-	if((step&3) != 0 || ((pt.x*depth)%32) != 0 || ((ulong)p&3) != 0)
-		panic("screenload: bad params %d %d %ux", step, pt.x, p);
-
-	if(depth == 24)
-		delx = r.min.x % 4;
-	else
-		delx = r.min.x & (31/depth);
-
-	p += (r.min.y-pt.y)*step;
-	p += ((r.min.x-delx-pt.x)*depth)>>3;
 	
 	lock(&gdilock);
 
@@ -143,11 +123,16 @@ screenload(Rectangle r, int depth, uchar *p, Point pt, int step)
 	dx = r.max.x - r.min.x;
 	dy = r.max.y - r.min.y;
 
-	bmi->bmiHeader.biWidth = (step*8)/depth;
+	bmi->bmiHeader.biWidth = (gscreen->width*sizeof(ulong)*8)/gscreen->depth;
 	bmi->bmiHeader.biHeight = -dy;	/* - => origin upper left */
 
-	StretchDIBits(hdc, r.min.x, r.min.y, dx, dy,
-		delx, 0, dx, dy, p, bmi, screen.dibtype, SRCCOPY);
+	SetDIBitsToDevice(hdc,
+		r.min.x, r.min.y,
+		dx, dy,
+		r.min.x, 0,
+		0, dy,
+		byteaddr(gscreen, Pt(0, r.min.y)), bmi,
+		screen.dibtype);
 
 	ReleaseDC(window, hdc);
 
