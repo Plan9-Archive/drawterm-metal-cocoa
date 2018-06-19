@@ -817,21 +817,27 @@ cswrite(Chan *c, void *a, long n, vlong offset)
 	port = lookupport(f[2]);
 	if(port <= 0)
 		error("no translation for port found");
-	if(parseip(ip, f[1]) != -1){
-		ips[0] = smprint("%I", ip);
-		nips = 1;
+	if(strcmp(f[1], "*") == 0){
+		if(strcmp(f[0], "net") == 0)
+			f[0] = "tcp";
+		ns = smprint("/net/%s/clone %d", f[0], port);
 	} else {
-		nips = so_gethostbyname(f[1], ips, nelem(ips));
-		if(nips <= 0)
-			error("no translation for host found");
-	}
-	ns = smprint("/net/%s/clone %s!%d", f[0], ips[0], port);
-	free(ips[0]);
-	for(i=1; i<nips; i++){
-		ips[0] = smprint("%s\n/net/%s/clone %s!%d", ns, f[0], ips[i], port);
-		free(ips[i]);
-		free(ns);
-		ns = ips[0];
+		if(parseip(ip, f[1]) != -1){
+			ips[0] = smprint("%I", ip);
+			nips = 1;
+		} else {
+			nips = so_gethostbyname(f[1], ips, nelem(ips));
+			if(nips <= 0)
+				error("no translation for host found");
+		}
+		ns = smprint("/net/%s/clone %s!%d", f[0], ips[0], port);
+		free(ips[0]);
+		for(i=1; i<nips; i++){
+			ips[0] = smprint("%s\n/net/%s/clone %s!%d", ns, f[0], ips[i], port);
+			free(ips[i]);
+			free(ns);
+			ns = ips[0];
+		}
 	}
 	free(c->aux);
 	c->aux = ns;
