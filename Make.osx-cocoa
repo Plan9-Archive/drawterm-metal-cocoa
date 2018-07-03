@@ -1,0 +1,20 @@
+# Mac OS X
+PTHREAD=	# for Mac
+AR=ar
+AS=as
+RANLIB=ranlib
+CC=gcc
+CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -O2
+O=o
+OS=posix
+GUI=cocoa
+LDADD=-ggdb -framework AppKit -framework OpenGL
+LDFLAGS=$(PTHREAD)
+TARG=drawterm
+AUDIO=none
+
+all: default
+
+libmachdep.a:
+	arch=`uname -m|sed 's/i.86/386/;s/x86_64/amd64/'`; \
+	(cd posix-$$arch &&  make)
