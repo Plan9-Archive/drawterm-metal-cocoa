@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>drawterm</string>
 	<key>CFBundleIconFile</key>
-	<string></string>
+	<string>glenda-t.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>drawterm</string>
 	<key>CFBundleInfoDictionaryVersion</key>

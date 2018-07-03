@@ -13,8 +13,11 @@ LDFLAGS=$(PTHREAD)
 TARG=drawterm
 AUDIO=none
 
-all: default
+all: default gui-cocoa/drawterm.app/drawterm
 
 libmachdep.a:
 	arch=`uname -m|sed 's/i.86/386/;s/x86_64/amd64/'`; \
 	(cd posix-$$arch &&  make)
+
+gui-cocoa/drawterm.app/drawterm: drawterm
+	cp $< $@
