@@ -740,3 +740,9 @@ cursorarrow(void)
 {
 	InitCursor();
 }
+
+void
+guimain(void)
+{
+	cpubody();
+}

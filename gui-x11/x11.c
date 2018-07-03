@@ -1200,3 +1200,9 @@ setterm(int raw)
 		t.c_lflag |= (ECHO|ICANON);
 	tcsetattr(0, TCSAFLUSH, &t);
 }
+
+void
+guimain(void)
+{
+	cpubody();
+}

@@ -63,3 +63,5 @@ void	screenresize(Rectangle);
 void	mouseresize(void);
 void	mousetrack(int, int, int, ulong);
 void	absmousetrack(int, int, int, ulong);
+void	cpubody(void);
+void	guimain(void);

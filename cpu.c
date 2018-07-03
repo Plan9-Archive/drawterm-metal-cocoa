@@ -39,6 +39,8 @@ char *secstore;
 char *user, *pass;
 char secstorebuf[65536];
 
+extern void	guimain(void);
+
 char*
 estrdup(char *s)
 {
@@ -235,10 +237,14 @@ usage(void)
 	exits("usage");
 }
 
+static char *cmd;
+
+extern void cpubody(void);
+
 void
 cpumain(int argc, char **argv)
 {
-	char *s, *cmd = nil;
+	char *s;
 
 	user = getenv("USER");
 	pass = getenv("PASS");
@@ -303,7 +309,18 @@ cpumain(int argc, char **argv)
 	if(argc != 0)
 		usage();
 
-	if(!nogfx) {
+	if(!nogfx)
+		guimain();
+	else
+		cpubody();
+}
+
+void
+cpubody(void)
+{
+	char *s;
+
+	if(!nogfx){
 		if(bind("#i", "/dev", MBEFORE) < 0)
 			panic("bind #i: %r");
 		if(bind("#m", "/dev", MBEFORE) < 0)
@@ -311,7 +328,6 @@ cpumain(int argc, char **argv)
 		if(cmd == nil)
 			atexit(ending);
 	}
-
 	if(bind("/root", "/", MAFTER) < 0)
 		panic("bind /root: %r");
 
