@@ -693,3 +693,9 @@ setterm(int raw)
 	FlushConsoleInputBuffer(h);
 	_setmode(0, raw? _O_BINARY: _O_TEXT);
 }
+
+void
+guimain(void)
+{
+	cpubody();
+}
