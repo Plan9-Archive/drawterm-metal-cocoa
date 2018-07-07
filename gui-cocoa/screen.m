@@ -212,6 +212,7 @@ mainproc(void *aux)
 - (void) otherMouseDown:(NSEvent*)event;
 - (void) otherMouseDragged:(NSEvent*)event;
 - (void) otherMouseUp:(NSEvent*)event;
+- (void) scrollWheel:(NSEvent*)event;                                                                                                                                                                                                                                                                                                                                                                                                   
 - (BOOL) acceptsFirstResponder;
 - (void) reshape;
 - (BOOL) acceptsMouseMovedEvents;
@@ -405,6 +406,10 @@ evkey(NSEvent *event)
 - (void) otherMouseDown:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseDragged:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseUp:(NSEvent*)event { [self mouseevent:event]; }
+
+- (void) scrollWheel:(NSEvent*)event {
+	mousetrack(0, 0, [event deltaY]>0 ? 8 : 16, ticks());
+}
 
 - (BOOL) acceptsFirstResponder {
 	return TRUE;
