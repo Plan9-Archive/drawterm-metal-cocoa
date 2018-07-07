@@ -392,12 +392,8 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			b |= 1;
 		if(wparam & MK_MBUTTON)
 			b |= 2;
-		if(wparam & MK_RBUTTON) {
-			if(wparam & MK_SHIFT)
-				b |= 2;
-			else
-				b |= 4;
-		}
+		if(wparam & MK_RBUTTON)
+			b |= 4;
 		absmousetrack(x, y, b, ticks());
 		break;
 
