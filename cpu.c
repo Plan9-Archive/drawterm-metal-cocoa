@@ -813,7 +813,7 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 static int
 findkey(Authkey *key, char *user, char *dom, char *proto)
 {
-	char buf[1024], *f[50], *p, *ep, *nextp, *hex, *pass, *id, *role;
+	char buf[8192], *f[50], *p, *ep, *nextp, *hex, *pass, *id, *role;
 	int nf, haveproto,  havedom, i;
 
 	for(p=secstorebuf; *p; p=nextp){
