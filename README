@@ -16,6 +16,8 @@ To build on Windows, you can't use Visual C. Use Mingw on cygwin.
 
 To build on Mac OS X with X11 (xquartz), run CONF=osx-x11 make.
 
+To build on Mac OS X with Cocoa, run CONF=osx-cocoa make and "cp drawterm gui-cocoa/drawterm.app/".
+
 
 BINARIES
 ---------
