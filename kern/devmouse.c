@@ -167,7 +167,7 @@ mouseread(Chan *c, void *va, long n, vlong offset)
 			else if (b == 16)
 				b = 8;
 		}
-		sprint(buf, "m%11d %11d %11d %11lud ",
+		sprint(buf, "m%11d %11d %11d %11ld ",
 			m.xy.x, m.xy.y, b, m.msec);
 
 		mouse.lastcounter = m.counter;
