@@ -1150,11 +1150,11 @@ if(0) iprint("xselect target=%d requestor=%d property=%d selection=%d\n",
 		if(name){
 			if(strcmp(name, "TIMESTAMP") == 0){
 				/* nothing */
-			}else if(strncmp(name, "image/", 6) == 0){
+			}else if(strncasecmp(name, "image/", 6) == 0){
 				/* nothing */
-			}else if(strcmp(name, "text/html") == 0){
+			}else if(strcasecmp(name, "text/html") == 0){
 				/* nothing */
-			}else if(strcmp(name, "text/plain") == 0 || strcmp(name, "text/plain;charset=UTF-8") == 0){
+			}else if(strcasecmp(name, "text/plain") == 0 || strcasecmp(name, "text/plain;charset=UTF-8") == 0){
 				goto text;
 			}else
 				iprint("cannot handle selection request for '%s' (%d)\n", name, (int)xe->target);
