@@ -422,13 +422,13 @@ fswstat(Chan *c, uchar *buf, int n)
 		char *base, *newpath;
 
 		base = strdup(uif->path);
-		if(waserror()){
-			free(base);
-			nexterror();
-		}
 		*lastelem(base) = 0;
 		newpath = catpath(base, d.name);
-		free(base), base = newpath;
+		free(base);
+		if(waserror()){
+			free(newpath);
+			nexterror();
+		}
 		if(rename(uif->path, newpath) < 0)
 			error(strerror(errno));
 		free(uif->path);

@@ -634,7 +634,12 @@ fswstat(Chan *c, uchar *buf, int n)
 			error(Ebadstat);
 		base[l] = 0;
 		newpath = catpath(base, d.name, nil);
-		free(base), base = newpath;
+		free(base);
+		poperror();
+		if(waserror()){
+			free(newpath);
+			nexterror();
+		}
 		if(wcscmp(uif->path, newpath)!=0){
 			if(!MoveFile(uif->path, newpath))
 				oserror();
