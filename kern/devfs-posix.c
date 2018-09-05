@@ -429,6 +429,8 @@ fswstat(Chan *c, uchar *buf, int n)
 			free(newpath);
 			nexterror();
 		}
+		if(stat(newpath, &stbuf) >= 0)
+			error(Eexist);
 		if(rename(uif->path, newpath) < 0)
 			error(strerror(errno));
 		free(uif->path);
