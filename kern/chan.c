@@ -1164,7 +1164,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 	int len, n, t, nomount;
 	Chan *c;
 	Chan *volatile cnew;
-	Path *path;
+	Path *volatile path;
 	Elemlist e;
 	Rune r;
 	Mhead *m;
