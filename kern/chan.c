@@ -1162,7 +1162,8 @@ Chan*
 namec(char *aname, int amode, int omode, ulong perm)
 {
 	int len, n, t, nomount;
-	Chan *c, *cnew;
+	Chan *c;
+	Chan *volatile cnew;
 	Path *path;
 	Elemlist e;
 	Rune r;
