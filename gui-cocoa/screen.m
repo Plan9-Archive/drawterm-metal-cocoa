@@ -433,6 +433,8 @@ evkey(NSEvent *event)
 	Point q;
 	NSUInteger u;
 	NSEventModifierFlags m;
+	NSInteger s;
+	ulong t;
 
 	switch([event type]){
 	case NSEventTypeLeftMouseDown:
@@ -464,7 +466,12 @@ evkey(NSEvent *event)
 		break;
 
 	case NSEventTypeScrollWheel:
-		mousetrack(0, 0, [event scrollingDeltaY]>0 ? 8 : 16, ticks());
+		s = [event scrollingDeltaY];
+		t = ticks();
+		if(s > 1)
+			mousetrack(0, 0, 8, t);
+		else if(s < -1)
+			mousetrack(0, 0, 16, t);
 		break;
 
 	default:
@@ -483,65 +490,6 @@ evkey(NSEvent *event)
 - (void) otherMouseDragged:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseUp:(NSEvent*)event { [self mouseevent:event]; }
 - (void) scrollWheel:(NSEvent*)event { [self mouseevent:event]; }
-
-static void
-gettouch(NSEvent *e, int type)
-{
-	static int tapping;
-	static uint taptime;
-	NSSet *set;
-	int p;
-
-	switch(type){
-	case NSTouchPhaseBegan:
-		p = NSTouchPhaseTouching;
-		set = [e touchesMatchingPhase:p inView:nil];
-		if(set.count == 3){
-			tapping = 1;
-			taptime = ticks();
-		}else
-		if(set.count > 3)
-			tapping = 0;
-		break;
-
-	case NSTouchPhaseMoved:
-		tapping = 0;
-		break;
-
-	case NSTouchPhaseEnded:
-		p = NSTouchPhaseTouching;
-		set = [e touchesMatchingPhase:p inView:nil];
-		if(set.count == 0){
-			if(tapping && ticks()-taptime<400)
-				mousetrack(0, 0, 2, ticks());
-			tapping = 0;
-		}
-		break;
-
-	case NSTouchPhaseCancelled:
-		break;
-
-	default:
-		panic("gettouch: unexpected event type");
-	}
-}
-
-- (void)touchesBeganWithEvent:(NSEvent*)e
-{
-	gettouch(e, NSTouchPhaseBegan);
-}
-- (void)touchesMovedWithEvent:(NSEvent*)e
-{
-	gettouch(e, NSTouchPhaseMoved);
-}
-- (void)touchesEndedWithEvent:(NSEvent*)e
-{
-	gettouch(e, NSTouchPhaseEnded);
-}
-- (void)touchesCancelledWithEvent:(NSEvent*)e
-{
-	gettouch(e, NSTouchPhaseCancelled);
-}
 
 - (void)magnifyWithEvent:(NSEvent*)e{
 	if([e type] == NSEventTypeMagnify && fabs([e magnification]) > 0.02)
