@@ -222,26 +222,6 @@ mainproc(void *aux)
 @end
 
 @interface DrawtermView : NSOpenGLView
-- (void) drawRect:(NSRect)rect;
-- (void) keyDown:(NSEvent*)event;
-- (void) flagsChanged:(NSEvent*)event;
-- (void) keyUp:(NSEvent*)event;
-- (void) mouseDown:(NSEvent*)event;
-- (void) mouseDragged:(NSEvent*)event;
-- (void) mouseUp:(NSEvent*)event;
-- (void) mouseMoved:(NSEvent*)event;
-- (void) rightMouseDown:(NSEvent*)event;
-- (void) rightMouseDragged:(NSEvent*)event;
-- (void) rightMouseUp:(NSEvent*)event;
-- (void) otherMouseDown:(NSEvent*)event;
-- (void) otherMouseDragged:(NSEvent*)event;
-- (void) otherMouseUp:(NSEvent*)event;
-- (void) scrollWheel:(NSEvent*)event;                                                                                                                                                                                                                                                                                                                                                                                                   
-- (BOOL) acceptsFirstResponder;
-- (void) reshape;
-- (BOOL) acceptsMouseMovedEvents;
-- (void) prepareOpenGL;
-- (void) resetCursorRects;
 @end
 
 @implementation DrawtermView
@@ -433,50 +413,24 @@ evkey(NSEvent *event)
 	Point q;
 	NSUInteger u;
 	NSEventModifierFlags m;
-	NSInteger s;
-	ulong t;
 
-	switch([event type]){
-	case NSEventTypeLeftMouseDown:
-	case NSEventTypeLeftMouseUp:
-	case NSEventTypeOtherMouseDown:
-	case NSEventTypeOtherMouseUp:
-	case NSEventTypeRightMouseDown:
-	case NSEventTypeRightMouseUp:
-	case NSEventTypeMouseMoved:
-	case NSEventTypeLeftMouseDragged:
-	case NSEventTypeRightMouseDragged:
-	case NSEventTypeOtherMouseDragged:
-		p = [self convertPointToBacking:[self.window mouseLocationOutsideOfEventStream]];
-		u = [NSEvent pressedMouseButtons];
-		q.x = p.x;
-		q.y = p.y;
-		if(!ptinrect(q, gscreen->clipr)) return;
-		u = (u&~6) | (u&4)>>1 | (u&2)<<1;
-		if(u == 1){
-			m = [event modifierFlags];
-			if(m & NSEventModifierFlagOption){
-				kbdkey(Kalt, 0); // Release & Press.
-				kbdkey(Kalt, 1); // A hack to break the compose sequence.
-				u = 2;
-			}else if(m & NSEventModifierFlagCommand)
-				u = 4;
-		}
-		absmousetrack(p.x, [self convertSizeToBacking:self.frame.size].height - p.y, u, ticks());
-		break;
-
-	case NSEventTypeScrollWheel:
-		s = [event scrollingDeltaY];
-		t = ticks();
-		if(s > 1)
-			mousetrack(0, 0, 8, t);
-		else if(s < -1)
-			mousetrack(0, 0, 16, t);
-		break;
-
-	default:
-		break;
+	p = [self convertPointToBacking:
+		[self.window mouseLocationOutsideOfEventStream]];
+	u = [NSEvent pressedMouseButtons];
+	q.x = p.x;
+	q.y = p.y;
+	if(!ptinrect(q, gscreen->clipr)) return;
+	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
+	if(u == 1){
+		m = [event modifierFlags];
+		if(m & NSEventModifierFlagOption){
+			kbdkey(Kalt, 0); // Release & Press.
+			kbdkey(Kalt, 1); // A hack to break the compose sequence.
+			u = 2;
+		}else if(m & NSEventModifierFlagCommand)
+			u = 4;
 	}
+	absmousetrack(p.x, [self convertSizeToBacking:self.frame.size].height - p.y, u, ticks());
 }
 
 - (void) mouseDown:(NSEvent*)event { [self mouseevent:event]; }
@@ -489,7 +443,18 @@ evkey(NSEvent *event)
 - (void) otherMouseDown:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseDragged:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseUp:(NSEvent*)event { [self mouseevent:event]; }
-- (void) scrollWheel:(NSEvent*)event { [self mouseevent:event]; }
+
+- (void) scrollWheel:(NSEvent*)event{
+	NSInteger s;
+	ulong t;
+
+	s = [event scrollingDeltaY];
+	t = ticks();
+	if(s > 1)
+		mousetrack(0, 0, 8, t);
+	else if(s < -1)
+		mousetrack(0, 0, 16, t);
+}
 
 - (void)magnifyWithEvent:(NSEvent*)e{
 	if([e type] == NSEventTypeMagnify && fabs([e magnification]) > 0.02)
