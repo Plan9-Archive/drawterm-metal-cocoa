@@ -157,11 +157,6 @@ mouseset(Point p)
 	});
 }
 
-void
-setterm(int x)
-{
-}
-
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 @end
 

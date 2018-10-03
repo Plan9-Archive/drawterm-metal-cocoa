@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <pwd.h>
 #include <errno.h>
+#include <termios.h>
 
 #include "lib.h"
 #include "dat.h"
@@ -210,4 +211,18 @@ showfilewrite(char *a, int n)
 {
 	error("not implemented");
 	return -1;
+}
+
+void
+setterm(int raw)
+{
+	struct termios t;
+
+	if(tcgetattr(0, &t) < 0)
+		return;
+	if(raw)
+		t.c_lflag &= ~(ECHO|ICANON);
+	else
+		t.c_lflag |= (ECHO|ICANON);
+	tcsetattr(0, TCSAFLUSH, &t);
 }
