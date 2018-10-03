@@ -673,24 +673,6 @@ clipwrite(char *buf)
 }
 
 void
-setterm(int raw)
-{
-	DWORD mode;
-	HANDLE h;
-
-	h = GetStdHandle(STD_INPUT_HANDLE);
-	if(!GetConsoleMode(h, &mode))
-		return;
-	if(raw)
-		mode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-	else
-		mode |= (ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-	SetConsoleMode(h, mode);
-	FlushConsoleInputBuffer(h);
-	_setmode(0, raw? _O_BINARY: _O_TEXT);
-}
-
-void
 guimain(void)
 {
 	cpubody();
