@@ -24,6 +24,8 @@ static NSCursor *currentCursor;
 
 static GLuint tex;
 
+static int breakcompose = 0;
+
 void
 guimain(void)
 {
@@ -395,8 +397,14 @@ evkey(NSEvent *event)
 		kbdkey(Kshift, 0);
 	if((~x & y & NSEventModifierFlagControl) != 0)
 		kbdkey(Kctl, 0);
-	if((~x & y & NSEventModifierFlagOption) != 0)
+	if((~x & y & NSEventModifierFlagOption) != 0){
 		kbdkey(Kalt, 0);
+		if(breakcompose){
+			kbdkey(Kalt, 1);
+			kbdkey(Kalt, 0);
+			breakcompose = 0;
+		}
+	}
 	if((~x & y & NSEventModifierFlagCapsLock) != 0)
 		kbdkey(Kcaps, 0);
 	y = x;
@@ -419,8 +427,7 @@ evkey(NSEvent *event)
 	if(u == 1){
 		m = [event modifierFlags];
 		if(m & NSEventModifierFlagOption){
-			kbdkey(Kalt, 0); // Release & Press.
-			kbdkey(Kalt, 1); // A hack to break the compose sequence.
+			breakcompose = 1;
 			u = 2;
 		}else if(m & NSEventModifierFlagCommand)
 			u = 4;
