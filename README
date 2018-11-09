@@ -1,9 +1,17 @@
 DESCRIPTION
 -----------
-This is a fork of 9front's drawterm to incorporate features
-for working with a MacBook, most importantly the native
-resolution support for HiDPI screens and the use of control,
-option, and command keys for mouse 1, 2, and 3 clicks.
+This is a fork of 9front's drawterm to add features for macOS.
+
+Features of CONF=osx-metal
+- native resolution support for HiDPI screens
+- use control, option, and command keys for mouse 1, 2, and 3 clicks
+- use three finger touch for mouse 2 click
+- use four finger touch for mouse 2-1 chord
+- basic support for macOS input method
+
+Features of CONF=osx-cocoa
+- native resolution support for HiDPI screens
+- use control, option, and command keys for mouse 1, 2, and 3 clicks
 
 ~~
 
