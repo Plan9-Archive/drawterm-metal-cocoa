@@ -14,4 +14,4 @@ $(LIB): $(OFILES)
 	$(CC) $(CFLAGS) -fobjc-arc $*.m
 
 drawterm.app/MainWindow.nib: MainWindow.xib
-	ibtool --compile $@ $<
+	xcrun --sdk macosx ibtool --compile $@ $<

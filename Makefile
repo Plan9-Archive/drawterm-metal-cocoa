@@ -38,38 +38,40 @@ $(TARG): $(OFILES) $(LIBS)
 clean:
 	rm -f *.o */*.o */*.a *.a drawterm drawterm.exe
 
-kern/libkern.a:
+force:
+
+kern/libkern.a:	force
 	(cd kern; $(MAKE))
 
-exportfs/libexportfs.a:
+exportfs/libexportfs.a:	force
 	(cd exportfs; $(MAKE))
 
-libauth/libauth.a:
+libauth/libauth.a:	force
 	(cd libauth; $(MAKE))
 	
-libauthsrv/libauthsrv.a:
+libauthsrv/libauthsrv.a:	force
 	(cd libauthsrv; $(MAKE))
 
-libmp/libmp.a:
+libmp/libmp.a:	force
 	(cd libmp; $(MAKE))
 
-libsec/libsec.a:
+libsec/libsec.a:	force
 	(cd libsec; $(MAKE))
 
-libmemdraw/libmemdraw.a:
+libmemdraw/libmemdraw.a:	force
 	(cd libmemdraw; $(MAKE))
 
-libmemlayer/libmemlayer.a:
+libmemlayer/libmemlayer.a:	force
 	(cd libmemlayer; $(MAKE))
 
-libdraw/libdraw.a:
+libdraw/libdraw.a:	force
 	(cd libdraw; $(MAKE))
 
-libc/libc.a:
+libc/libc.a:	force
 	(cd libc; $(MAKE))
 
-libip/libip.a:
+libip/libip.a:	force
 	(cd libip; $(MAKE))
 
-gui-$(GUI)/libgui.a:
+gui-$(GUI)/libgui.a:	force
 	(cd gui-$(GUI); $(MAKE))

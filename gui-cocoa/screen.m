@@ -169,7 +169,7 @@ mouseset(Point p)
 		s = [myview convertPointFromBacking:s];
 		s = [myview convertPoint:s toView:nil];
 		s = [[myview window] convertPointToScreen: s];
-		h = [[[NSScreen screens] objectAtIndex:0] frame].size.height;
+		h = [[NSScreen mainScreen] frame].size.height;
 		s.y = h - s.y;	// Origin at upper left.
 		CGWarpMouseCursorPosition(s);
 	});
