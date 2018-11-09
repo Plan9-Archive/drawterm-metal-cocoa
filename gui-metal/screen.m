@@ -166,7 +166,7 @@ flushmemscreen(Rectangle r)
 		withBytes:byteaddr(gscreen, Pt(r.min.x, r.min.y))
 		bytesPerRow:bpr];
 	dispatch_async(dispatch_get_main_queue(), ^(void){
-		NSRect sr = [myview convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
+		NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
 		LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
 		[myview setNeedsDisplayInRect:sr];
 		[myview enlargeLastInputRect:sr];
