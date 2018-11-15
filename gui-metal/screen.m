@@ -18,34 +18,19 @@
 #include "keyboard.h"
 #include "ball9png.h"
 
-#ifdef DEBUG
-#   define LOG(fmt, ...) NSLog((@"%s:%d %s " fmt), __FILE__, __LINE__, __PRETTY_FUNCTION__, ##__VA_ARGS__)
-#else
-#   define LOG(...)
+#ifndef DEBUG
+#define DEBUG 0
 #endif
+#define LOG(fmt, ...) if(DEBUG)NSLog((@"%s:%d %s " fmt), __FILE__, __LINE__, __PRETTY_FUNCTION__, ##__VA_ARGS__)
 
 Memimage *gscreen;
 
-@interface DrawLayer : CAMetalLayer{
-	MTLRenderPassDescriptor *_renderPass;
-	id<MTLRenderPipelineState> _pipelineState;
-	id<MTLCommandQueue> _commandQueue;
-}
+@interface DrawLayer : CAMetalLayer
 @property id<MTLTexture> texture;
 - (void)setup;
 @end
 
-@interface DrawtermView : NSView<NSTextInputClient>{
-	NSMutableString *_tmpText;
-	NSRange _markedRange;
-	NSRange _selectedRange;
-	NSRect _lastInputRect;	// The view is flipped, this is not.
-	BOOL _tapping;
-	NSUInteger _tapFingers;
-	NSUInteger _tapTime;
-	BOOL _breakcompose;
-}
-- (id<MTLTexture>)texture;
+@interface DrawtermView : NSView<NSTextInputClient>
 - (void)reshape;
 - (void)clearInput;
 - (void)mouseevent:(NSEvent *)e;
@@ -93,7 +78,7 @@ static NSString *const metal =
 void
 guimain(void)
 {
-	LOG(@"");
+	LOG();
 	@autoreleasepool{
 		[NSApplication sharedApplication];
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -106,13 +91,12 @@ guimain(void)
 void
 screeninit(void)
 {
-	NSScreen *s;
-	NSRect r;
-
 	memimageinit();
-	s = [NSScreen mainScreen];
-	r = [s convertRectToBacking:[s frame]];
-	gscreen = allocmemimage(Rect(0, 0, r.size.width, r.size.height), ARGB32);
+	@autoreleasepool{
+		NSScreen *s = [NSScreen mainScreen];
+		NSRect r = [s convertRectToBacking:[s frame]];
+		gscreen = allocmemimage(Rect(0, 0, r.size.width, r.size.height), ARGB32);
+	}
 	gscreen->clipr = Rect(0, 0, winsize.width, winsize.height);
 	LOG(@"%g %g", winsize.width, winsize.height);
 	terminit();
@@ -121,7 +105,7 @@ screeninit(void)
 uchar *
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
-	LOG(@"");
+	LOG();
 	*r = gscreen->clipr;
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
@@ -133,22 +117,26 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 char *
 clipread(void)
 {
-	NSPasteboard *pb = [NSPasteboard generalPasteboard];
-	NSArray *classes = [NSArray arrayWithObjects:[NSString class], nil];
-	NSDictionary *options = [NSDictionary dictionary];
-	NSArray *it = [pb readObjectsForClasses:classes options:options];
-	if(it != nil)
-		return strdup([it[0] UTF8String]);
+	@autoreleasepool{
+		NSPasteboard *pb = [NSPasteboard generalPasteboard];
+		NSArray *classes = [NSArray arrayWithObjects:[NSString class], nil];
+		NSDictionary *options = [NSDictionary dictionary];
+		NSArray *it = [pb readObjectsForClasses:classes options:options];
+		if(it != nil)
+			return strdup([it[0] UTF8String]);
+	}
 	return nil;
 }
 
 int
 clipwrite(char *buf)
 {
-	NSString *s = [[NSString alloc] initWithUTF8String:buf];
-	NSPasteboard *pb = [NSPasteboard generalPasteboard];
-	[pb clearContents];
-	[pb writeObjects:@[s]];
+	@autoreleasepool{
+		NSString *s = [[NSString alloc] initWithUTF8String:buf];
+		NSPasteboard *pb = [NSPasteboard generalPasteboard];
+		[pb clearContents];
+		[pb writeObjects:@[s]];
+	}
 	return strlen(buf);
 }
 
@@ -159,18 +147,19 @@ flushmemscreen(Rectangle r)
 	if(rectclip(&r, gscreen->clipr) == 0)
 		return;
 	LOG(@"-> %d %d %d %d", r.min.x, r.min.y, Dx(r), Dy(r));
-	ulong bpr = gscreen->width * 4;
-	[[myview texture]
-		replaceRegion:MTLRegionMake2D(r.min.x, r.min.y, Dx(r), Dy(r))
-		mipmapLevel:0
-		withBytes:byteaddr(gscreen, Pt(r.min.x, r.min.y))
-		bytesPerRow:bpr];
-	dispatch_async(dispatch_get_main_queue(), ^(void){
-		NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
-		LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
-		[myview setNeedsDisplayInRect:sr];
-		[myview enlargeLastInputRect:sr];
-	});
+	@autoreleasepool{
+		[((DrawLayer *)myview.layer).texture
+			replaceRegion:MTLRegionMake2D(r.min.x, r.min.y, Dx(r), Dy(r))
+			mipmapLevel:0
+			withBytes:byteaddr(gscreen, Pt(r.min.x, r.min.y))
+			bytesPerRow:gscreen->width * 4];
+		dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
+			NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
+			LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			[myview setNeedsDisplayInRect:sr];
+			[myview enlargeLastInputRect:sr];
+		}});
+	}
 }
 
 void
@@ -193,14 +182,45 @@ setcolor(ulong i, ulong r, ulong g, ulong b)
 void
 setcursor(void)
 {
-	static unsigned char data[64];
+	static unsigned char data[64], data2[256];
 	unsigned char *planes[2] = {&data[0], &data[32]};
-	int i;
+	unsigned char *planes2[2] = {&data2[0], &data2[128]};
+	unsigned int i, x, y, a;
+	unsigned char pu, pb, pl, pr, pc;  // upper, bottom, left, right, center
+	unsigned char pul, pur, pbl, pbr;
+	unsigned char ful, fur, fbl, fbr;
 
 	lock(&cursor.lk);
 	for(i = 0; i < 32; i++){
 		data[i] = ~cursor.set[i] & cursor.clr[i];
 		data[i+32] = cursor.set[i] | cursor.clr[i];
+	}
+	for(a=0; a<2; a++){
+		for(y=0; y<16; y++){
+			for(x=0; x<2; x++){
+				pc = planes[a][x+2*y];
+				pu = y==0 ? pc : planes[a][x+2*(y-1)];
+				pb = y==15 ? pc : planes[a][x+2*(y+1)];
+				pl = (pc>>1) | (x==0 ? pc&0x80 : (planes[a][x-1+2*y]&1)<<7);
+				pr = (pc<<1) | (x==1 ? pc&1 : (planes[a][x+1+2*y]&0x80)>>7);
+				ful = ~(pl^pu) & (pl^pb) & (pu^pr);
+				pul = (ful & pu) | (~ful & pc);
+				fur = ~(pu^pr) & (pu^pl) & (pr^pb);
+				pur = (fur & pr) | (~fur & pc);
+				fbl = ~(pb^pl) & (pb^pr) & (pl^pu);
+				pbl = (fbl & pl) | (~fbl & pc);
+				fbr = ~(pr^pb) & (pr^pu) & (pb^pl);
+				pbr = (fbr & pb) | (~fbr & pc);
+				planes2[a][2*x+4*2*y] = (pul&0x80) | ((pul&0x40)>>1)  | ((pul&0x20)>>2) | ((pul&0x10)>>3)
+					| ((pur&0x80)>>1) | ((pur&0x40)>>2)  | ((pur&0x20)>>3) | ((pur&0x10)>>4);
+				planes2[a][2*x+1+4*2*y] = ((pul&0x8)<<4) | ((pul&0x4)<<3)  | ((pul&0x2)<<2) | ((pul&0x1)<<1)
+					| ((pur&0x8)<<3) | ((pur&0x4)<<2)  | ((pur&0x2)<<1) | (pur&0x1);
+				planes2[a][2*x+4*(2*y+1)] =  (pbl&0x80) | ((pbl&0x40)>>1)  | ((pbl&0x20)>>2) | ((pbl&0x10)>>3)
+					| ((pbr&0x80)>>1) | ((pbr&0x40)>>2)  | ((pbr&0x20)>>3) | ((pbr&0x10)>>4);
+				planes2[a][2*x+1+4*(2*y+1)] = ((pbl&0x8)<<4) | ((pbl&0x4)<<3)  | ((pbl&0x2)<<2) | ((pbl&0x1)<<1)
+					| ((pbr&0x8)<<3) | ((pbr&0x4)<<2)  | ((pbr&0x2)<<1) | (pbr&0x1);
+			}
+		}
 	}
 @autoreleasepool{
 	NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
@@ -215,7 +235,20 @@ setcursor(void)
 		bitmapFormat:0
 		bytesPerRow:2
 		bitsPerPixel:0];
+	NSBitmapImageRep *rep2 = [[NSBitmapImageRep alloc]
+		initWithBitmapDataPlanes:planes2
+		pixelsWide:32
+		pixelsHigh:32
+		bitsPerSample:1
+		samplesPerPixel:2
+		hasAlpha:YES
+		isPlanar:YES
+		colorSpaceName:NSDeviceWhiteColorSpace
+		bitmapFormat:0
+		bytesPerRow:4
+		bitsPerPixel:0];
 	NSImage *img = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
+	[img addRepresentation:rep2];
 	[img addRepresentation:rep];
 	currentCursor = [[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(-cursor.offset.x, -cursor.offset.y)];
 }
@@ -231,7 +264,6 @@ mouseset(Point p)
 {
 	dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
 		NSPoint s;
-		NSInteger h;
 
 		s = NSMakePoint(p.x, p.y);
 		LOG(@"-> pixel  %g %g", s.x, s.y);
@@ -240,9 +272,9 @@ mouseset(Point p)
 		s = [myview convertPoint:s toView:nil];
 		LOG(@"-> window %g %g", s.x, s.y);
 		s = [[myview window] convertPointToScreen: s];
-		h = [[NSScreen mainScreen] frame].size.height;
-		s.y = h - s.y;
-		LOG(@"-> screen %g %g", s.x, s.y);
+		LOG(@"(%g, %g) <- toScreen", s.x, s.y);
+		s.y = NSScreen.screens[0].frame.size.height - s.y;
+		LOG(@"(%g, %g) <- setmouse", s.x, s.y);
 		CGWarpMouseCursorPosition(s);
 		CGAssociateMouseAndMouseCursorPosition(true);
 	}});
@@ -261,6 +293,7 @@ mainproc(void *aux)
 	LOG(@"BEGIN");
 
 	NSMenu *sm = [NSMenu new];
+	[sm addItemWithTitle:@"Toggle Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
 	[sm addItemWithTitle:@"Hide" action:@selector(hide:) keyEquivalent:@"h"];
 	[sm addItemWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
 	NSMenu *m = [NSMenu new];
@@ -325,6 +358,16 @@ mainproc(void *aux)
 @end
 
 @implementation DrawtermView
+{
+	NSMutableString *_tmpText;
+	NSRange _markedRange;
+	NSRange _selectedRange;
+	NSRect _lastInputRect;	// The view is flipped, this is not.
+	BOOL _tapping;
+	NSUInteger _tapFingers;
+	NSUInteger _tapTime;
+	BOOL _breakcompose;
+}
 
 - (id) initWithFrame:(NSRect)fr
 {
@@ -344,11 +387,6 @@ mainproc(void *aux)
 - (CALayer *) makeBackingLayer
 {
 	return [DrawLayer layer];
-}
-
-- (id<MTLTexture>) texture
-{
-	return [(DrawLayer *)self.layer texture];
 }
 
 - (BOOL)wantsUpdateLayer
@@ -620,14 +658,14 @@ evkey(uint v)
 
 - (void)viewDidEndLiveResize
 {
-	LOG(@"");
+	LOG();
 	[super viewDidEndLiveResize];
 	[self reshape];
 }
 
 - (void)viewDidChangeBackingProperties
 {
-	LOG(@"");
+	LOG();
 	[super viewDidChangeBackingProperties];
 	[self reshape];
 }
@@ -797,9 +835,14 @@ keystroke(Rune r)
 @end
 
 @implementation DrawLayer
+{
+	MTLRenderPassDescriptor *_renderPass;
+	id<MTLRenderPipelineState> _pipelineState;
+	id<MTLCommandQueue> _commandQueue;
+}
 
 - (id) init {
-	LOG(@"");
+	LOG();
 	self = [super init];
 	self.device = MTLCreateSystemDefaultDevice();
 	self.pixelFormat = MTLPixelFormatBGRA8Unorm;
@@ -810,7 +853,7 @@ keystroke(Rune r)
 
 	_renderPass = [MTLRenderPassDescriptor renderPassDescriptor];
 	_renderPass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
-	_renderPass.colorAttachments[0].storeAction = MTLStoreActionStore;
+	_renderPass.colorAttachments[0].storeAction = MTLStoreActionDontCare;
 
 	NSError *error;
 	id<MTLLibrary> library = [self.device newLibraryWithSource:metal options:nil error:&error];
@@ -834,12 +877,13 @@ keystroke(Rune r)
 
 - (void) setup
 {
-	LOG(@"");
+	LOG();
 	MTLTextureDescriptor *textureDesc = [MTLTextureDescriptor
 		texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
 		width:winsize.width
 		height:winsize.height
 		mipmapped:NO];
+	textureDesc.allowGPUOptimizedContents = YES;
 	textureDesc.usage = MTLTextureUsageShaderRead;
 	textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
 	self.texture = [self.device newTextureWithDescriptor:textureDesc];
@@ -853,14 +897,14 @@ keystroke(Rune r)
 {
 	id<MTLCommandBuffer> cbuf;
 	id<MTLRenderCommandEncoder> cmd;
-	id<CAMetalDrawable> drawable;
 
 	cbuf = [_commandQueue commandBuffer];
 
 @autoreleasepool{
-	drawable = [self nextDrawable];
+	id<CAMetalDrawable> drawable = [self nextDrawable];
 	if(!drawable){
-		NSLog(@"display couldn't get drawable");
+		LOG(@"display couldn't get drawable");
+		[self setNeedsDisplay];
 		return;
 	}
 
