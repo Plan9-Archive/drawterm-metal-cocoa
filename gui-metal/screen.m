@@ -38,9 +38,7 @@ Memimage *gscreen;
 - (void)enlargeLastInputRect:(NSRect)r;
 @end
 
-@interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>{
-	NSWindow *_window;
-}
+@interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @end
 
 static AppDelegate *myApp;
@@ -49,31 +47,6 @@ static NSSize winsize;
 static NSCursor *currentCursor;
 
 static ulong pal[256];
-
-static NSString *const metal =
-@"#include<metal_stdlib>\n"
-"using namespace metal;\n"
-"typedef struct {\n"
-"	float4 rCoord [[position]];\n"
-"	float2 tCoord;\n"
-"} VertexOut;\n"
-"vertex VertexOut\n"
-"renderVertex(unsigned int vid [[ vertex_id ]])\n"
-"{\n"
-"	const VertexOut fixedV[] = {\n"
-"		{{ -1.0f, -1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f }},\n"
-"		{{  1.0f, -1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f }},\n"
-"		{{ -1.0f,  1.0f, 0.0f, 1.0f }, { 0.0f, 0.0f }},\n"
-"		{{  1.0f,  1.0f, 0.0f, 1.0f }, { 1.0f, 0.0f }},\n"
-"	};\n"
-"	return fixedV[vid];\n"
-"}\n"
-"fragment half4\n"
-"renderFragment(VertexOut in [[ stage_in ]],\n"
-"		texture2d<half> texture [[ texture(0) ]]) {\n"
-"	constexpr sampler s;\n"
-"	return texture.sample(s, in.tCoord);\n"
-"}";
 
 void
 guimain(void)
@@ -119,11 +92,9 @@ clipread(void)
 {
 	@autoreleasepool{
 		NSPasteboard *pb = [NSPasteboard generalPasteboard];
-		NSArray *classes = [NSArray arrayWithObjects:[NSString class], nil];
-		NSDictionary *options = [NSDictionary dictionary];
-		NSArray *it = [pb readObjectsForClasses:classes options:options];
-		if(it != nil)
-			return strdup([it[0] UTF8String]);
+		NSString *s = [pb stringForType:NSPasteboardTypeString];
+		if(s)
+			return strdup([s UTF8String]);
 	}
 	return nil;
 }
@@ -281,6 +252,9 @@ mouseset(Point p)
 }
 
 @implementation AppDelegate
+{
+	NSWindow *_window;
+}
 
 static void
 mainproc(void *aux)
@@ -322,7 +296,8 @@ mainproc(void *aux)
 	[_window setTitle:@"drawterm"];
 	[_window center];
 	[_window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
-	[_window setContentMinSize:NSMakeSize(128,128)];
+	[_window setContentMinSize:NSMakeSize(64,64)];
+	[_window setOpaque:YES];
 	[_window setRestorable:NO];
 	[_window setAcceptsMouseMovedEvents:YES];
 	[_window setDelegate:self];
@@ -409,7 +384,6 @@ evkey(uint v)
 {
 	switch(v){
 	case '\r': return '\n';
-	case '\b': return 127;
 	case 127: return '\b';
 	case NSUpArrowFunctionKey: return Kup;
 	case NSDownArrowFunctionKey: return Kdown;
@@ -836,8 +810,6 @@ keystroke(Rune r)
 
 @implementation DrawLayer
 {
-	MTLRenderPassDescriptor *_renderPass;
-	id<MTLRenderPipelineState> _pipelineState;
 	id<MTLCommandQueue> _commandQueue;
 }
 
@@ -849,28 +821,16 @@ keystroke(Rune r)
 	self.framebufferOnly = YES;
 	self.opaque = YES;
 
+	// We use a default transparent layer on top of the CAMetalLayer.
+	// This seems to make fullscreen applications behave.
+	{
+		CALayer *stub = [CALayer layer];
+		stub.frame = CGRectMake(0, 0, 1, 1);
+		[stub setNeedsDisplay];
+		[self addSublayer:stub];
+	}
+
 	_commandQueue = [self.device newCommandQueue];
-
-	_renderPass = [MTLRenderPassDescriptor renderPassDescriptor];
-	_renderPass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
-	_renderPass.colorAttachments[0].storeAction = MTLStoreActionDontCare;
-
-	NSError *error;
-	id<MTLLibrary> library = [self.device newLibraryWithSource:metal options:nil error:&error];
-	if(!library)
-		sysfatal((char *)[[error localizedDescription] UTF8String]);
-
-	MTLRenderPipelineDescriptor *pipelineDesc = [MTLRenderPipelineDescriptor new];
-	pipelineDesc.alphaToOneEnabled = YES;
-	pipelineDesc.inputPrimitiveTopology = MTLPrimitiveTopologyClassTriangle;
-	pipelineDesc.rasterSampleCount = 1;
-	pipelineDesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-	[pipelineDesc setVertexFunction: [library newFunctionWithName: @"renderVertex"]];
-	[pipelineDesc setFragmentFunction: [library newFunctionWithName: @"renderFragment"]];
-
-	_pipelineState = [self.device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
-	if(!_pipelineState)
-		sysfatal((char *)[[error localizedDescription] UTF8String]);
 
 	return self;
 }
@@ -886,7 +846,7 @@ keystroke(Rune r)
 	textureDesc.allowGPUOptimizedContents = YES;
 	textureDesc.usage = MTLTextureUsageShaderRead;
 	textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
-	self.texture = [self.device newTextureWithDescriptor:textureDesc];
+	_texture = [self.device newTextureWithDescriptor:textureDesc];
 
 	CGFloat scale = [[myview window] backingScaleFactor];
 	[self setDrawableSize:winsize];
@@ -896,7 +856,7 @@ keystroke(Rune r)
 - (void) display
 {
 	id<MTLCommandBuffer> cbuf;
-	id<MTLRenderCommandEncoder> cmd;
+	id<MTLBlitCommandEncoder> blit;
 
 	cbuf = [_commandQueue commandBuffer];
 
@@ -908,13 +868,17 @@ keystroke(Rune r)
 		return;
 	}
 
-	_renderPass.colorAttachments[0].texture = drawable.texture;
-
-	cmd = [cbuf renderCommandEncoderWithDescriptor:_renderPass];
-	[cmd setRenderPipelineState:_pipelineState];
-	[cmd setFragmentTexture:self.texture atIndex:0];
-	[cmd drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
-	[cmd endEncoding];
+	blit = [cbuf blitCommandEncoder];
+	[blit copyFromTexture:_texture
+		sourceSlice:0
+		sourceLevel:0
+		sourceOrigin:MTLOriginMake(0, 0, 0)
+		sourceSize:MTLSizeMake(_texture.width, _texture.height, _texture.depth)
+		toTexture:drawable.texture
+		destinationSlice:0
+		destinationLevel:0
+		destinationOrigin:MTLOriginMake(0, 0, 0)];
+	[blit endEncoding];
 
 	[cbuf presentDrawable:drawable];
 	drawable = nil;
