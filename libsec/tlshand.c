@@ -2837,6 +2837,7 @@ pkcs1_decrypt(TlsSec *sec, Bytes *data)
 	if(y == nil)
 		return nil;
 	data = mptobytes(y, (mpsignif(y)+7)/8);
+	mpfree(y);
 	if((data->len = pkcs1unpadbuf(data->data, data->len, sec->rsapub->n, 2)) < 0){
 		freebytes(data);
 		return nil;
