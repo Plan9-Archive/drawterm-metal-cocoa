@@ -100,6 +100,12 @@ resizeproc(void *arg)
 		resize.f = 0;
 		if(gscreen == nil
 		|| badrect(resize.r)
+		|| eqrect(resize.r, gscreen->clipr)){
+			qunlock(&drawlock);
+			continue;
+		}
+		screensize(resize.r, gscreen->chan);
+		if(gscreen == nil
 		|| rectclip(&resize.r, gscreen->r) == 0
 		|| eqrect(resize.r, gscreen->clipr)){
 			qunlock(&drawlock);

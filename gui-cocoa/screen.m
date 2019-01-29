@@ -35,13 +35,23 @@ guimain(void)
 void
 screeninit(void)
 {
-	NSRect r;
-
 	memimageinit();
-	r = [[NSScreen mainScreen] frame];
-	gscreen = allocmemimage(Rect(0, 0, r.size.width, r.size.height), ABGR32);
+	screensize(Rect(0, 0, winsize.width, winsize.height), ABGR32);
 	gscreen->clipr = Rect(0, 0, winsize.width, winsize.height);
 	terminit();
+}
+
+void
+screensize(Rectangle r, ulong chan)
+{
+	Memimage *i;
+
+	if((i = allocmemimage(r, chan)) == nil)
+		return;
+	if(gscreen != nil)
+		freememimage(gscreen);
+	gscreen = i;
+	gscreen->clipr = ZR;
 }
 
 uchar *
@@ -51,7 +61,10 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
 	*width = gscreen->width;
-	*softscreen = 1;
+
+	*softscreen = 0xa110c;
+	gscreen->data->ref++;
+
 	return gscreen->data->bdata;
 }
 

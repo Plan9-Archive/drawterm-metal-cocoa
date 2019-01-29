@@ -179,6 +179,13 @@ screeninit(void)
 	qunlock(&drawlock);
 }
 
+void
+screensize(Rectangle r, ulong chan)
+{
+	USED(r);
+	USED(chan);
+}
+
 uchar*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
