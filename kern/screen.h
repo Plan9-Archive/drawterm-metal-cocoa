@@ -59,6 +59,7 @@ extern	QLock drawlock;
 
 void	terminit(void);
 void	screenresize(Rectangle);
+void	screensize(Rectangle, ulong);
 
 void	mouseresize(void);
 void	mousetrack(int, int, int, ulong);

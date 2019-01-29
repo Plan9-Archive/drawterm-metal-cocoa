@@ -37,8 +37,6 @@ static void	bmiinit(void);
 static int readybit;
 static Rendez	rend;
 
-Point	ZP;
-
 static int
 isready(void*a)
 {
@@ -48,44 +46,56 @@ isready(void*a)
 void
 screeninit(void)
 {
-	int fmt;
 	int dx, dy;
+	ulong chan;
 
 	FreeConsole();
 	memimageinit();
+
 	if(depth == 0)
 		depth = GetDeviceCaps(GetDC(NULL), BITSPIXEL);
 	switch(depth){
 	case 32:
 		screen.dibtype = DIB_RGB_COLORS;
 		screen.depth = 32;
-		fmt = XRGB32;
+		chan = XRGB32;
 		break;
 	case 24:
 		screen.dibtype = DIB_RGB_COLORS;
 		screen.depth = 24;
-		fmt = RGB24;
+		chan = RGB24;
 		break;
 	case 16:
 		screen.dibtype = DIB_RGB_COLORS;
 		screen.depth = 16;
-		fmt = RGB15;	/* [sic] */
+		chan = RGB15;	/* [sic] */
 		break;
 	case 8:
 	default:
 		screen.dibtype = DIB_PAL_COLORS;
 		screen.depth = 8;
 		depth = 8;
-		fmt = CMAP8;
+		chan = CMAP8;
 		break;
 	}
 	dx = GetDeviceCaps(GetDC(NULL), HORZRES);
 	dy = GetDeviceCaps(GetDC(NULL), VERTRES);
-
-	gscreen = allocmemimage(Rect(0,0,dx,dy), fmt);
-	gscreen->clipr = ZR;
+	screensize(Rect(0,0,dx,dy), chan);
 	kproc("winscreen", winproc, 0);
 	ksleep(&rend, isready, 0);
+}
+
+void
+screensize(Rectangle r, ulong chan)
+{
+	Memimage *i;
+
+	if((i = allocmemimage(r, chan)) == nil)
+		return;
+	if(gscreen != nil)
+		freememimage(gscreen);
+	gscreen = i;
+	gscreen->clipr = ZR;
 }
 
 uchar*
@@ -95,7 +105,9 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
 	*width = gscreen->width;
-	*softscreen = 1;
+
+	*softscreen = 0xa110c;
+	gscreen->data->ref++;
 
 	return gscreen->data->bdata;
 }

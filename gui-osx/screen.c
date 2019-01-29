@@ -77,6 +77,13 @@ CGContextRef QuartzContext;
 
 void winproc(void *a);
 
+void
+screensize(Rectangle r, ulong chan)
+{
+	USED(r);
+	USED(chan);
+}
+
 void screeninit(void)
 {
 	int fmt;
