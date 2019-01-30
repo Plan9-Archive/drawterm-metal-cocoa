@@ -182,7 +182,6 @@ screeninit(void)
 void
 screensize(Rectangle r, ulong chan)
 {
-	USED(r);
 	USED(chan);
 }
 
