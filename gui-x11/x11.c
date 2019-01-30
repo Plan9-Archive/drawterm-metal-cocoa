@@ -185,7 +185,7 @@ screensize(Rectangle r, ulong chan)
 	USED(chan);
 }
 
-uchar*
+Memdata*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
 	*r = gscreen->clipr;
@@ -194,7 +194,8 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 	*width = gscreen->width;
 	*softscreen = 1;
 
-	return gscreen->data->bdata;
+	gscreen->data->ref++;
+	return gscreen->data;
 }
 
 static int
