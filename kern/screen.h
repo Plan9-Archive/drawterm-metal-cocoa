@@ -50,7 +50,7 @@ void	setcolor(ulong, ulong, ulong, ulong);
 void	setcursor(void);
 void	mouseset(Point);
 void	flushmemscreen(Rectangle);
-uchar*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
+Memdata*attachscreen(Rectangle*, ulong*, int*, int*, int*);
 void	deletescreenimage(void);
 void	resetscreenimage(void);
 

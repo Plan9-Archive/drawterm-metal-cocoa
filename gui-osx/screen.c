@@ -564,7 +564,7 @@ flushmemscreen(Rectangle r)
 		gscreen->width*sizeof(ulong));
 }
 
-uchar*
+Memdata*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
 	*r = gscreen->r;
@@ -573,7 +573,8 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 	*width = gscreen->width;
 	*softscreen = 1;
 
-	return gscreen->data->bdata;
+	gscreen->data->ref++;
+	return gscreen->data;
 }
 
 // PAL - no palette handling.  Don't intend to either.
