@@ -24,6 +24,8 @@ static NSCursor *currentCursor;
 
 static GLuint tex;
 
+static int breakcompose = 0;
+
 void
 guimain(void)
 {
@@ -106,18 +108,30 @@ flushmemscreen(Rectangle r)
 		glTexSubImage2D(GL_TEXTURE_2D, 0, r.min.x, r.min.y, Dx(r), Dy(r), GL_RGBA, GL_UNSIGNED_BYTE, buf);
 		free(buf);
 		[NSOpenGLContext clearCurrentContext];
-		[myview setNeedsDisplay:YES];
+		// [myview setNeedsDisplay:YES];
+		[myview setNeedsDisplayInRect:
+			[myview convertRectFromBacking:
+			NSMakeRect(r.min.x, Dy(gscreen->clipr)-r.min.y-Dy(r), Dx(r), Dy(r))]];
 	});
 }
 
+static ulong pal[256];
+
 void
-getcolor(ulong a, ulong *b, ulong *c, ulong *d)
+getcolor(ulong i, ulong *r, ulong *g, ulong *b)
 {
+	ulong v;
+
+	v = pal[i];
+	*r = (v>>16)&0xFF;
+	*g = (v>>8)&0xFF;
+	*b = v&0xFF;
 }
 
 void
-setcolor(ulong a, ulong b, ulong c, ulong d)
+setcolor(ulong i, ulong r, ulong g, ulong b)
 {
+	pal[i] = ((r&0xFF)<<16) & ((g&0xFF)<<8) & (b&0xFF);
 }
 
 void
@@ -158,18 +172,20 @@ void
 mouseset(Point p)
 {
 	dispatch_async(dispatch_get_main_queue(), ^(void){
-		NSRect r;
+		NSPoint s;
+		NSInteger h;
 
-		r.origin.x = p.x;
-		r.origin.y = p.y;
-		r.size.width = 1;
-		r.size.height = 1;
-		r = [myview.window convertRectToScreen:r];
-		CGWarpMouseCursorPosition(r.origin);
+		s = NSMakePoint(p.x, Dy(gscreen->clipr) - p.y);	// Origin at lower left.
+		s = [myview convertPointFromBacking:s];
+		s = [myview convertPoint:s toView:nil];
+		s = [[myview window] convertPointToScreen: s];
+		h = [[NSScreen mainScreen] frame].size.height;
+		s.y = h - s.y;	// Origin at upper left.
+		CGWarpMouseCursorPosition(s);
 	});
 }
 
-@interface AppDelegate : NSObject <NSApplicationDelegate>
+@interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @end
 
 @interface AppDelegate ()
@@ -190,10 +206,18 @@ mainproc(void *aux)
 	[_window setRestorable:NO];
 	[_window setAcceptsMouseMovedEvents:TRUE];
 	myview = _view;
-	winsize = _view.frame.size;
+	winsize = [myview convertSizeToBacking:myview.frame.size];
 	kproc("mainproc", mainproc, 0);
 }
 
+- (NSApplicationPresentationOptions)window:(NSWindow *)window
+		willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions {
+	NSApplicationPresentationOptions o;
+	o = proposedOptions;
+	o &= ~(NSApplicationPresentationAutoHideDock | NSApplicationPresentationAutoHideMenuBar);
+	o |= NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+	return o;
+}
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
 }
@@ -205,37 +229,19 @@ mainproc(void *aux)
 @end
 
 @interface DrawtermView : NSOpenGLView
-- (void) drawRect:(NSRect)rect;
-- (void) keyDown:(NSEvent*)event;
-- (void) flagsChanged:(NSEvent*)event;
-- (void) keyUp:(NSEvent*)event;
-- (void) mouseDown:(NSEvent*)event;
-- (void) mouseDragged:(NSEvent*)event;
-- (void) mouseUp:(NSEvent*)event;
-- (void) mouseMoved:(NSEvent*)event;
-- (void) rightMouseDown:(NSEvent*)event;
-- (void) rightMouseDragged:(NSEvent*)event;
-- (void) rightMouseUp:(NSEvent*)event;
-- (void) otherMouseDown:(NSEvent*)event;
-- (void) otherMouseDragged:(NSEvent*)event;
-- (void) otherMouseUp:(NSEvent*)event;
-- (void) scrollWheel:(NSEvent*)event;                                                                                                                                                                                                                                                                                                                                                                                                   
-- (BOOL) acceptsFirstResponder;
-- (void) reshape;
-- (BOOL) acceptsMouseMovedEvents;
-- (void) prepareOpenGL;
-- (void) resetCursorRects;
 @end
 
 @implementation DrawtermView
 
 - (void) prepareOpenGL {
+	[self setWantsBestResolutionOpenGLSurface:YES];
+	winsize = [self convertSizeToBacking:self.frame.size];
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glEnable(GL_TEXTURE_2D);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.frame.size.width, self.frame.size.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, winsize.width, winsize.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0, 1, 1, 0, -1, 1);
@@ -367,23 +373,49 @@ evkey(NSEvent *event)
 - (void)flagsChanged:(NSEvent*)event {
 	static NSEventModifierFlags y;
 	NSEventModifierFlags x;
+	NSUInteger u;
 
 	x = [event modifierFlags];
+	u = [NSEvent pressedMouseButtons];
+	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
 	if((x & ~y & NSEventModifierFlagShift) != 0)
 		kbdkey(Kshift, 1);
-	if((x & ~y & NSEventModifierFlagControl) != 0)
-		kbdkey(Kctl, 1);
-	if((x & ~y & NSEventModifierFlagOption) != 0)
-		kbdkey(Kalt, 1);
+	if((x & ~y & NSEventModifierFlagControl) != 0){
+		if(u){
+			u |= 1;
+			mousetrack(0, 0, u, ticks());
+			return;
+		}else
+			kbdkey(Kctl, 1);
+	}
+	if((x & ~y & NSEventModifierFlagOption) != 0){
+		if(u){
+			u |= 2;
+			mousetrack(0, 0, u, ticks());
+			return;
+		}else
+			kbdkey(Kalt, 1);
+	}
+	if((x & NSEventModifierFlagCommand) != 0)
+		if(u){
+			u |= 4;
+			mousetrack(0, 0, u, ticks());
+		}
 	if((x & ~y & NSEventModifierFlagCapsLock) != 0)
 		kbdkey(Kcaps, 1);
 	if((~x & y & NSEventModifierFlagShift) != 0)
 		kbdkey(Kshift, 0);
 	if((~x & y & NSEventModifierFlagControl) != 0)
 		kbdkey(Kctl, 0);
-	if((~x & y & NSEventModifierFlagOption) != 0)
+	if((~x & y & NSEventModifierFlagOption) != 0){
 		kbdkey(Kalt, 0);
-	if((x & ~y & NSEventModifierFlagCapsLock) != 0)
+		if(breakcompose){
+			kbdkey(Kalt, 1);
+			kbdkey(Kalt, 0);
+			breakcompose = 0;
+		}
+	}
+	if((~x & y & NSEventModifierFlagCapsLock) != 0)
 		kbdkey(Kcaps, 0);
 	y = x;
 }
@@ -393,14 +425,24 @@ evkey(NSEvent *event)
 	NSPoint p;
 	Point q;
 	NSUInteger u;
+	NSEventModifierFlags m;
 
-	p = [self.window mouseLocationOutsideOfEventStream];
+	p = [self convertPointToBacking:
+		[self.window mouseLocationOutsideOfEventStream]];
 	u = [NSEvent pressedMouseButtons];
 	q.x = p.x;
 	q.y = p.y;
 	if(!ptinrect(q, gscreen->clipr)) return;
-	u = u & ~6 | u << 1 & 4 | u >> 1 & 2;
-	absmousetrack(p.x, self.frame.size.height - p.y, u, ticks());
+	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
+	if(u == 1){
+		m = [event modifierFlags];
+		if(m & NSEventModifierFlagOption){
+			breakcompose = 1;
+			u = 2;
+		}else if(m & NSEventModifierFlagCommand)
+			u = 4;
+	}
+	absmousetrack(p.x, [self convertSizeToBacking:self.frame.size].height - p.y, u, ticks());
 }
 
 - (void) mouseDown:(NSEvent*)event { [self mouseevent:event]; }
@@ -414,8 +456,21 @@ evkey(NSEvent *event)
 - (void) otherMouseDragged:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseUp:(NSEvent*)event { [self mouseevent:event]; }
 
-- (void) scrollWheel:(NSEvent*)event {
-	mousetrack(0, 0, [event deltaY]>0 ? 8 : 16, ticks());
+- (void) scrollWheel:(NSEvent*)event{
+	NSInteger s;
+	ulong t;
+
+	s = [event scrollingDeltaY];
+	t = ticks();
+	if(s > 1)
+		mousetrack(0, 0, 8, t);
+	else if(s < -1)
+		mousetrack(0, 0, 16, t);
+}
+
+- (void)magnifyWithEvent:(NSEvent*)e{
+	if([e type] == NSEventTypeMagnify && fabs([e magnification]) > 0.02)
+		[[myview window] toggleFullScreen:nil];
 }
 
 - (BOOL) acceptsFirstResponder {
@@ -423,11 +478,11 @@ evkey(NSEvent *event)
 }
 
 - (void) reshape {
-	winsize = self.frame.size;
+	winsize = [self convertSizeToBacking:self.frame.size];
 	NSOpenGLContext *ctxt = [NSOpenGLContext currentContext];
 	[[myview openGLContext] makeCurrentContext];
 	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.frame.size.width, self.frame.size.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, winsize.width, winsize.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	if(ctxt == nil)
 		[NSOpenGLContext clearCurrentContext];
 	else

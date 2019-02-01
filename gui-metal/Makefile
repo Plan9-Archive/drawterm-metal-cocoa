@@ -5,13 +5,10 @@ LIB=libgui.a
 OFILES=\
 	screen.$O
 
-default: $(LIB) drawterm.app/MainWindow.nib
+default: $(LIB)
 $(LIB): $(OFILES)
 	$(AR) r $(LIB) $(OFILES)
 	$(RANLIB) $(LIB)
 
 %.$O: %.m
 	$(CC) $(CFLAGS) -fobjc-arc $*.m
-
-drawterm.app/MainWindow.nib: MainWindow.xib
-	xcrun --sdk macosx ibtool --compile $@ $<
