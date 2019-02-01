@@ -43,7 +43,7 @@ static int		xtblbit;
 static int 		plan9tox11[256]; /* Values for mapping between */
 static int 		x11toplan9[256]; /* X11 and Plan 9 */
 static	GC		xgccopy;
-static	ulong	xscreenchan;
+static	ulong		xscreenchan;
 static	Drawable	xscreenid;
 static	XImage*		xscreenimage;
 static	Visual		*xvis;
@@ -125,7 +125,6 @@ static	void		xmapping(XEvent*);
 static	void		xdestroy(XEvent*);
 static	void		xselect(XEvent*, XDisplay*);
 static	void		xproc(void*);
-static	Memimage*		xinitscreen(void);
 static	void		initmap(Window);
 static	GC		creategc(Drawable);
 static	void		graphicscmap(XColor*);
@@ -137,6 +136,27 @@ static	int	putsnarf, assertsnarf;
 
 Memimage *gscreen;
 Screeninfo screen;
+
+static int
+shutup(XDisplay *d, XErrorEvent *e)
+{
+	char buf[200];
+	iprint("X error: error code=%d, request_code=%d, minor=%d\n", e->error_code, e->request_code, e->minor_code);
+	XGetErrorText(d, e->error_code, buf, sizeof(buf));
+	iprint("%s\n", buf);
+	USED(d);
+	USED(e);
+	return 0;
+}
+
+static int
+panicshutup(XDisplay *d)
+{
+	screenputs = 0;
+	panic("x error");
+	return -1;
+}
+
 
 void
 flushmemscreen(Rectangle r)
@@ -167,13 +187,180 @@ flushmemscreen(Rectangle r)
 void
 screeninit(void)
 {
-	_memmkcmap();
-
-	gscreen = xinitscreen();
-	kproc("xscreen", xproc, nil);
+	int i, n;
+	char *argv[2];
+	Window rootwin;
+	Rectangle r;
+	XWMHints hints;
+	XScreen *screen;
+	XVisualInfo xvi;
+	int rootscreennum;
+	XTextProperty name;
+	XClassHint classhints;
+	XSizeHints normalhints;
+	XSetWindowAttributes attrs;
+	XPixmapFormatValues *pfmt;
+	Pixmap icon_pixmap;
 
 	memimageinit();
+
+	xdisplay = XOpenDisplay(NULL);
+	if(xdisplay == 0)
+		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
+
+	XSetErrorHandler(shutup);
+	XSetIOErrorHandler(panicshutup);
+
+	xkmcon = XOpenDisplay(NULL);
+	if(xkmcon == 0)
+		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
+
+	XkbSetDetectableAutoRepeat(xkmcon, True, NULL);
+
+	clipboard = XInternAtom(xkmcon, "CLIPBOARD", False);
+	utf8string = XInternAtom(xkmcon, "UTF8_STRING", False);
+	targets = XInternAtom(xkmcon, "TARGETS", False);
+	text = XInternAtom(xkmcon, "TEXT", False);
+	compoundtext = XInternAtom(xkmcon, "COMPOUND_TEXT", False);
+
+	xsnarfcon = XOpenDisplay(NULL);
+	if(xsnarfcon == 0)
+		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
+
+	rootscreennum = DefaultScreen(xdisplay);
+	rootwin = DefaultRootWindow(xdisplay);
+	
+	xscreendepth = DefaultDepth(xdisplay, rootscreennum);
+	if(XMatchVisualInfo(xdisplay, rootscreennum, 16, TrueColor, &xvi)
+	|| XMatchVisualInfo(xdisplay, rootscreennum, 16, DirectColor, &xvi)){
+		xvis = xvi.visual;
+		xscreendepth = 16;
+		xtblbit = 1;
+	}
+	else if(XMatchVisualInfo(xdisplay, rootscreennum, 24, TrueColor, &xvi)
+	|| XMatchVisualInfo(xdisplay, rootscreennum, 24, DirectColor, &xvi)){
+		xvis = xvi.visual;
+		xscreendepth = 24;
+		xtblbit = 1;
+	}
+	else if(XMatchVisualInfo(xdisplay, rootscreennum, 8, PseudoColor, &xvi)
+	|| XMatchVisualInfo(xdisplay, rootscreennum, 8, StaticColor, &xvi)){
+		if(xscreendepth > 8)
+			panic("can't deal with colormapped depth %d screens", xscreendepth);
+		xvis = xvi.visual;
+		xscreendepth = 8;
+	}
+	else{
+		if(xscreendepth != 8)
+			panic("can't deal with depth %d screens", xscreendepth);
+		xvis = DefaultVisual(xdisplay, rootscreennum);
+	}
+
+	/*
+	 * xscreendepth is only the number of significant pixel bits,
+	 * not the total.  We need to walk the display list to find
+	 * how many actual bits are being used per pixel.
+	 */
+	xscreenchan = 0; /* not a valid channel */
+	pfmt = XListPixmapFormats(xdisplay, &n);
+	for(i=0; i<n; i++){
+		if(pfmt[i].depth == xscreendepth){
+			switch(pfmt[i].bits_per_pixel){
+			case 1:	/* untested */
+				xscreenchan = GREY1;
+				break;
+			case 2:	/* untested */
+				xscreenchan = GREY2;
+				break;
+			case 4:	/* untested */
+				xscreenchan = GREY4;
+				break;
+			case 8:
+				xscreenchan = CMAP8;
+				break;
+			case 16: /* uses 16 rather than 15, empirically. */
+				xscreenchan = RGB16;
+				break;
+			case 24: /* untested (impossible?) */
+				xscreenchan = RGB24;
+				break;
+			case 32:
+				xscreenchan = CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8);
+				break;
+			}
+		}
+	}
+	if(xscreenchan == 0)
+		panic("unknown screen pixel format");
+		
+	screen = DefaultScreenOfDisplay(xdisplay);
+	xcmap = DefaultColormapOfScreen(screen);
+
+	if(xvis->class != StaticColor){
+		graphicscmap(map);
+		initmap(rootwin);
+	}
+
+	r.min = ZP;
+	r.max.x = WidthOfScreen(screen)*3/4;
+	r.max.y = HeightOfScreen(screen)*3/4;
+	
+	attrs.colormap = xcmap;
+	attrs.background_pixel = 0;
+	attrs.border_pixel = 0;
+	/* attrs.override_redirect = 1;*/ /* WM leave me alone! |CWOverrideRedirect */
+	xdrawable = XCreateWindow(xdisplay, rootwin, 0, 0, Dx(r), Dy(r), 0, 
+		xscreendepth, InputOutput, xvis, CWBackPixel|CWBorderPixel|CWColormap, &attrs);
+
+	/* load the given bitmap data and create an X pixmap containing it. */
+	icon_pixmap = XCreateBitmapFromData(xdisplay,
+		rootwin, (char *)glenda_t_bits,
+		glenda_t_width, glenda_t_height);
+
+	/*
+	 * set up property as required by ICCCM
+	 */
+	name.value = (uchar*)"drawterm";
+	name.encoding = XA_STRING;
+	name.format = 8;
+	name.nitems = strlen((char*)name.value);
+	normalhints.flags = USSize;
+	normalhints.width = Dx(r);
+	normalhints.height = Dy(r);
+	hints.flags = IconPixmapHint |InputHint|StateHint;
+	hints.input = 1;
+	hints.initial_state = NormalState;
+	hints.icon_pixmap = icon_pixmap;
+
+	classhints.res_name = "drawterm";
+	classhints.res_class = "Drawterm";
+	argv[0] = "drawterm";
+	argv[1] = nil;
+	XSetWMProperties(xdisplay, xdrawable,
+		&name,			/* XA_WM_NAME property for ICCCM */
+		&name,			/* XA_WM_ICON_NAME */
+		argv,			/* XA_WM_COMMAND */
+		1,			/* argc */
+		&normalhints,		/* XA_WM_NORMAL_HINTS */
+		&hints,			/* XA_WM_HINTS */
+		&classhints);		/* XA_WM_CLASS */
+	XFlush(xdisplay);
+	
+	/*
+	 * put the window on the screen
+	 */
+	XMapWindow(xdisplay, xdrawable);
+	XFlush(xdisplay);
+
+	screensize(r, xscreenchan);
+	if(gscreen == nil)
+		panic("screensize failed");
+
+	gscreen->clipr = r;
+	kproc("xscreen", xproc, nil);
+
 	terminit();
+
 	qlock(&drawlock);
 	flushmemscreen(gscreen->clipr);
 	qunlock(&drawlock);
@@ -182,7 +369,43 @@ screeninit(void)
 void
 screensize(Rectangle r, ulong chan)
 {
-	USED(chan);
+	Drawable pix;
+	Memimage *mi;
+	XImage *xi;
+	GC gc;
+
+	pix = XCreatePixmap(xdisplay, xdrawable, Dx(r), Dy(r), xscreendepth);
+	if(pix == 0)
+		return;
+
+	gc = creategc(pix);
+	if(gc == NULL){
+		XFreePixmap(xdisplay, pix);
+		return;
+	}
+
+	mi = xallocmemimage(r, chan, pix, &xi);
+	if(mi == nil){
+		XFreeGC(xdisplay, xgccopy);
+		XFreePixmap(xdisplay, pix);
+		return;
+	}
+
+	if(gscreen != nil){
+		xscreenimage->data = NULL;	/* free'd by freememimage() */
+		XDestroyImage(xscreenimage);
+		freememimage(gscreen);
+
+		XFreeGC(xdisplay, xgccopy);
+		XFreePixmap(xdisplay, xscreenid);
+	}
+
+	xscreenimage = xi;
+	xscreenid = pix;
+	xgccopy = gc;
+
+	gscreen = mi;
+	gscreen->clipr = ZR;
 }
 
 Memdata*
@@ -305,208 +528,6 @@ xproc(void *arg)
 		xmapping(&event);
 		xdestroy(&event);
 	}
-}
-
-static int
-shutup(XDisplay *d, XErrorEvent *e)
-{
-	char buf[200];
-	iprint("X error: error code=%d, request_code=%d, minor=%d\n", e->error_code, e->request_code, e->minor_code);
-	XGetErrorText(d, e->error_code, buf, sizeof(buf));
-	iprint("%s\n", buf);
-	USED(d);
-	USED(e);
-	return 0;
-}
-
-static int
-panicshutup(XDisplay *d)
-{
-	screenputs = 0;
-	panic("x error");
-	return -1;
-}
-
-static Memimage*
-xinitscreen(void)
-{
-	Memimage *gscreen;
-	int i, xsize, ysize;
-	char *argv[2];
-	Window rootwin;
-	Rectangle r;
-	XWMHints hints;
-	XScreen *screen;
-	XVisualInfo xvi;
-	int rootscreennum;
-	XTextProperty name;
-	XClassHint classhints;
-	XSizeHints normalhints;
-	XSetWindowAttributes attrs;
-	XPixmapFormatValues *pfmt;
-	int n;
-	Pixmap icon_pixmap;
-
-	xscreenid = 0;
-	xdrawable = 0;
-
-	xdisplay = XOpenDisplay(NULL);
-	if(xdisplay == 0)
-		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
-
-	XSetErrorHandler(shutup);
-	XSetIOErrorHandler(panicshutup);
-	rootscreennum = DefaultScreen(xdisplay);
-	rootwin = DefaultRootWindow(xdisplay);
-	
-	xscreendepth = DefaultDepth(xdisplay, rootscreennum);
-	if(XMatchVisualInfo(xdisplay, rootscreennum, 16, TrueColor, &xvi)
-	|| XMatchVisualInfo(xdisplay, rootscreennum, 16, DirectColor, &xvi)){
-		xvis = xvi.visual;
-		xscreendepth = 16;
-		xtblbit = 1;
-	}
-	else if(XMatchVisualInfo(xdisplay, rootscreennum, 24, TrueColor, &xvi)
-	|| XMatchVisualInfo(xdisplay, rootscreennum, 24, DirectColor, &xvi)){
-		xvis = xvi.visual;
-		xscreendepth = 24;
-		xtblbit = 1;
-	}
-	else if(XMatchVisualInfo(xdisplay, rootscreennum, 8, PseudoColor, &xvi)
-	|| XMatchVisualInfo(xdisplay, rootscreennum, 8, StaticColor, &xvi)){
-		if(xscreendepth > 8)
-			panic("can't deal with colormapped depth %d screens", xscreendepth);
-		xvis = xvi.visual;
-		xscreendepth = 8;
-	}
-	else{
-		if(xscreendepth != 8)
-			panic("can't deal with depth %d screens", xscreendepth);
-		xvis = DefaultVisual(xdisplay, rootscreennum);
-	}
-
-	/*
-	 * xscreendepth is only the number of significant pixel bits,
-	 * not the total.  We need to walk the display list to find
-	 * how many actual bits are being used per pixel.
-	 */
-	xscreenchan = 0; /* not a valid channel */
-	pfmt = XListPixmapFormats(xdisplay, &n);
-	for(i=0; i<n; i++){
-		if(pfmt[i].depth == xscreendepth){
-			switch(pfmt[i].bits_per_pixel){
-			case 1:	/* untested */
-				xscreenchan = GREY1;
-				break;
-			case 2:	/* untested */
-				xscreenchan = GREY2;
-				break;
-			case 4:	/* untested */
-				xscreenchan = GREY4;
-				break;
-			case 8:
-				xscreenchan = CMAP8;
-				break;
-			case 16: /* uses 16 rather than 15, empirically. */
-				xscreenchan = RGB16;
-				break;
-			case 24: /* untested (impossible?) */
-				xscreenchan = RGB24;
-				break;
-			case 32:
-				xscreenchan = CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8);
-				break;
-			}
-		}
-	}
-	if(xscreenchan == 0)
-		panic("unknown screen pixel format");
-		
-	screen = DefaultScreenOfDisplay(xdisplay);
-	xcmap = DefaultColormapOfScreen(screen);
-
-	if(xvis->class != StaticColor){
-		graphicscmap(map);
-		initmap(rootwin);
-	}
-
-	r.min = ZP;
-	r.max.x = WidthOfScreen(screen);
-	r.max.y = HeightOfScreen(screen);
-
-	xsize = Dx(r)*3/4;
-	ysize = Dy(r)*3/4;
-	
-	attrs.colormap = xcmap;
-	attrs.background_pixel = 0;
-	attrs.border_pixel = 0;
-	/* attrs.override_redirect = 1;*/ /* WM leave me alone! |CWOverrideRedirect */
-	xdrawable = XCreateWindow(xdisplay, rootwin, 0, 0, xsize, ysize, 0, 
-		xscreendepth, InputOutput, xvis, CWBackPixel|CWBorderPixel|CWColormap, &attrs);
-
-	/* load the given bitmap data and create an X pixmap containing it. */
-	icon_pixmap = XCreateBitmapFromData(xdisplay,
-		rootwin, (char *)glenda_t_bits,
-		glenda_t_width, glenda_t_height);
-
-	/*
-	 * set up property as required by ICCCM
-	 */
-	name.value = (uchar*)"drawterm";
-	name.encoding = XA_STRING;
-	name.format = 8;
-	name.nitems = strlen((char*)name.value);
-	normalhints.flags = USSize|PMaxSize;
-	normalhints.max_width = Dx(r);
-	normalhints.max_height = Dy(r);
-	normalhints.width = xsize;
-	normalhints.height = ysize;
-	hints.flags = IconPixmapHint |InputHint|StateHint;
-	hints.input = 1;
-	hints.initial_state = NormalState;
-	hints.icon_pixmap = icon_pixmap;
-
-	classhints.res_name = "drawterm";
-	classhints.res_class = "Drawterm";
-	argv[0] = "drawterm";
-	argv[1] = nil;
-	XSetWMProperties(xdisplay, xdrawable,
-		&name,			/* XA_WM_NAME property for ICCCM */
-		&name,			/* XA_WM_ICON_NAME */
-		argv,			/* XA_WM_COMMAND */
-		1,			/* argc */
-		&normalhints,		/* XA_WM_NORMAL_HINTS */
-		&hints,			/* XA_WM_HINTS */
-		&classhints);		/* XA_WM_CLASS */
-	XFlush(xdisplay);
-	
-	/*
-	 * put the window on the screen
-	 */
-	XMapWindow(xdisplay, xdrawable);
-	XFlush(xdisplay);
-
-	xscreenid = XCreatePixmap(xdisplay, xdrawable, Dx(r), Dy(r), xscreendepth);
-	gscreen = xallocmemimage(r, xscreenchan, xscreenid, &xscreenimage);
-	gscreen->clipr = Rect(0,0,xsize,ysize);
-	xgccopy = creategc(xscreenid);
-
-	xkmcon = XOpenDisplay(NULL);
-	if(xkmcon == 0)
-		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
-	XkbSetDetectableAutoRepeat(xkmcon, True, NULL);
-
-	xsnarfcon = XOpenDisplay(NULL);
-	if(xsnarfcon == 0)
-		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
-
-	clipboard = XInternAtom(xkmcon, "CLIPBOARD", False);
-	utf8string = XInternAtom(xkmcon, "UTF8_STRING", False);
-	targets = XInternAtom(xkmcon, "TARGETS", False);
-	text = XInternAtom(xkmcon, "TEXT", False);
-	compoundtext = XInternAtom(xkmcon, "COMPOUND_TEXT", False);
-
-	return gscreen;
 }
 
 static void
