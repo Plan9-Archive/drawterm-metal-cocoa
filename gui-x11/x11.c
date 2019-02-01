@@ -386,7 +386,7 @@ screensize(Rectangle r, ulong chan)
 
 	mi = xallocmemimage(r, chan, pix, &xi);
 	if(mi == nil){
-		XFreeGC(xdisplay, xgccopy);
+		XFreeGC(xdisplay, gc);
 		XFreePixmap(xdisplay, pix);
 		return;
 	}
