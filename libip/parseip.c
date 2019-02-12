@@ -112,7 +112,7 @@ parseip(uchar *to, char *from)
 	}
 	if(v4){
 		to[10] = to[11] = 0xff;
-		return nhgetl(to + IPv4off);
+		return (ulong)nhgetl(to + IPv4off);
 	} else
 		return 6;
 }
@@ -122,10 +122,10 @@ parseip(uchar *to, char *from)
  *  style
  */
 vlong
-parseipmask(uchar *to, char *from)
+parseipmask(uchar *to, char *from, int v4)
 {
-	int i, w;
 	vlong x;
+	int i, w;
 	uchar *p;
 
 	if(*from == '/'){
@@ -133,6 +133,8 @@ parseipmask(uchar *to, char *from)
 		i = atoi(from+1);
 		if(i < 0)
 			i = 0;
+		if(i <= 32 && v4)
+			i += 96;
 		if(i > 128)
 			i = 128;
 		w = i;
@@ -141,48 +143,34 @@ parseipmask(uchar *to, char *from)
 			*p++ = 0xff;
 		if(i > 0)
 			*p = ~((1<<(8-i))-1);
-		x = nhgetl(to+IPv4off);
 		/*
 		 * identify as ipv6 if the mask is inexpressible as a v4 mask
 		 * (because it has too few mask bits).  Arguably, we could
 		 * always return 6 here.
 		 */
-		if (w < 8*(IPaddrlen-IPv4addrlen))
-			return 6;
+		if (w < 96)
+			return v4 ? -1 : 6;
+		x = (ulong)nhgetl(to+IPv4off);
 	} else {
 		/* as a straight v4 bit mask */
 		x = parseip(to, from);
-		if (x != -1)
-			x = (ulong)nhgetl(to + IPv4off);
 		if(memcmp(to, v4prefix, IPv4off) == 0)
 			memset(to, 0xff, IPv4off);
+		else if(v4)
+			x = -1;
 	}
 	return x;
 }
 
-/*
- *  parse a v4 ip address/mask in cidr format
- */
-char*
-v4parsecidr(uchar *addr, uchar *mask, char *from)
+vlong
+parseipandmask(uchar *ip, uchar *mask, char *ipstr, char *maskstr)
 {
-	int i;
-	char *p;
-	uchar *a;
+	vlong x;
 
-	p = v4parseip(addr, from);
-
-	if(*p == '/'){
-		/* as a number of prefix bits */
-		i = strtoul(p+1, &p, 0);
-		if(i > 32)
-			i = 32;
-		memset(mask, 0, IPv4addrlen);
-		for(a = mask; i >= 8; i -= 8)
-			*a++ = 0xff;
-		if(i > 0)
-			*a = ~((1<<(8-i))-1);
-	} else 
-		memcpy(mask, defmask(addr), IPv4addrlen);
-	return p;
+	x = parseip(ip, ipstr);
+	if(maskstr == nil)
+		memset(mask, 0xff, IPaddrlen);
+	else if(parseipmask(mask, maskstr, memcmp(ip, v4prefix, IPv4off) == 0) == -1)
+		x = -1;
+	return x;
 }
