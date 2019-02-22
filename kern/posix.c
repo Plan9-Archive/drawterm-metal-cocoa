@@ -52,6 +52,7 @@ _setproc(Proc *p)
 void
 osinit(void)
 {
+	signal(SIGPIPE, SIG_IGN);
 	if(pthread_key_create(&prdakey, 0))
 		panic("cannot pthread_key_create");
 }

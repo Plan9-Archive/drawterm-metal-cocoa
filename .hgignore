@@ -1,1 +1,5 @@
 \.[oa]$
+^drawterm$
+^gui-cocoa/drawterm.app/MainWindow.nib$
+^gui-cocoa/drawterm.app/drawterm$
+^gui-cocoa/drawterm.app/spaceglenda.icns$

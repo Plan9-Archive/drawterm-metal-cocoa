@@ -84,7 +84,7 @@ startaan(char *host, int fd)
 "<>$netdir/clone {\n"
 "	netdir=$netdir/`{read} || exit\n"
 "	>[3] $netdir/ctl {\n"
-"		echo -n 'announce *!0' >[1=3]\n"
+"		echo -n 'announce *!'^$aanport >[1=3]\n"
 "		echo `{cat $netdir/local} || exit\n"
 "		bind '#|' /mnt/aan || exit\n"
 "		exec aan -m $aanto $netdir <>/mnt/aan/data1 >[1=0] >[2]/dev/null &\n"
@@ -100,10 +100,18 @@ startaan(char *host, int fd)
 "	exec tlssrv -A /bin/rc -c server\n"
 "	exit\n"
 "}\n";
-	char buf[128], *p, *na;
-	int n;
+	char buf[128], *p, *na, *aanportenv, *aantoenv;
+	int n, aanport;
 
-	snprint(buf, sizeof buf, "aanto=%d\n", aanto);
+	if((aanportenv = getenv("aanport")) != nil)
+		aanport = atoi(aanportenv);
+	else
+		aanport = 0;
+
+	if((aantoenv = getenv("aanto")) != nil)
+		aanto = atoi(aantoenv);
+
+	snprint(buf, sizeof buf, "aanport=%d\naanto=%d\n", aanport, aanto);
 	if(fprint(fd, "%7ld\n%s%s", strlen(buf)+strlen(script), buf, script) < 0)
 		sysfatal("sending aan script: %r");
 	n = read(fd, buf, sizeof(buf)-1);
