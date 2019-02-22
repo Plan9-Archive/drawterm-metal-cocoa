@@ -344,6 +344,13 @@ mainproc(void *aux)
 	return YES;
 }
 
+- (void) windowDidBecomeKey:(id)arg
+{
+	NSPoint p;
+	p = [_window convertPointToBacking:[_window mouseLocationOutsideOfEventStream]];
+	absmousetrack(p.x, [myview convertSizeToBacking:myview.frame.size].height - p.y, 0, ticks());
+}
+
 @end
 
 @implementation DrawtermView
