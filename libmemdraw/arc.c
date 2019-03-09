@@ -24,9 +24,6 @@ Point corners[] = {
 	{1,-1}
 };
 
-static
-Point p00;
-
 /*
  * make a "wedge" mask covering the desired angle and contained in
  * a surrounding square; draw a full ellipse; intersect that with the
@@ -40,13 +37,13 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 	Point p,	bnd[8];
 	Memimage *wedge, *figure, *mask;
 
-	if(a < 0)
-		a = -a;
-	if(b < 0)
-		b = -b;
-	w = t;
-	if(w < 0)
-		w = 0;
+	if(phi == 0)
+		return;
+	if(phi <= -360 || phi >= 360){
+		memellipse(dst, c, a, b, t, src, sp, op);
+		return;
+	}
+	alpha %= 360;
 	alpha = -alpha;		/* compensate for upside-down coords */
 	phi = -phi;
 	beta = alpha + phi;
@@ -55,10 +52,6 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 		alpha = beta;
 		beta = tmp;
 		phi = -phi;
-	}
-	if(phi >= 360){
-		memellipse(dst, c, a, b, t, src, sp, op);
-		return;
 	}
 	while(alpha < 0)
 		alpha += 360;
@@ -70,6 +63,15 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 		 * icossin returns point at radius ICOSSCALE.
 		 * multiplying by m1 moves it outside the ellipse
 		*/
+
+	if(a < 0)
+		a = -a;
+	if(b < 0)
+		b = -b;
+	w = t;
+	if(w < 0)
+		w = 0;
+
 	rect = Rect(-a-w, -b-w, a+w+1, b+w+1);
 	m = rect.max.x;	/* inradius of bounding square */
 	if(m < rect.max.y)
@@ -96,19 +98,19 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 	if(wedge == nil)
 		goto Return;
 	memfillcolor(wedge, DTransparent);
-	memfillpoly(wedge, bnd, i, ~0, memopaque, p00, S);
+	memfillpoly(wedge, bnd, i, ~0, memopaque, ZP, S);
 	figure = allocmemimage(rect, GREY1);
 	if(figure == nil)
 		goto Return;
 	memfillcolor(figure, DTransparent);
-	memellipse(figure, p00, a, b, t, memopaque, p00, S);
+	memellipse(figure, ZP, a, b, t, memopaque, ZP, S);
 	mask = allocmemimage(rect, GREY1);
 	if(mask == nil)
 		goto Return;
 	memfillcolor(mask, DTransparent);
 	memimagedraw(mask, rect, figure, rect.min, wedge, rect.min, S);
 	c = subpt(c, dst->r.min);
-	memdraw(dst, dst->r, src, subpt(sp, c), mask, subpt(p00, c), op);
+	memdraw(dst, dst->r, src, subpt(sp, c), mask, subpt(ZP, c), op);
 
     Return:
 	freememimage(wedge);
