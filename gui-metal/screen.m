@@ -46,7 +46,6 @@ static DrawtermView *myview;
 static NSSize winsize;
 static NSCursor *currentCursor;
 
-static QLock resizelock;
 static ulong pal[256];
 
 void
@@ -131,13 +130,11 @@ flushmemscreen(Rectangle r)
 		return;
 	LOG(@"-> %d %d %d %d", r.min.x, r.min.y, Dx(r), Dy(r));
 	@autoreleasepool{
-		qlock(&resizelock);
 		[((DrawLayer *)myview.layer).texture
 			replaceRegion:MTLRegionMake2D(r.min.x, r.min.y, Dx(r), Dy(r))
 			mipmapLevel:0
 			withBytes:byteaddr(gscreen, Pt(r.min.x, r.min.y))
 			bytesPerRow:gscreen->width * 4];
-		qunlock(&resizelock);
 		dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
 			NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
 			LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
@@ -648,9 +645,7 @@ evkey(uint v)
 	LOG(@"%g %g", winsize.width, winsize.height);
 	[(DrawLayer *)self.layer setup];
 	if(gscreen != nil){
-		qlock(&resizelock);
 		screenresize(Rect(0, 0, winsize.width, winsize.height));
-		qunlock(&resizelock);
 	}
 }
 
