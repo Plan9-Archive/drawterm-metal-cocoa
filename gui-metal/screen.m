@@ -839,15 +839,7 @@ keystroke(Rune r)
 	self.pixelFormat = MTLPixelFormatBGRA8Unorm;
 	self.framebufferOnly = YES;
 	self.opaque = YES;
-
-	// We use a default transparent layer on top of the CAMetalLayer.
-	// This seems to make fullscreen applications behave.
-	{
-		CALayer *stub = [CALayer layer];
-		stub.frame = CGRectMake(0, 0, 1, 1);
-		[stub setNeedsDisplay];
-		[self addSublayer:stub];
-	}
+	self.colorspace = nil;  // Explicitly setting to nil avoids fullscreen artifacts.
 
 	_commandQueue = [self.device newCommandQueue];
 
