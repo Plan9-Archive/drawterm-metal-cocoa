@@ -27,7 +27,6 @@ Memimage *gscreen;
 
 @interface DrawLayer : CAMetalLayer
 @property id<MTLTexture> texture;
-- (void)setup;
 @end
 
 @interface DrawtermView : NSView<NSTextInputClient>
@@ -43,7 +42,6 @@ Memimage *gscreen;
 
 static AppDelegate *myApp;
 static DrawtermView *myview;
-static NSSize winsize;
 static NSCursor *currentCursor;
 
 static ulong pal[256];
@@ -65,9 +63,10 @@ void
 screeninit(void)
 {
 	memimageinit();
-	screensize(Rect(0, 0, winsize.width, winsize.height), ARGB32);
-	gscreen->clipr = Rect(0, 0, winsize.width, winsize.height);
-	LOG(@"%g %g", winsize.width, winsize.height);
+	NSSize s = [myview convertSizeToBacking:myview.frame.size];
+	screensize(Rect(0, 0, s.width, s.height), ARGB32);
+	gscreen->clipr = Rect(0, 0, s.width, s.height);
+	LOG(@"%g %g", s.width, s.height);
 	terminit();
 }
 
@@ -80,6 +79,22 @@ screensize(Rectangle r, ulong chan)
 		return;
 	if(gscreen != nil)
 		freememimage(gscreen);
+@autoreleasepool{
+	DrawLayer *layer = (DrawLayer *)myview.layer;
+	MTLTextureDescriptor *textureDesc = [MTLTextureDescriptor
+		texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+		width:Dx(r)
+		height:Dy(r)
+		mipmapped:NO];
+	textureDesc.allowGPUOptimizedContents = YES;
+	textureDesc.usage = MTLTextureUsageShaderRead;
+	textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
+	layer.texture = [layer.device newTextureWithDescriptor:textureDesc];
+
+	CGFloat scale = myview.window.backingScaleFactor;
+	[layer setDrawableSize:NSMakeSize(Dx(r), Dy(r))];
+	[layer setContentsScale:scale];
+}
 	gscreen = i;
 	gscreen->clipr = ZR;
 }
@@ -138,6 +153,8 @@ flushmemscreen(Rectangle r)
 		dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
 			NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
 			LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			// ReplaceRegion is somehow asynchronous since 10.14.5.  We wait sometime to update.
+			[NSThread sleepForTimeInterval:4e-3];
 			[myview setNeedsDisplayInRect:sr];
 			[myview enlargeLastInputRect:sr];
 		}});
@@ -641,11 +658,10 @@ evkey(uint v)
 
 - (void) reshape
 {
-	winsize = [self convertSizeToBacking:self.frame.size];
-	LOG(@"%g %g", winsize.width, winsize.height);
-	[(DrawLayer *)self.layer setup];
+	NSSize s = [self convertSizeToBacking:self.frame.size];
+	LOG(@"%g %g", s.width, s.height);
 	if(gscreen != nil){
-		screenresize(Rect(0, 0, winsize.width, winsize.height));
+		screenresize(Rect(0, 0, s.width, s.height));
 	}
 }
 
@@ -852,24 +868,6 @@ keystroke(Rune r)
 	_commandQueue = [self.device newCommandQueue];
 
 	return self;
-}
-
-- (void) setup
-{
-	LOG();
-	MTLTextureDescriptor *textureDesc = [MTLTextureDescriptor
-		texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-		width:winsize.width
-		height:winsize.height
-		mipmapped:NO];
-	textureDesc.allowGPUOptimizedContents = YES;
-	textureDesc.usage = MTLTextureUsageShaderRead;
-	textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
-	_texture = [self.device newTextureWithDescriptor:textureDesc];
-
-	CGFloat scale = [[myview window] backingScaleFactor];
-	[self setDrawableSize:winsize];
-	[self setContentsScale:scale];
 }
 
 - (void) display
