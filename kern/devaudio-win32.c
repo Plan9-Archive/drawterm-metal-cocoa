@@ -52,19 +52,24 @@ audiodevclose(void)
 void
 audiodevsetvol(int what, int left, int right)
 {
-	USED(what);
-	USED(left);
-	USED(right);
-	error("not supported");
+	DWORD v;
+
+	//Windows uses a 0-255 scale, plan9 uses 0-100
+	v = right*0xFF/100;
+	v = (v<<8)|left*0xFF/100;
+	if(waveOutSetVolume(waveout, v) != MMSYSERR_NOERROR)
+		oserror();
 }
 
 void
 audiodevgetvol(int what, int *left, int *right)
 {
-	USED(what);
-	USED(left);
-	USED(right);
-	error("not supported");
+	DWORD v;
+
+	if(waveOutGetVolume(waveout, &v) != MMSYSERR_NOERROR)
+		oserror();
+	*left = (v&0xFF)*100/0xFF;
+	*right = ((v>>8)&0xFF)*100/0xFF;
 }
 
 int
