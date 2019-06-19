@@ -150,13 +150,17 @@ flushmemscreen(Rectangle r)
 			mipmapLevel:0
 			withBytes:byteaddr(gscreen, Pt(r.min.x, r.min.y))
 			bytesPerRow:gscreen->width * 4];
+		NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
 		dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
-			NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
 			LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
-			// ReplaceRegion is somehow asynchronous since 10.14.5.  We wait sometime to update.
-			[NSThread sleepForTimeInterval:4e-3];
 			[myview setNeedsDisplayInRect:sr];
 			[myview enlargeLastInputRect:sr];
+		}});
+		// ReplaceRegion is somehow asynchronous since 10.14.5.  We wait sometime to request a update again.
+		dispatch_time_t time = dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_MSEC);
+		dispatch_after(time, dispatch_get_main_queue(), ^(void){@autoreleasepool{
+			LOG(@"setNeedsDisplayInRect %g %g %g %g again", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			[myview setNeedsDisplayInRect:sr];
 		}});
 	}
 }
