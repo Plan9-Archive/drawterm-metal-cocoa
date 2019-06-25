@@ -162,6 +162,11 @@ flushmemscreen(Rectangle r)
 			LOG(@"setNeedsDisplayInRect %g %g %g %g again", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
 			[myview setNeedsDisplayInRect:sr];
 		}});
+		time = dispatch_time(DISPATCH_TIME_NOW, 16 * NSEC_PER_MSEC);
+		dispatch_after(time, dispatch_get_main_queue(), ^(void){@autoreleasepool{
+			LOG(@"setNeedsDisplayInRect %g %g %g %g again", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			[myview setNeedsDisplayInRect:sr];
+		}});
 	}
 }
 
