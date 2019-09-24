@@ -54,9 +54,9 @@ audiodevsetvol(int what, int left, int right)
 {
 	DWORD v;
 
-	//Windows uses a 0-255 scale, plan9 uses 0-100
-	v = right*0xFF/100;
-	v = (v<<8)|left*0xFF/100;
+	//Windows uses a 0-0xFFFF scale, plan9 uses 0-100
+	v = right*0xFFFF/100;
+	v = (v<<16)|(left*0xFFFF/100);
 	if(waveOutSetVolume(waveout, v) != MMSYSERR_NOERROR)
 		oserror();
 }
@@ -68,8 +68,8 @@ audiodevgetvol(int what, int *left, int *right)
 
 	if(waveOutGetVolume(waveout, &v) != MMSYSERR_NOERROR)
 		oserror();
-	*left = (v&0xFF)*100/0xFF;
-	*right = ((v>>8)&0xFF)*100/0xFF;
+	*left = (v&0xFFFF)*100/0xFFFF;
+	*right = ((v>>16)&0xFFFF)*100/0xFFFF;
 }
 
 int
