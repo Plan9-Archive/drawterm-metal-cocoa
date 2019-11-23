@@ -106,7 +106,18 @@ oserror(void)
 	nexterror();
 }
 
-static void* tramp(void*);
+static void*
+tramp(void *vp)
+{
+	Proc *p;
+
+	p = vp;
+	if(pthread_setspecific(prdakey, p))
+		panic("cannot setspecific");
+	(*p->fn)(p->arg);
+	pexit("", 0);
+	return 0;
+}
 
 void
 osproc(Proc *p)
@@ -120,19 +131,11 @@ osproc(Proc *p)
 	sched_yield();
 }
 
-static void*
-tramp(void *vp)
+void
+osexit(void)
 {
-	Proc *p;
-
-	p = vp;
-	if(pthread_setspecific(prdakey, p))
-		panic("cannot setspecific");
-	(*p->fn)(p->arg);
-	/* BUG: leaks Proc */
 	pthread_setspecific(prdakey, 0);
 	pthread_exit(0);
-	return 0;
 }
 
 void
@@ -161,6 +164,41 @@ procwakeup(Proc *p)
 	if(op->nwakeup == op->nsleep)
 		pthread_cond_signal(&op->cond);
 	pthread_mutex_unlock(&op->mutex);
+}
+
+void*
+oscmd(char **argv, int nice, char *dir, Chan **fd)
+{
+	USED(argv);
+	USED(nice);
+	USED(dir);
+	USED(fd);
+
+	error("not implemented");
+	return nil;
+}
+
+int
+oscmdwait(void *c, char *status, int nstatus)
+{
+	USED(c);
+	USED(status);
+	USED(nstatus);
+
+	return -1;
+}
+
+int
+oscmdkill(void *c)
+{
+	USED(c);
+	return -1;
+}
+
+void
+oscmdfree(void *c)
+{
+	USED(c);
 }
 
 static int randfd;

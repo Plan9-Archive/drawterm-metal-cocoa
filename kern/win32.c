@@ -92,7 +92,7 @@ tramp(LPVOID vp)
 	_setproc(p);
 	op->tid = GetCurrentThreadId();
  	(*p->fn)(p->arg);
-	ExitThread(0);
+	pexit("", 0);
 	return 0;
 }
 
@@ -105,6 +105,12 @@ osproc(Proc *p)
 		oserror();
 		panic("osproc: %r");
 	}
+}
+
+void
+osexit(void)
+{
+	ExitThread(0);
 }
 
 void
@@ -251,19 +257,167 @@ WinMain(HINSTANCE x, HINSTANCE y, LPSTR z, int w)
 
 	warg = GetCommandLineW();
 	n = wcslen(warg)*UTFmax+1;
-	arg = malloc(n);
-	WideCharToMultiByte(CP_UTF8,0,warg,-1,arg,n,0,0);
+	arg = smalloc(n);
+	WideCharToMultiByte(CP_UTF8, 0, warg, -1, arg, n, 0, 0);
 
 	/* conservative guess at the number of args */
 	for(argc=4,p=arg; *p; p++)
 		if(*p == ' ' || *p == '\t')
 			argc++;
-	argv = malloc(argc*sizeof(char*));
+	argv = smalloc(argc*sizeof(char*));
 	argc = args(argv, argc, arg);
 
 	main(argc, argv);
 	ExitThread(0);
 	return 0;
+}
+
+static char*
+qarg(char *s)
+{
+	char *d, *p;
+	int n, c;
+
+	n = strlen(s);
+	d = p = smalloc(3+2*n);
+	if(s[0] == '"' || (strchr(s, ' ') == nil && strchr(s, '\t') == nil)){
+		memmove(d, s, n+1);
+		return d;
+	}
+	*p++ = '"';
+	while((c = *s++) != 0){
+		if(c == '\\' || c == '"')
+			*p++ = '\\';
+		*p++ = c;
+	}
+	*p++ = '"';
+	*p = 0;
+	return d;
+}
+
+static wchar_t*
+wcmdline(char **argv)
+{
+	wchar_t *s, *w, *e;
+	int n, i;
+	char *q;
+
+	n = 0;
+	for(i = 0; argv[i] != nil; i++){
+		q = qarg(argv[i]);
+		n += strlen(q)+1;
+		free(q);
+	}
+	s = smalloc((n+1)*sizeof(wchar_t));
+	w = s;
+	e = s + n;
+	for(i = 0; argv[i] != nil; i++){
+		if(i != 0)
+			*w++ = L' ';
+		q = qarg(argv[i]);
+		w += MultiByteToWideChar(CP_UTF8, 0, q, strlen(argv[i]), w, e - w);
+		free(q);
+	}
+	*w = 0;
+	return s;
+}
+
+void*
+oscmd(char **argv, int nice, char *dir, Chan **fd)
+{
+	SECURITY_ATTRIBUTES sa;
+	PROCESS_INFORMATION pi;
+	STARTUPINFOW si;
+	HANDLE p[3][2], tmp;
+	wchar_t *wcmd, *wdir;
+	int i;
+
+	memset(&sa, 0, sizeof(sa));
+	sa.nLength = sizeof(sa);
+	sa.lpSecurityDescriptor = NULL;
+	sa.bInheritHandle = TRUE;
+
+	for(i = 0; i < 3; i++){
+		if(!CreatePipe(&p[i][i==0], &p[i][i!=0], &sa, 0)
+		|| !DuplicateHandle(GetCurrentProcess(), p[i][0], GetCurrentProcess(), &tmp, 0, FALSE, DUPLICATE_SAME_ACCESS)){
+			while(--i >= 0){
+				CloseHandle(p[i][0]);
+				CloseHandle(p[i][1]);
+			}
+			oserror();
+		}
+		CloseHandle(p[i][0]);
+		p[i][0] = tmp;
+	}
+
+	if(waserror()){
+		for(i = 0; i < 3; i++){
+			CloseHandle(p[i][0]);
+			CloseHandle(p[i][1]);
+		}
+		nexterror();
+	}
+
+	memset(&pi, 0, sizeof(pi));
+	memset(&si, 0, sizeof(si));
+	si.cb = sizeof(si);
+	si.dwFlags = STARTF_USESTDHANDLES;
+	si.hStdInput = p[0][1];
+	si.hStdOutput = p[1][1];
+	si.hStdError = p[2][1];
+	si.lpDesktop = L"";
+
+	i = strlen(dir)+1;
+	wdir = smalloc(i*sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, dir, i, wdir, i);
+
+	wcmd = wcmdline(argv);
+	if(waserror()){
+		free(wcmd);
+		nexterror();
+	}
+
+	if(!CreateProcessW(NULL, wcmd, NULL, NULL, TRUE, CREATE_NEW_PROCESS_GROUP|CREATE_NO_WINDOW, NULL, wdir, &si, &pi))
+		oserror();
+
+	poperror();
+	free(wcmd);
+	free(wdir);
+
+	poperror();
+	for(i = 0; i < 3; i++){
+		fd[i] = lfdchan((void*)p[i][0]);
+		CloseHandle(p[i][1]);
+	}
+	CloseHandle(pi.hThread);
+	return (void*)pi.hProcess;
+}
+
+int
+oscmdwait(void *c, char *status, int nstatus)
+{
+	DWORD code = -1;
+	for(;;){
+		if(!GetExitCodeProcess((HANDLE)c, &code))
+			return -1;
+		if(code != STILL_ACTIVE)
+			break;
+		WaitForSingleObject((HANDLE)c, INFINITE);
+	}
+	return snprint(status, nstatus, "%d", (int)code);
+}
+
+int
+oscmdkill(void *c)
+{
+	TerminateProcess((HANDLE)c, 0);
+	return 0;
+}
+
+void
+oscmdfree(void *c)
+{
+	CloseHandle((HANDLE)c);
 }
 
 void
@@ -296,9 +450,7 @@ showfilewrite(char *a, int n)
 	wchar_t *action, *arg, *cmd, *p;
 	int m;
 
-	cmd = malloc((n+1)*sizeof(wchar_t));
-	if(cmd == nil)
-		error("out of memory");
+	cmd = smalloc((n+1)*sizeof(wchar_t));
 	m = MultiByteToWideChar(CP_UTF8,0,a,n,cmd,n);
 	while(m > 0 && cmd[m-1] == '\n')
 		m--;
