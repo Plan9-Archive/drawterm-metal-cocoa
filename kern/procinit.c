@@ -4,8 +4,6 @@
 #include "fns.h"
 #include "error.h"
 
-Rgrp *thergrp;
-
 void
 procinit0(void)
 {
@@ -51,13 +49,13 @@ kproc(char *name, void (*fn)(void*), void *arg)
 	p->slash = cclone(up->slash);
 	p->dot = cclone(up->dot);
 	p->rgrp = up->rgrp;
-	if(p->rgrp)
+	if(p->rgrp != nil)
 		incref(&p->rgrp->ref);
 	p->pgrp = up->pgrp;
-	if(up->pgrp)
+	if(up->pgrp != nil)
 		incref(&up->pgrp->ref);
 	p->fgrp = up->fgrp;
-	if(p->fgrp)
+	if(p->fgrp != nil)
 		incref(&p->fgrp->ref);
 	strecpy(p->text, p->text+sizeof p->text, name);
 
@@ -65,3 +63,30 @@ kproc(char *name, void (*fn)(void*), void *arg)
 	return p->pid;
 }
 
+void
+pexit(char *msg, int freemem)
+{
+	Proc *p = up;
+
+	USED(msg);
+	USED(freemem);
+
+	if(p->pgrp != nil){
+		closepgrp(p->pgrp);
+		p->pgrp = nil;
+	}
+	if(p->rgrp != nil){
+		closergrp(p->rgrp);
+		p->rgrp = nil;
+	}
+	if(p->fgrp != nil){
+		closefgrp(p->fgrp);
+		p->fgrp = nil;
+	}
+
+	cclose(p->dot);
+	cclose(p->slash);
+
+	free(p);
+	osexit();
+}

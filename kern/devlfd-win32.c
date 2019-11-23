@@ -1,21 +1,18 @@
+#include	<windows.h>
 #include	"u.h"
-#include <errno.h>
 #include	"lib.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"error.h"
 
-#undef pread
-#undef pwrite
-
 Chan*
-lfdchan(int fd)
+lfdchan(void *fd)
 {
 	Chan *c;
 	
 	c = newchan();
 	c->type = devno('L', 0);
-	c->aux = (void*)(uintptr)fd;
+	c->aux = fd;
 	c->path = newpath("fd");
 	c->mode = ORDWR;
 	c->qid.type = 0;
@@ -24,12 +21,6 @@ lfdchan(int fd)
 	c->dev = 0;
 	c->offset = 0;
 	return c;
-}
-
-int
-lfdfd(int fd)
-{
-	return newfd(lfdchan(fd));
 }
 
 static Chan*
@@ -68,7 +59,6 @@ lfdopen(Chan *c, int omode)
 {
 	USED(c);
 	USED(omode);
-	
 	error(Egreg);
 	return nil;
 }
@@ -76,32 +66,29 @@ lfdopen(Chan *c, int omode)
 static void
 lfdclose(Chan *c)
 {
-	close((int)(uintptr)c->aux);
+	CloseHandle((HANDLE)c->aux);
 }
 
 static long
 lfdread(Chan *c, void *buf, long n, vlong off)
 {
+	DWORD r;
+
 	USED(off);	/* can't pread on pipes */
-	n = read((int)(uintptr)c->aux, buf, n);
-	if(n < 0){
-		iprint("error %d\n", errno);
+	if(!ReadFile((HANDLE)c->aux, buf, (DWORD)n, &r, NULL))
 		oserror();
-	}
-	return n;
+	return r;
 }
 
 static long
 lfdwrite(Chan *c, void *buf, long n, vlong off)
 {
-	USED(off);	/* can't pread on pipes */
+	DWORD r;
 
-	n = write((int)(uintptr)c->aux, buf, n);
-	if(n < 0){
-		iprint("error %d\n", errno);
+	USED(off);	/* can't pread on pipes */
+	if(!WriteFile((HANDLE)c->aux, buf, (DWORD)n, &r, NULL))
 		oserror();
-	}
-	return n;
+	return r;
 }
 
 Dev lfddevtab = {

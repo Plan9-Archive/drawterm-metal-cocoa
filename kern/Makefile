@@ -10,13 +10,14 @@ OFILES=\
 	dev.$O\
 	devaudio.$O\
 	devaudio-$(AUDIO).$O\
+	devcmd.$O\
 	devcons.$O\
 	devdraw.$O\
 	devfs-$(OS).$O\
 	devip.$O\
 	devip-$(OS).$O\
 	devkbd.$O\
-	devlfd.$O\
+	devlfd-$(OS).$O\
 	devmnt.$O\
 	devmouse.$O\
 	devpipe.$O\
