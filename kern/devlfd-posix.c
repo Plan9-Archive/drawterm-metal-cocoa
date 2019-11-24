@@ -26,6 +26,12 @@ lfdchan(void *fd)
 	return c;
 }
 
+int
+lfdfd(int fd)
+{
+	return newfd(lfdchan((void*)(uintptr)fd));
+}
+
 static Chan*
 lfdattach(char *x)
 {
