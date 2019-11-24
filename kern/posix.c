@@ -10,6 +10,7 @@
 
 #include <pthread.h>
 #include <time.h>
+#include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/select.h>
 #include <signal.h>
@@ -54,9 +55,10 @@ osinit(void)
 {
 	if(pthread_key_create(&prdakey, 0))
 		panic("cannot pthread_key_create");
+
+	signal(SIGPIPE, SIG_IGN);
 }
 
-#undef pipe
 void
 osnewproc(Proc *p)
 {
@@ -166,33 +168,78 @@ procwakeup(Proc *p)
 	pthread_mutex_unlock(&op->mutex);
 }
 
+#undef pipe
+#undef fork
+#undef close
+#undef dup2
+#undef execv
+#undef setsid
+#undef exit
 void*
 oscmd(char **argv, int nice, char *dir, Chan **fd)
 {
-	USED(argv);
-	USED(nice);
-	USED(dir);
-	USED(fd);
+	int p[3][2];
+	int i, pid;
 
-	error("not implemented");
-	return nil;
+	for(i = 0; i<3; i++){
+		if(pipe(p[i]) < 0){
+			while(--i >= 0){
+				close(p[i][0]);
+				close(p[i][1]);
+			}
+			oserror();
+		}
+	}
+	if(waserror()){
+		for(i = 0; i < 3; i++){
+			close(p[i][0]);
+			close(p[i][1]);
+		}
+		nexterror();
+	}
+	pid = fork();
+	if(pid == -1)
+		oserror();
+	if(pid == 0){
+		setsid();
+		dup2(p[0][0], 0);
+		dup2(p[1][1], 1);
+		dup2(p[2][1], 2);
+		for(i = 3; i < 1000; i++)
+			close(i);
+		execv(argv[0], argv);
+		exit(0);
+	}
+	poperror();
+	close(p[0][0]);
+	close(p[1][1]);
+	close(p[2][1]);
+
+	fd[0] = lfdchan((void*)(uintptr)p[0][1]);
+	fd[1] = lfdchan((void*)(uintptr)p[1][0]);
+	fd[2] = lfdchan((void*)(uintptr)p[2][0]);
+
+	return (void*)(uintptr)pid;
 }
 
+#undef waitpid
 int
 oscmdwait(void *c, char *status, int nstatus)
 {
-	USED(c);
-	USED(status);
-	USED(nstatus);
+	int pid = (int)(uintptr)c;
+	int wstatus = -1;
 
-	return -1;
+	if(waitpid(pid, &wstatus, 0) < 0)
+		return -1;
+	return snprint(status, nstatus, "%d", wstatus);
 }
 
+#undef kill
 int
 oscmdkill(void *c)
 {
-	USED(c);
-	return -1;
+	int pid = (int)(uintptr)c;
+	return kill(pid, SIGTERM);
 }
 
 void

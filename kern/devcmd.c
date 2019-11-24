@@ -343,7 +343,6 @@ cmdclose(Chan *c)
 		if(cc->child != nil){
 			if(!cc->killed)
 			if(r == 0 || (cc->killonclose && TYPE(c->qid) == Qctl)){
-				iprint("cmdclose killing (killonclose %d)\n", cc->killonclose);
 				oscmdkill(cc->child);
 				cc->killed = 1;
 			}
