@@ -260,7 +260,7 @@ qarg(char *s)
 	for(p = s; (c = *p) != 0; p++)
 		if(strchr(" \t\n\r\"", c) != nil)
 			break;
-	if(c == 0){
+	if(c == 0 && p != s){
 		memmove(d, s, n+1);
 		return d;
 	}
