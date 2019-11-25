@@ -246,6 +246,45 @@ args(char *argv[], int n, char *p)
 	return i;
 }
 
+/*
+ * Quote a single command line argument using the rules above.
+ */
+static char*
+qarg(char *s)
+{
+	char *d, *p;
+	int n, c;
+
+	n = strlen(s);
+	d = smalloc(3+2*n);
+	for(p = s; (c = *p) != 0; p++)
+		if(strchr(" \t\n\r\"", c) != nil)
+			break;
+	if(c == 0){
+		memmove(d, s, n+1);
+		return d;
+	}
+	p = d;
+	*p++ = '"';
+	for(;;){
+		for(n = 0; (c = *s++) == '\\'; n++)
+			*p++ = c;
+		if(c == 0){
+			while(n-- > 0)
+				*p++ = '\\';
+			break;
+		}
+		if(c == '"'){
+			while(n-- >= 0)
+				*p++ = '\\';
+		}
+		*p++ = c;
+	}
+	*p++ = '"';
+	*p = 0;
+	return d;
+}
+
 extern int	main(int, char*[]);
 
 int APIENTRY
@@ -272,28 +311,6 @@ WinMain(HINSTANCE x, HINSTANCE y, LPSTR z, int w)
 	return 0;
 }
 
-static char*
-qarg(char *s)
-{
-	char *d, *p;
-	int n, c;
-
-	n = strlen(s);
-	d = p = smalloc(3+2*n);
-	if(s[0] == '"' || (strchr(s, ' ') == nil && strchr(s, '\t') == nil)){
-		memmove(d, s, n+1);
-		return d;
-	}
-	*p++ = '"';
-	while((c = *s++) != 0){
-		if(c == '\\' || c == '"')
-			*p++ = '\\';
-		*p++ = c;
-	}
-	*p++ = '"';
-	*p = 0;
-	return d;
-}
 
 static wchar_t*
 wcmdline(char **argv)
@@ -315,7 +332,7 @@ wcmdline(char **argv)
 		if(i != 0)
 			*w++ = L' ';
 		q = qarg(argv[i]);
-		w += MultiByteToWideChar(CP_UTF8, 0, q, strlen(argv[i]), w, e - w);
+		w += MultiByteToWideChar(CP_UTF8, 0, q, strlen(q), w, e - w);
 		free(q);
 	}
 	*w = 0;
