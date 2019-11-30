@@ -421,7 +421,9 @@ oscmdwait(void *c, char *status, int nstatus)
 			break;
 		WaitForSingleObject((HANDLE)c, INFINITE);
 	}
-	return snprint(status, nstatus, "%d", (int)code);
+	if(code == 0)
+		return snprint(status, nstatus, "0 0 0 0 ''");
+	return snprint(status, nstatus, "0 0 0 0 %d", (int)code);
 }
 
 int

@@ -231,7 +231,9 @@ oscmdwait(void *c, char *status, int nstatus)
 
 	if(waitpid(pid, &wstatus, 0) < 0)
 		return -1;
-	return snprint(status, nstatus, "%d", wstatus);
+	if(wstatus == 0)
+		return snprint(status, nstatus, "0 0 0 0 ''");
+	return snprint(status, nstatus, "0 0 0 0 %d", (int)wstatus);
 }
 
 #undef kill
