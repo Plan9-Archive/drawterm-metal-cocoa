@@ -40,7 +40,8 @@ audiodevopen(void)
 void
 audiodevclose(void)
 {
-	sio_close(hdl);
+	if (hdl != NULL)
+		sio_close(hdl);
 }
 
 void
