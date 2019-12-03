@@ -168,13 +168,10 @@ procwakeup(Proc *p)
 	pthread_mutex_unlock(&op->mutex);
 }
 
+#undef chdir
 #undef pipe
 #undef fork
 #undef close
-#undef dup2
-#undef execv
-#undef setsid
-#undef exit
 void*
 oscmd(char **argv, int nice, char *dir, Chan **fd)
 {
@@ -207,8 +204,13 @@ oscmd(char **argv, int nice, char *dir, Chan **fd)
 		dup2(p[2][1], 2);
 		for(i = 3; i < 1000; i++)
 			close(i);
-		execv(argv[0], argv);
-		exit(0);
+		if(chdir(dir) < 0){
+			perror("chdir");
+			_exit(1);
+		}
+		execvp(argv[0], argv);
+		perror("exec");
+		_exit(1);
 	}
 	poperror();
 	close(p[0][0]);
@@ -222,21 +224,30 @@ oscmd(char **argv, int nice, char *dir, Chan **fd)
 	return (void*)(uintptr)pid;
 }
 
-#undef waitpid
 int
 oscmdwait(void *c, char *status, int nstatus)
 {
 	int pid = (int)(uintptr)c;
-	int wstatus = -1;
+	int s = -1;
 
-	if(waitpid(pid, &wstatus, 0) < 0)
+	if(waitpid(pid, &s, 0) < 0)
 		return -1;
-	if(wstatus == 0)
-		return snprint(status, nstatus, "0 0 0 0 ''");
-	return snprint(status, nstatus, "0 0 0 0 %d", (int)wstatus);
+	if(WIFEXITED(s)){
+		if((s = WEXITSTATUS(s)) == 0)
+			return snprint(status, nstatus, "%d 0 0 0 ''", pid);
+		return snprint(status, nstatus, "%d 0 0 0 'exit: %d'", pid, s);
+	}
+	if(WIFSIGNALED(s)){
+		switch(s = WTERMSIG(s)){
+		case SIGTERM:
+		case SIGKILL:
+			return snprint(status, nstatus, "%d 0 0 0 killed", pid);
+		}
+		return snprint(status, nstatus, "%d 0 0 0 'signal: %d'", pid, s);
+	}
+	return snprint(status, nstatus, "%d 0 0 0 'odd status: 0x%x'", pid, s);
 }
 
-#undef kill
 int
 oscmdkill(void *c)
 {
