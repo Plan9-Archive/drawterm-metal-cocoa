@@ -21,8 +21,10 @@ void
 audiodevopen(void)
 {
 	hdl = sio_open(NULL, SIO_PLAY, 0);
-	if(hdl == NULL)
+	if(hdl == NULL){
+		error("sio_open failed");
 		return;
+	}
 
 	sio_initpar(&par);
 
@@ -33,6 +35,7 @@ audiodevopen(void)
 
 	if(!sio_setpar(hdl, &par) || !sio_start(hdl)){
 		sio_close(hdl);
+		error("sio_setpar/sio_start failed");
 		return;
 	}
 }
@@ -40,8 +43,7 @@ audiodevopen(void)
 void
 audiodevclose(void)
 {
-	if (hdl != NULL)
-		sio_close(hdl);
+	sio_close(hdl);
 }
 
 void
