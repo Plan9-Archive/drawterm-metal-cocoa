@@ -982,9 +982,9 @@ xmouse(XEvent *e)
 	if(s & Button1Mask)
 		ms.buttons |= 1;
 	if(s & Button2Mask)
-		ms.buttons |= 2;
-	if(s & Button3Mask)
 		ms.buttons |= 4;
+	if(s & Button3Mask)
+		ms.buttons |= 2;
 	if(s & Button4Mask)
 		ms.buttons |= 8;
 	if(s & Button5Mask)
