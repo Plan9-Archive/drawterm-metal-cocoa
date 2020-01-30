@@ -674,6 +674,12 @@ evkey(uint v)
 	}
 }
 
+- (void)windowDidResize:(NSNotification *)notification
+{
+	if(![self inLiveResize])
+		[self reshape];
+}
+
 - (void)viewDidEndLiveResize
 {
 	LOG();
