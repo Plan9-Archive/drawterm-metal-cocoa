@@ -43,7 +43,6 @@ OFILES=\
 	hmac.$O\
 	md4.$O\
 	md5.$O\
-	md5pickle.$O\
 	nfastrand.$O\
 	pbkdf2.$O\
 	poly1305.$O\
@@ -63,7 +62,6 @@ OFILES=\
 	secp256r1.$O\
 	secp384r1.$O\
 	sha1.$O\
-	sha1pickle.$O\
 	sha2_128.$O\
 	sha2_64.$O\
 	sha1block.$O\
