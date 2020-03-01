@@ -9,8 +9,6 @@
 
 #include	<libsec.h>
 
-#define NOSPOOKS 1
-
 typedef struct OneWay OneWay;
 struct OneWay
 {
@@ -894,7 +892,6 @@ struct Hashalg
 
 Hashalg hashtab[] =
 {
-	{ "md4", MD4dlen, md4, },
 	{ "md5", MD5dlen, md5, },
 	{ "sha1", SHA1dlen, sha1, },
 	{ "sha", SHA1dlen, sha1, },
@@ -927,7 +924,6 @@ struct Encalg
 	void	(*keyinit)(OneWay*);
 };
 
-#ifdef NOSPOOKS
 static
 Encalg encrypttab[] =
 {
@@ -943,17 +939,6 @@ Encalg encrypttab[] =
 	{ "rc4_40", 1, RC4, initRC4key_40, },
 	{ 0 }
 };
-#else
-static
-Encalg encrypttab[] =
-{
-	{ "des_40_cbc", 8, DESCBC, initDESkey_40, },
-	{ "des_40_ecb", 8, DESECB, initDESkey_40, },
-	{ "rc4", 1, RC4, initRC4key_40, },              /* DEPRECATED -- use rc4_X      */
-	{ "rc4_40", 1, RC4, initRC4key_40, },
-	{ 0 }
-};
-#endif /* NOSPOOKS */
 
 static int
 parseencryptalg(char *p, Dstate *s)
