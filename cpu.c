@@ -38,6 +38,7 @@ char *authserver;
 char *secstore;
 char *user, *pass;
 char secstorebuf[65536];
+char *geometry;
 
 extern void	guimain(void);
 
@@ -233,7 +234,9 @@ usage(void)
 		"[-h host] [-u user] [-a authserver] [-s secstore] "
 		"[-e 'crypt hash'] [-k keypattern] "
 		"[-p] [-t timeout] "
-		"[-r root] [-c cmd ...]\n", argv0);
+		"[-r root] "
+		"[-g geometry] "
+		"[-c cmd ...]\n", argv0);
 	exits("usage");
 }
 
@@ -301,6 +304,12 @@ cpumain(int argc, char **argv)
 			cmd = smprint("%s %q", cmd, s);
 			free(old);
 		}
+		break;
+	case 'g':
+		/* X11 geometry string
+			[=][<width>{xX}<height>][{+-}<xoffset>{+-}<yoffset>]
+			*/
+		geometry = EARGF(usage());
 		break;
 	default:
 		usage();
