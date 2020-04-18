@@ -115,6 +115,7 @@ static Atom utf8string;
 static Atom targets;
 static Atom text;
 static Atom compoundtext;
+static Atom wmpid;
 
 static	Drawable	xdrawable;
 static	void		xexpose(XEvent*);
@@ -201,6 +202,7 @@ screeninit(void)
 	XSetWindowAttributes attrs;
 	XPixmapFormatValues *pfmt;
 	Pixmap icon_pixmap;
+	unsigned long pid;
 
 	memimageinit();
 
@@ -344,6 +346,16 @@ screeninit(void)
 		&normalhints,		/* XA_WM_NORMAL_HINTS */
 		&hints,			/* XA_WM_HINTS */
 		&classhints);		/* XA_WM_CLASS */
+	if ((wmpid = XInternAtom(xdisplay, "_NET_WM_PID", False)) != None) {
+		pid = (unsigned long) getpid();
+		XChangeProperty(xdisplay, xdrawable,
+			wmpid, /* Atom property */
+			XA_CARDINAL, /* Atom type */
+			32, /* int format, 32 really is "long" */
+			PropModeReplace, /* int mode */
+			(uchar *)&pid, /* unsigned char * data */
+			1); /* int nelements */
+	}
 	XFlush(xdisplay);
 	
 	/*
