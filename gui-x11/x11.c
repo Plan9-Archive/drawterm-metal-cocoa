@@ -48,6 +48,8 @@ static	Drawable	xscreenid;
 static	XImage*		xscreenimage;
 static	Visual		*xvis;
 
+extern char		*geometry;	/* defined in main.c */
+
 #include "../glenda-t.xbm"
 
 Memimage*
@@ -188,7 +190,7 @@ flushmemscreen(Rectangle r)
 void
 screeninit(void)
 {
-	int i, n;
+	int i, n, x, y;
 	char *argv[2];
 	Window rootwin;
 	Rectangle r;
@@ -303,15 +305,19 @@ screeninit(void)
 		initmap(rootwin);
 	}
 
-	r.min = ZP;
-	r.max.x = WidthOfScreen(screen)*3/4;
-	r.max.y = HeightOfScreen(screen)*3/4;
+	r = ZR;
+	if(geometry != nil)
+		XParseGeometry(geometry, &x, &y, &r.max.x, &r.max.y);
+	if(r.max.x == 0)
+		r.max.x = WidthOfScreen(screen)*3/4;
+	if(r.max.y == 0)
+		r.max.y = HeightOfScreen(screen)*3/4;
 	
 	attrs.colormap = xcmap;
 	attrs.background_pixel = 0;
 	attrs.border_pixel = 0;
 	/* attrs.override_redirect = 1;*/ /* WM leave me alone! |CWOverrideRedirect */
-	xdrawable = XCreateWindow(xdisplay, rootwin, 0, 0, Dx(r), Dy(r), 0, 
+	xdrawable = XCreateWindow(xdisplay, rootwin, x, y, Dx(r), Dy(r), 0,
 		xscreendepth, InputOutput, xvis, CWBackPixel|CWBorderPixel|CWColormap, &attrs);
 
 	/* load the given bitmap data and create an X pixmap containing it. */
