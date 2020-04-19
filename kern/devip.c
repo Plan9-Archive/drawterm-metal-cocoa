@@ -817,9 +817,9 @@ cswrite(Chan *c, void *a, long n, vlong offset)
 	port = lookupport(f[2]);
 	if(port <= 0)
 		error("no translation for port found");
+	if(strcmp(f[0], "net") == 0)
+		f[0] = "tcp";
 	if(strcmp(f[1], "*") == 0){
-		if(strcmp(f[0], "net") == 0)
-			f[0] = "tcp";
 		ns = smprint("/net/%s/clone %d", f[0], port);
 	} else {
 		if(parseip(ip, f[1]) != -1){
