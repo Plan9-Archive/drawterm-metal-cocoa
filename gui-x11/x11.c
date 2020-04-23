@@ -352,6 +352,7 @@ screeninit(void)
 		&normalhints,		/* XA_WM_NORMAL_HINTS */
 		&hints,			/* XA_WM_HINTS */
 		&classhints);		/* XA_WM_CLASS */
+	XFlush(xdisplay);
 	if ((wmpid = XInternAtom(xdisplay, "_NET_WM_PID", False)) != None) {
 		pid = (unsigned long) getpid();
 		XChangeProperty(xdisplay, xdrawable,
@@ -361,8 +362,8 @@ screeninit(void)
 			PropModeReplace, /* int mode */
 			(uchar *)&pid, /* unsigned char * data */
 			1); /* int nelements */
+		XFlush(xdisplay);
 	}
-	XFlush(xdisplay);
 	
 	/*
 	 * put the window on the screen
