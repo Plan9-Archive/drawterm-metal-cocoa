@@ -32,8 +32,6 @@ struct Elemlist
 	int	prefix;
 };
 
-#define SEP(c) ((c) == 0 || (c) == '/')
-
 char*
 chanpath(Chan *c)
 {
