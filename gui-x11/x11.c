@@ -328,7 +328,8 @@ screeninit(void)
 	/*
 	 * set up property as required by ICCCM
 	 */
-	name.value = (uchar*)"drawterm";
+	if((name.value = getenv("WM_NAME")) == nil)
+		name.value = (uchar*)"drawterm";
 	name.encoding = XA_STRING;
 	name.format = 8;
 	name.nitems = strlen((char*)name.value);
@@ -341,7 +342,8 @@ screeninit(void)
 	hints.icon_pixmap = icon_pixmap;
 
 	classhints.res_name = "drawterm";
-	classhints.res_class = "Drawterm";
+	if((classhints.res_class = getenv("WM_CLASS")) == nil)
+		classhints.res_class = "Drawterm";
 	argv[0] = "drawterm";
 	argv[1] = nil;
 	XSetWMProperties(xdisplay, xdrawable,
