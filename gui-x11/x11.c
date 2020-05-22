@@ -48,6 +48,8 @@ static	Drawable	xscreenid;
 static	XImage*		xscreenimage;
 static	Visual		*xvis;
 
+extern char		*geometry;	/* defined in main.c */
+
 #include "../glenda-t.xbm"
 
 Memimage*
@@ -115,6 +117,7 @@ static Atom utf8string;
 static Atom targets;
 static Atom text;
 static Atom compoundtext;
+static Atom wmpid;
 
 static	Drawable	xdrawable;
 static	void		xexpose(XEvent*);
@@ -187,7 +190,7 @@ flushmemscreen(Rectangle r)
 void
 screeninit(void)
 {
-	int i, n;
+	int i, n, x, y;
 	char *argv[2];
 	Window rootwin;
 	Rectangle r;
@@ -201,6 +204,7 @@ screeninit(void)
 	XSetWindowAttributes attrs;
 	XPixmapFormatValues *pfmt;
 	Pixmap icon_pixmap;
+	unsigned long pid;
 
 	memimageinit();
 
@@ -301,15 +305,19 @@ screeninit(void)
 		initmap(rootwin);
 	}
 
-	r.min = ZP;
-	r.max.x = WidthOfScreen(screen)*3/4;
-	r.max.y = HeightOfScreen(screen)*3/4;
+	r = ZR;
+	if(geometry != nil)
+		XParseGeometry(geometry, &x, &y, &r.max.x, &r.max.y);
+	if(r.max.x == 0)
+		r.max.x = WidthOfScreen(screen)*3/4;
+	if(r.max.y == 0)
+		r.max.y = HeightOfScreen(screen)*3/4;
 	
 	attrs.colormap = xcmap;
 	attrs.background_pixel = 0;
 	attrs.border_pixel = 0;
 	/* attrs.override_redirect = 1;*/ /* WM leave me alone! |CWOverrideRedirect */
-	xdrawable = XCreateWindow(xdisplay, rootwin, 0, 0, Dx(r), Dy(r), 0, 
+	xdrawable = XCreateWindow(xdisplay, rootwin, x, y, Dx(r), Dy(r), 0,
 		xscreendepth, InputOutput, xvis, CWBackPixel|CWBorderPixel|CWColormap, &attrs);
 
 	/* load the given bitmap data and create an X pixmap containing it. */
@@ -320,7 +328,8 @@ screeninit(void)
 	/*
 	 * set up property as required by ICCCM
 	 */
-	name.value = (uchar*)"drawterm";
+	if((name.value = getenv("WM_NAME")) == nil)
+		name.value = (uchar*)"drawterm";
 	name.encoding = XA_STRING;
 	name.format = 8;
 	name.nitems = strlen((char*)name.value);
@@ -333,7 +342,8 @@ screeninit(void)
 	hints.icon_pixmap = icon_pixmap;
 
 	classhints.res_name = "drawterm";
-	classhints.res_class = "Drawterm";
+	if((classhints.res_class = getenv("WM_CLASS")) == nil)
+		classhints.res_class = "Drawterm";
 	argv[0] = "drawterm";
 	argv[1] = nil;
 	XSetWMProperties(xdisplay, xdrawable,
@@ -345,6 +355,17 @@ screeninit(void)
 		&hints,			/* XA_WM_HINTS */
 		&classhints);		/* XA_WM_CLASS */
 	XFlush(xdisplay);
+	if ((wmpid = XInternAtom(xdisplay, "_NET_WM_PID", False)) != None) {
+		pid = (unsigned long) getpid();
+		XChangeProperty(xdisplay, xdrawable,
+			wmpid, /* Atom property */
+			XA_CARDINAL, /* Atom type */
+			32, /* int format, 32 really is "long" */
+			PropModeReplace, /* int mode */
+			(uchar *)&pid, /* unsigned char * data */
+			1); /* int nelements */
+		XFlush(xdisplay);
+	}
 	
 	/*
 	 * put the window on the screen

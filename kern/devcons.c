@@ -13,6 +13,7 @@
 
 void	(*screenputs)(char*, int) = 0;
 
+Kmesg	kmesg;			/* console messages */
 Queue*	kbdq;			/* unprocessed console input */
 Queue*	lineq;			/* processed console input */
 Queue*	kprintoq;		/* console output, for /dev/kprint */

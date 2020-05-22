@@ -32,6 +32,7 @@ typedef struct Rgrp	Rgrp;
 typedef struct RWlock	RWlock;
 typedef struct Waitq	Waitq;
 typedef struct Walkqid	Walkqid;
+typedef struct Kmesg	Kmesg;
 typedef int    Devgen(Chan*, char*, Dirtab*, int, int, Dir*);
 
 #include "fcall.h"
@@ -477,8 +478,10 @@ extern void	_setproc(Proc*);
  * Log console output so it can be retrieved via /dev/kmesg.
  * This is good for catching boot-time messages after the fact.
  */
-struct {
+struct Kmesg {
 	Lock lk;
 	uint n;
 	char buf[16384];
-} kmesg;
+};
+
+extern Kmesg kmesg;

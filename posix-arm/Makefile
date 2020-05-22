@@ -4,8 +4,6 @@ LIB=../libmachdep.a
 
 OFILES=\
 	getcallerpc.$O\
-	md5block.$O\
-	sha1block.$O\
 	tas.$O
 
 default: $(LIB)
