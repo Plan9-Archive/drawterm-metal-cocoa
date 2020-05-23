@@ -46,6 +46,15 @@ static NSCursor *currentCursor;
 
 static ulong pal[256];
 
+static int readybit;
+static Rendez rend;
+
+static int
+isready(void*a)
+{
+	return readybit;
+}
+
 void
 guimain(void)
 {
@@ -68,6 +77,8 @@ screeninit(void)
 	gscreen->clipr = Rect(0, 0, s.width, s.height);
 	LOG(@"%g %g", s.width, s.height);
 	terminit();
+	readybit = 1;
+	wakeup(&rend);
 }
 
 void
@@ -350,6 +361,7 @@ mainproc(void *aux)
 
 	LOG(@"launch mainproc");
 	kproc("mainproc", mainproc, 0);
+	ksleep(&rend, isready, 0);
 }
 
 - (NSApplicationPresentationOptions) window:(NSWindow *)window
