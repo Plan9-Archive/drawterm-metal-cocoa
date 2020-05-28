@@ -397,6 +397,13 @@ fswstat(Chan *c, uchar *buf, int n)
 	char strs[NAME_MAX*3];
 	Ufsinfo *uif;
 
+	/*
+	 * wstat is supposed to be atomic.
+	 * we check all the things we can before trying anything.
+	 * still, if we are told to truncate a file and rename it and only
+	 * one works, we're screwed.  in such cases we leave things
+	 * half broken and return an error.  it's hardly perfect.
+	 */
 	if(convM2D(buf, n, &d, strs) != n)
 		error(Ebadstat);
 	
@@ -404,6 +411,13 @@ fswstat(Chan *c, uchar *buf, int n)
 	if(stat(uif->path, &stbuf) < 0)
 		error(strerror(errno));
 
+	/*
+	 * try things in increasing order of harm to the file.
+	 * mtime should come after truncate so that if you
+	 * do both the mtime actually takes effect, but i'd rather
+	 * leave truncate until last.
+	 * (see above comment about atomicity).
+	 */
 	if(~d.mode != 0 && (int)(d.mode&0777) != (int)(stbuf.st_mode&0777)) {
 		if(chmod(uif->path, d.mode&0777) < 0)
 			error(strerror(errno));
@@ -450,6 +464,10 @@ fswstat(Chan *c, uchar *buf, int n)
 		uif->gid = p->id;
 	}
 */
+
+	if((uvlong)d.length != (uvlong)~0 && truncate(uif->path, d.length) < 0)
+		error(strerror(errno));
+
 	return n;
 }
 
