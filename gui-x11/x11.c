@@ -19,6 +19,8 @@ typedef struct Cursor Cursor;
 #define	Display	XDisplay
 #define	Cursor	XCursor
 
+#undef	getenv
+
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>

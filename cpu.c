@@ -121,6 +121,14 @@ startaan(char *host, int fd)
 	return aanclient(na, aanto);
 }
 
+static void
+rcpuexit(void)
+{
+	char *s = getenv("rstatus");
+	if(s != nil)
+		exit(*s);
+}
+
 void
 rcpu(char *host, char *cmd)
 {
@@ -133,6 +141,7 @@ rcpu(char *host, char *cmd)
 "	bind -q /mnt/term/dev/cons /dev/cons\n"
 "}\n"
 "</dev/cons >/dev/cons >[2=1] service=cpu %s\n"
+"echo -n $status >/mnt/term/env/rstatus >[2]/dev/null\n"
 "echo -n hangup >/proc/$pid/notepg\n";
 	int fd;
 
@@ -162,6 +171,10 @@ rcpu(char *host, char *cmd)
 	if(fprint(fd, "%7ld\n%s", strlen(cmd), cmd) < 0)
 		sysfatal("sending script: %r");
 	free(cmd);
+
+	/* /env/rstatus is written by the remote script to communicate exit status */
+	remove("/env/rstatus");
+	atexit(rcpuexit);
 
 	/* Begin serving the namespace */
 	exportfs(fd);

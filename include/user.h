@@ -26,6 +26,7 @@
 #undef sleep
 #define	sleep	osmsleep
 #define iounit	sysiounit
+#define getenv	sysgetenv
 
 extern	int	bind(char*, char*, int);
 extern	int	chdir(char*);
@@ -96,3 +97,4 @@ extern	void	unlock(Lock*);
 extern	int	iprint(char*, ...);
 extern	int	atexit(void (*)(void));
 extern	void	exits(char*);
+extern	char*	getenv(char*);
