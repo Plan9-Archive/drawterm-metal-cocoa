@@ -33,6 +33,7 @@ OFILES=\
 	fmtstr.$O\
 	fmtvprint.$O\
 	fprint.$O\
+	getenv.$O\
 	getfields.$O\
 	getpid.$O\
 	lock.$O\

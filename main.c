@@ -47,6 +47,8 @@ main(int argc, char **argv)
 
 	if(bind("#c", "/dev", MBEFORE) < 0)
 		panic("bind #c: %r");
+	if(bind("#e", "/env", MREPL|MCREATE) < 0)
+		panic("bind #e: %r");
 	if(bind("#I", "/net", MBEFORE) < 0)
 		panic("bind #I: %r");
 	if(bind("#U", "/root", MREPL) < 0)
