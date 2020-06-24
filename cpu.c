@@ -263,7 +263,8 @@ cpumain(int argc, char **argv)
 	char *s;
 
 	user = getenv("USER");
-	pass = getenv("PASS");
+	if((pass = getenv("PASS")) != nil)
+		remove("/env/PASS");
 	host = getenv("cpu");
 	authserver = getenv("auth");
 
