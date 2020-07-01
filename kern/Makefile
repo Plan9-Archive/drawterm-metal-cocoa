@@ -13,6 +13,7 @@ OFILES=\
 	devcmd.$O\
 	devcons.$O\
 	devdraw.$O\
+	devenv.$O\
 	devfs-$(OS).$O\
 	devip.$O\
 	devip-$(OS).$O\
