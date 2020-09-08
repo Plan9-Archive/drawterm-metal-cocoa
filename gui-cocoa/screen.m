@@ -76,7 +76,7 @@ clipread(void)
 	NSArray *classes = [NSArray arrayWithObjects:[NSString class], nil];
 	NSDictionary *options = [NSDictionary dictionary];
 	NSArray *it = [pb readObjectsForClasses:classes options:options];
-	if(it != nil)
+	if(it != nil && [it count] > 0)
 		return strdup([it[0] UTF8String]);
 	return nil;
 }
