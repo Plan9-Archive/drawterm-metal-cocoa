@@ -522,6 +522,24 @@ evkey(uint v)
 	[self resetLastInputRect];
 }
 
+static void
+keyboardKey(uint key, int down)
+{
+	static int ctrlDown;
+
+	switch(key){
+	case Kctl:
+		ctrlDown = down;
+		return;
+	case Kshift:
+		return;
+	}
+
+	if(ctrlDown && isalpha(key) &&  islower(key))
+		key -= 0x60;					/* ugh! */
+	kbdkey(key, down);
+}
+
 - (void)flagsChanged:(NSEvent*)event {
 	static NSEventModifierFlags y;
 	NSEventModifierFlags x;
@@ -531,14 +549,14 @@ evkey(uint v)
 	u = [NSEvent pressedMouseButtons];
 	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
 	if((x & ~y & NSEventModifierFlagShift) != 0)
-		kbdkey(Kshift, 1);
+		keyboardKey(Kshift, 1);
 	if((x & ~y & NSEventModifierFlagControl) != 0){
 		if(u){
 			u |= 1;
 			[self sendmouse:u];
 			return;
 		}else
-			kbdkey(Kctl, 1);
+			keyboardKey(Kctl, 1);
 	}
 	if((x & ~y & NSEventModifierFlagOption) != 0){
 		if(u){
@@ -546,7 +564,7 @@ evkey(uint v)
 			[self sendmouse:u];
 			return;
 		}else
-			kbdkey(Kalt, 1);
+			keyboardKey(Kalt, 1);
 	}
 	if((x & NSEventModifierFlagCommand) != 0)
 		if(u){
@@ -554,21 +572,21 @@ evkey(uint v)
 			[self sendmouse:u];
 		}
 	if((x & ~y & NSEventModifierFlagCapsLock) != 0)
-		kbdkey(Kcaps, 1);
+		keyboardKey(Kcaps, 1);
 	if((~x & y & NSEventModifierFlagShift) != 0)
-		kbdkey(Kshift, 0);
+		keyboardKey(Kshift, 0);
 	if((~x & y & NSEventModifierFlagControl) != 0)
-		kbdkey(Kctl, 0);
+		keyboardKey(Kctl, 0);
 	if((~x & y & NSEventModifierFlagOption) != 0){
-		kbdkey(Kalt, 0);
+		keyboardKey(Kalt, 0);
 		if(_breakcompose){
-			kbdkey(Kalt, 1);
-			kbdkey(Kalt, 0);
+			keyboardKey(Kalt, 1);
+			keyboardKey(Kalt, 0);
 			_breakcompose = NO;
 		}
 	}
 	if((~x & y & NSEventModifierFlagCapsLock) != 0)
-		kbdkey(Kcaps, 0);
+		keyboardKey(Kcaps, 0);
 	y = x;
 }
 
@@ -709,8 +727,8 @@ evkey(uint v)
 static void
 keystroke(Rune r)
 {
-	kbdkey(r, 1);
-	kbdkey(r, 0);
+	keyboardKey(r, 1);
+	keyboardKey(r, 0);
 }
 
 // conforms to protocol NSTextInputClient
