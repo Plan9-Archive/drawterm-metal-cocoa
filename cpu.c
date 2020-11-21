@@ -27,6 +27,7 @@ static int	aanto = 3600 * 24;
 static int	norcpu;
 static int	nokbd;
 static int	nogfx;
+static int  keepSecstore;
 
 static char	*ealgs = "rc4_256 sha1";
 
@@ -37,10 +38,10 @@ static int	p9authtls(int);
 char *authserver;
 char *secstore;
 char *user, *pass;
-char secstorebuf[65536];
 char *geometry;
 
 extern void	guimain(void);
+extern char secstorebuf[65536];
 
 char*
 estrdup(char *s)
@@ -167,8 +168,9 @@ rcpu(char *host, char *cmd)
 			sysfatal("startaan: %r");
 		fd = p9authtls(fd);
 	}
-	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 
+	if(! keepSecstore)
+		memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 	if(cmd == nil)
 		cmd = smprint(script, "rc -li");
 	else {
@@ -300,6 +302,9 @@ cpumain(int argc, char **argv)
 		break;
 	case 's':
 		secstore = EARGF(usage());
+		break;
+	case 'S':
+		keepSecstore = 1;
 		break;
 	case 'e':
 		ealgs = EARGF(usage());
@@ -443,7 +448,8 @@ p9authssl(int fd)
 	AuthInfo *ai;
 
 	ai = p9any(fd);
-	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
+	if(! keepSecstore)
+		memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 	if(ai == nil)
 		sysfatal("can't authenticate: %r");
 
