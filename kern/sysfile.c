@@ -1259,3 +1259,9 @@ sysrendezvous(void *tag, void *val)
 	enderror();
 	return n;
 }
+
+int
+sysgetpid(void)
+{
+	return up->pid;
+}

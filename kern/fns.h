@@ -204,7 +204,6 @@ void		splx(int);
 Block*		trimblock(Block*, int, int);
 long		unionread(Chan*, void*, long);
 void		unlock(Lock*);
-long		userwrite(char*, int);
 #define	validaddr(a, b, c)
 void		validname(char*, int);
 char*		validnamedup(char*, int);
