@@ -4,7 +4,6 @@
 #include	"fns.h"
 #include	"error.h"
 
-static Ref pgrpid;
 static Ref mountid;
 
 Pgrp*
@@ -14,7 +13,6 @@ newpgrp(void)
 
 	p = smalloc(sizeof(Pgrp));
 	p->ref.ref = 1;
-	p->pgrpid = incref(&pgrpid);
 	return p;
 }
 

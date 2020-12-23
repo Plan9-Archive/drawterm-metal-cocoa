@@ -331,7 +331,6 @@ enum{
 	Qbintime,
 	Qcons,
 	Qconsctl,
-	Qcputime,
 	Qdrivers,
 	Qkmesg,
 	Qkprint,
@@ -339,9 +338,6 @@ enum{
 	Qhostowner,
 	Qnull,
 	Qosversion,
-	Qpgrpid,
-	Qpid,
-	Qppid,
 	Qrandom,
 	Qreboot,
 	Qshowfile,
@@ -349,7 +345,6 @@ enum{
 	Qsysname,
 	Qsysstat,
 	Qtime,
-	Quser,
 	Qzero,
 };
 
@@ -363,7 +358,6 @@ static Dirtab consdir[]={
 	"bintime",	{Qbintime},	24,		0664,
 	"cons",		{Qcons},	0,		0660,
 	"consctl",	{Qconsctl},	0,		0220,
-	"cputime",	{Qcputime},	6*NUMSIZE,	0444,
 	"drivers",	{Qdrivers},	0,		0444,
 	"hostdomain",	{Qhostdomain},	DOMLEN,		0664,
 	"hostowner",	{Qhostowner},	0,	0664,
@@ -371,9 +365,6 @@ static Dirtab consdir[]={
 	"kprint",	{Qkprint, 0, QTEXCL},	0,	DMEXCL|0440,
 	"null",		{Qnull},	0,		0666,
 	"osversion",	{Qosversion},	0,		0444,
-	"pgrpid",	{Qpgrpid},	NUMSIZE,	0444,
-	"pid",		{Qpid},		NUMSIZE,	0444,
-	"ppid",		{Qppid},	NUMSIZE,	0444,
 	"random",	{Qrandom},	0,		0444,
 	"reboot",	{Qreboot},	0,		0664,
 	"showfile",	{Qshowfile},	0,	0220,
@@ -381,7 +372,6 @@ static Dirtab consdir[]={
 	"sysname",	{Qsysname},	0,		0664,
 	"sysstat",	{Qsysstat},	0,		0666,
 	"time",		{Qtime},	NUMSIZE+3*VLNUMSIZE,	0664,
-	"user",		{Quser},	0,	0666,
 	"zero",		{Qzero},	0,		0444,
 };
 
@@ -588,9 +578,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 		poperror();
 		return n;
 
-	case Qcputime:
-		return 0;
-
 	case Qkmesg:
 		/*
 		 * This is unlocked to avoid tying up a process
@@ -610,15 +597,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qkprint:
 		return qread(kprintoq, buf, n);
 
-	case Qpgrpid:
-		return readnum((ulong)offset, buf, n, up->pgrp->pgrpid, NUMSIZE);
-
-	case Qpid:
-		return readnum((ulong)offset, buf, n, up->pid, NUMSIZE);
-
-	case Qppid:
-		return readnum((ulong)offset, buf, n, up->parentpid, NUMSIZE);
-
 	case Qtime:
 		return readtime((ulong)offset, buf, n);
 
@@ -630,9 +608,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 
 	case Qhostdomain:
 		return readstr((ulong)offset, buf, n, hostdomain);
-
-	case Quser:
-		return readstr((ulong)offset, buf, n, up->user);
 
 	case Qnull:
 		return 0;
@@ -760,9 +735,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 
 	case Qhostdomain:
 		return hostdomainwrite(a, n);
-
-	case Quser:
-		return userwrite(a, n);
 
 	case Qnull:
 		break;

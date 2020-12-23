@@ -35,7 +35,6 @@ OFILES=\
 	fprint.$O\
 	getenv.$O\
 	getfields.$O\
-	getpid.$O\
 	lock.$O\
 	mallocz.$O\
 	nan64.$O\

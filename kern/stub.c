@@ -28,13 +28,6 @@ spllo(void)
 	return 0;
 }
 
-int
-userwrite(char *a, int n)
-{
-	error(Eperm);
-	return 0;
-}
-
 long
 hostdomainwrite(char *a, int n)
 {
