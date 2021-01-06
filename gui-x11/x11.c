@@ -120,6 +120,7 @@ static Atom targets;
 static Atom text;
 static Atom compoundtext;
 static Atom wmpid;
+static Atom wmdelete;
 
 static	Drawable	xdrawable;
 static	void		xexpose(XEvent*);
@@ -319,11 +320,11 @@ screeninit(void)
 	attrs.background_pixel = 0;
 	attrs.border_pixel = 0;
 	/* attrs.override_redirect = 1;*/ /* WM leave me alone! |CWOverrideRedirect */
-	xdrawable = XCreateWindow(xdisplay, rootwin, x, y, Dx(r), Dy(r), 0,
+	xdrawable = XCreateWindow(xkmcon, rootwin, x, y, Dx(r), Dy(r), 0,
 		xscreendepth, InputOutput, xvis, CWBackPixel|CWBorderPixel|CWColormap, &attrs);
 
 	/* load the given bitmap data and create an X pixmap containing it. */
-	icon_pixmap = XCreateBitmapFromData(xdisplay,
+	icon_pixmap = XCreateBitmapFromData(xkmcon,
 		rootwin, (char *)glenda_t_bits,
 		glenda_t_width, glenda_t_height);
 
@@ -348,7 +349,7 @@ screeninit(void)
 		classhints.res_class = "Drawterm";
 	argv[0] = "drawterm";
 	argv[1] = nil;
-	XSetWMProperties(xdisplay, xdrawable,
+	XSetWMProperties(xkmcon, xdrawable,
 		&name,			/* XA_WM_NAME property for ICCCM */
 		&name,			/* XA_WM_ICON_NAME */
 		argv,			/* XA_WM_COMMAND */
@@ -356,24 +357,26 @@ screeninit(void)
 		&normalhints,		/* XA_WM_NORMAL_HINTS */
 		&hints,			/* XA_WM_HINTS */
 		&classhints);		/* XA_WM_CLASS */
-	XFlush(xdisplay);
+	XFlush(xkmcon);
 	if ((wmpid = XInternAtom(xdisplay, "_NET_WM_PID", False)) != None) {
 		pid = (unsigned long) getpid();
-		XChangeProperty(xdisplay, xdrawable,
+		XChangeProperty(xkmcon, xdrawable,
 			wmpid, /* Atom property */
 			XA_CARDINAL, /* Atom type */
 			32, /* int format, 32 really is "long" */
 			PropModeReplace, /* int mode */
 			(uchar *)&pid, /* unsigned char * data */
 			1); /* int nelements */
-		XFlush(xdisplay);
+		XFlush(xkmcon);
 	}
 	
 	/*
 	 * put the window on the screen
 	 */
-	XMapWindow(xdisplay, xdrawable);
-	XFlush(xdisplay);
+	wmdelete = XInternAtom(xkmcon, "WM_DELETE_WINDOW", True);
+	XSetWMProtocols(xkmcon, xdrawable, &wmdelete, 1);
+	XMapWindow(xkmcon, xdrawable);
+	XFlush(xkmcon);
 
 	screensize(r, xscreenchan);
 	if(gscreen == nil)
@@ -541,7 +544,6 @@ xproc(void *arg)
 
 	XSelectInput(xkmcon, xdrawable, mask);
 	for(;;) {
-		//XWindowEvent(xkmcon, xdrawable, mask, &event);
 		XNextEvent(xkmcon, &event);
 		xselect(&event, xkmcon);
 		xkeyboard(&event);
@@ -695,11 +697,19 @@ static void
 xdestroy(XEvent *e)
 {
 	XDestroyWindowEvent *xe;
-	if(e->type != DestroyNotify)
-		return;
-	xe = (XDestroyWindowEvent*)e;
-	if(xe->window == xdrawable)
-		exit(0);
+	XClientMessageEvent *ce;
+
+	switch(e->type){
+	case ClientMessage:
+		/* Handle WM_DELETE_WINDOW */
+		ce = (XClientMessageEvent*)e;
+		if(ce->window == xdrawable && ce->data.l[0] == wmdelete)
+			exit(0);
+	case DestroyNotify:
+		xe = (XDestroyWindowEvent*)e;
+		if(xe->window == xdrawable)
+			exit(0);
+	}
 }
 
 static void

@@ -162,7 +162,6 @@ struct Chan
 	Mnt*	mux;			/* Mnt for clients using me for messages */
 	union {
 		void*	aux;
-		Qid	pgrpid;		/* for #p/notepg */
 		ulong	mid;		/* for ns in devproc */
 	};
 	Chan*	mchan;			/* channel to mounted server */
@@ -293,7 +292,6 @@ struct Pgrp
 {
 	Ref ref;				/* also used as a lock when mounting */
 	int	noattach;
-	ulong	pgrpid;
 	QLock	debug;			/* single access via devproc.c */
 	RWlock	ns;			/* Namespace n read/one write lock */
 	Mhead	*mnthash[MNTHASH];
@@ -355,7 +353,6 @@ struct Proc
 	uint	mach;
 
 	ulong	pid;
-	ulong	parentpid;
 
 	Pgrp	*pgrp;		/* Process group for namespace */
 	Fgrp	*fgrp;		/* File descriptor group */

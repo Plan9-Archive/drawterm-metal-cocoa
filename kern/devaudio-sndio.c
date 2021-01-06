@@ -20,7 +20,7 @@ static struct sio_par par;
 void
 audiodevopen(void)
 {
-	hdl = sio_open(NULL, SIO_PLAY, 0);
+	hdl = sio_open(SIO_DEVANY, SIO_PLAY, 0);
 	if(hdl == NULL){
 		error("sio_open failed");
 		return;
