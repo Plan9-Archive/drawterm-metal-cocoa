@@ -340,6 +340,7 @@ enum{
 	Qosversion,
 	Qrandom,
 	Qreboot,
+	Qsecstore,
 	Qshowfile,
 	Qsnarf,
 	Qsysname,
@@ -367,6 +368,7 @@ static Dirtab consdir[]={
 	"osversion",	{Qosversion},	0,		0444,
 	"random",	{Qrandom},	0,		0444,
 	"reboot",	{Qreboot},	0,		0664,
+	"secstore",	{Qsecstore},	0,		0666,
 	"showfile",	{Qshowfile},	0,	0220,
 	"snarf",	{Qsnarf},		0,		0666,
 	"sysname",	{Qsysname},	0,		0664,
@@ -375,6 +377,8 @@ static Dirtab consdir[]={
 	"zero",		{Qzero},	0,		0444,
 };
 
+char secstorebuf[65536];
+Dirtab *secstoretab = &consdir[Qsecstore];
 Dirtab *snarftab = &consdir[Qsnarf];
 
 int
@@ -457,6 +461,13 @@ consopen(Chan *c, int omode)
 		}else
 			qreopen(kprintoq);
 		c->iounit = qiomaxatomic;
+		break;
+
+	case Qsecstore:
+		if(omode == ORDWR)
+			error(Eperm);
+		if(omode != OREAD)
+			memset(secstorebuf, 0, sizeof secstorebuf);
 		break;
 
 	case Qsnarf:
@@ -621,6 +632,9 @@ consread(Chan *c, void *buf, long n, vlong off)
 			return 0;
 		return readstr(offset, buf, n, c->aux);
 
+	case Qsecstore:
+		return readstr(offset, buf, n, secstorebuf);
+
 	case Qsysstat:
 		return 0;
 
@@ -759,6 +773,13 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		poperror();
 		free(cb);
 		break;
+
+	case Qsecstore:
+		if(offset >= sizeof secstorebuf || offset+n+1 >= sizeof secstorebuf)
+			error(Etoobig);
+		secstoretab->qid.vers++;
+		memmove(secstorebuf+offset, va, n);
+		return n;
 
 	case Qshowfile:
 		return showfilewrite(a, n);

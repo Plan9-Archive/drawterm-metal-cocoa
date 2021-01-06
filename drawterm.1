@@ -20,6 +20,8 @@ drawterm  \- connection to cpu, fs, and auth servers
 .B -s
 .I secstore
 ] [
+.B -S
+] [
 .B -e
 \fR'\fIcrypt hash\fR'
 ] [
@@ -84,6 +86,11 @@ Sets the address of the
 server. If the -s option is absent,
 .IR secstore (1)
 will attempt to dial tcp!$auth!secstore (or the otherwise specified auth server).
+
+.TP
+.B -S
+Instructs drawterm to preserve the contents of any secstore secrets it learns in /dev/secstore. This can then be used to initialise a factotum on plan9. This store should be wiped once it has been read thus:
+.IR cp /dev/zero /mnt/term/dev/secstore .
 
 .TP
 .B -e \fR'\fIcrypt hash\fR'
