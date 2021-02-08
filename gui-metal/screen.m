@@ -31,6 +31,7 @@ Memimage *gscreen;
 
 @interface DrawtermView : NSView<NSTextInputClient>
 - (void)reshape;
+- (void)clearMods;
 - (void)clearInput;
 - (void)mouseevent:(NSEvent *)e;
 - (void)resetLastInputRect;
@@ -386,6 +387,11 @@ mainproc(void *aux)
 	absmousetrack(p.x, [myview convertSizeToBacking:myview.frame.size].height - p.y, 0, ticks());
 }
 
+- (void) windowDidResignKey:(id)arg
+{
+	[myview clearMods];
+}
+
 @end
 
 @implementation DrawtermView
@@ -398,6 +404,7 @@ mainproc(void *aux)
 	NSUInteger _tapFingers;
 	NSUInteger _tapTime;
 	BOOL _breakcompose;
+	NSEventModifierFlags _mods;
 }
 
 - (id) initWithFrame:(NSRect)fr
@@ -411,6 +418,7 @@ mainproc(void *aux)
 	_markedRange = NSMakeRange(NSNotFound, 0);
 	_selectedRange = NSMakeRange(0, 0);
 	_breakcompose = NO;
+	_mods = 0;
 	LOG(@"END");
 	return self;
 }
@@ -523,16 +531,15 @@ evkey(uint v)
 }
 
 - (void)flagsChanged:(NSEvent*)event {
-	static NSEventModifierFlags y;
 	NSEventModifierFlags x;
 	NSUInteger u;
 
 	x = [event modifierFlags];
 	u = [NSEvent pressedMouseButtons];
 	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
-	if((x & ~y & NSEventModifierFlagShift) != 0)
+	if((x & ~_mods & NSEventModifierFlagShift) != 0)
 		kbdkey(Kshift, 1);
-	if((x & ~y & NSEventModifierFlagControl) != 0){
+	if((x & ~_mods & NSEventModifierFlagControl) != 0){
 		if(u){
 			u |= 1;
 			[self sendmouse:u];
@@ -540,7 +547,7 @@ evkey(uint v)
 		}else
 			kbdkey(Kctl, 1);
 	}
-	if((x & ~y & NSEventModifierFlagOption) != 0){
+	if((x & ~_mods & NSEventModifierFlagOption) != 0){
 		if(u){
 			u |= 2;
 			[self sendmouse:u];
@@ -553,13 +560,13 @@ evkey(uint v)
 			u |= 4;
 			[self sendmouse:u];
 		}
-	if((x & ~y & NSEventModifierFlagCapsLock) != 0)
+	if((x & ~_mods & NSEventModifierFlagCapsLock) != 0)
 		kbdkey(Kcaps, 1);
-	if((~x & y & NSEventModifierFlagShift) != 0)
+	if((~x & _mods & NSEventModifierFlagShift) != 0)
 		kbdkey(Kshift, 0);
-	if((~x & y & NSEventModifierFlagControl) != 0)
+	if((~x & _mods & NSEventModifierFlagControl) != 0)
 		kbdkey(Kctl, 0);
-	if((~x & y & NSEventModifierFlagOption) != 0){
+	if((~x & _mods & NSEventModifierFlagOption) != 0){
 		kbdkey(Kalt, 0);
 		if(_breakcompose){
 			kbdkey(Kalt, 1);
@@ -567,9 +574,24 @@ evkey(uint v)
 			_breakcompose = NO;
 		}
 	}
-	if((~x & y & NSEventModifierFlagCapsLock) != 0)
+	if((~x & _mods & NSEventModifierFlagCapsLock) != 0)
 		kbdkey(Kcaps, 0);
-	y = x;
+	_mods = x;
+}
+
+- (void) clearMods {
+	if((_mods & NSEventModifierFlagShift) != 0){
+		kbdkey(Kshift, 0);
+		_mods ^= NSEventModifierFlagShift;
+	}
+	if((_mods & NSEventModifierFlagControl) != 0){
+		kbdkey(Kctl, 0);
+		_mods ^= NSEventModifierFlagControl;
+	}
+	if((_mods & NSEventModifierFlagOption) != 0){
+		kbdkey(Kalt, 0);
+		_mods ^= NSEventModifierFlagOption;
+	}
 }
 
 - (void) mouseevent:(NSEvent*)event
