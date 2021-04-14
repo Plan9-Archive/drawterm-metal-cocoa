@@ -768,6 +768,7 @@ static void
 xkeyboard(XEvent *e)
 {
 	static int altdown;
+	static int shiftdown;
 	KeySym k;
 
 	switch(e->xany.type){
@@ -781,6 +782,10 @@ xkeyboard(XEvent *e)
 			kbdkey(Kalt, 0);
 			kbdkey(Kalt, 1);
 			kbdkey(Kalt, 0);
+		}
+		if(shiftdown){
+			shiftdown = 0;
+			kbdkey(Kshift, 0);
 		}
 		/* wet floor */
 	default:
@@ -922,6 +927,7 @@ xkeyboard(XEvent *e)
 	if(k == NoSymbol)
 		return;
 	altdown = e->xany.type == KeyPress && k == Kalt;
+	shiftdown = e->xany.type == KeyPress && k == Kshift;
 	kbdkey(k, e->xany.type == KeyPress);
 }
 
