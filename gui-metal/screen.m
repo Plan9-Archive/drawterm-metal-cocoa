@@ -18,6 +18,8 @@
 #include "keyboard.h"
 #include "ball9png.h"
 
+extern char		*geometry;	/* defined in cpu.c */
+
 #ifndef DEBUG
 #define DEBUG 0
 #endif
@@ -335,15 +337,42 @@ mainproc(void *aux)
 		| NSWindowStyleMaskResizable;
 
 	NSRect r = [[NSScreen mainScreen] visibleFrame];
+	if (geometry == NULL) {
+		CGFloat sizeFactor = 3.0 / 4.0;
+		r.size.width = r.size.width*sizeFactor;
+		r.size.height = r.size.height*sizeFactor;
+	} else {
+		NSInteger width = 0;
+		NSInteger height = 0;
+		NSInteger xoff = 0;
+		NSInteger yoff = 0;
+		NSScanner* geometryScanner = [[NSScanner alloc] initWithString:@(geometry)];
+		NSCharacterSet* skipChars = [NSCharacterSet characterSetWithCharactersInString:@"x"];
+		geometryScanner.charactersToBeSkipped = skipChars;
+		[geometryScanner scanInteger:&width];
+		[geometryScanner scanInteger:&height];
+		[geometryScanner scanInteger:&xoff];
+		[geometryScanner scanInteger:&yoff];
+		if (xoff < 0) {
+			xoff = r.size.width + xoff - width;
+		}
+		if (yoff < 0) {
+			// The screen origin (0,0) on macOS is the lower left corner, whereas on X11 it is the top left.
+			yoff *= -1;
+		} else {
+			yoff = r.size.height - yoff - height;
+		}
+		r = CGRectMake(xoff, yoff, width, height);
+	}
 
-	r.size.width = r.size.width*3/4;
-	r.size.height = r.size.height*3/4;
 	r = [NSWindow contentRectForFrameRect:r styleMask:Winstyle];
 
 	_window = [[NSWindow alloc] initWithContentRect:r styleMask:Winstyle
 		backing:NSBackingStoreBuffered defer:NO];
 	[_window setTitle:@"drawterm"];
-	[_window center];
+	if (geometry == NULL) {
+		[_window center];
+	}
 	[_window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
 	[_window setContentMinSize:NSMakeSize(64,64)];
 	[_window setOpaque:YES];
