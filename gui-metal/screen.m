@@ -74,8 +74,9 @@ screeninit(void)
 {
 	memimageinit();
 	NSSize s = [myview convertSizeToBacking:myview.frame.size];
-	screensize(Rect(0, 0, s.width, s.height), ARGB32);
-	gscreen->clipr = Rect(0, 0, s.width, s.height);
+	CGFloat scale = myview.window.backingScaleFactor;
+	screensize(Rect(0, 0, s.width / scale, s.height / scale), ARGB32);
+	gscreen->clipr = Rect(0, 0, s.width / scale, s.height / scale);
 	LOG(@"%g %g", s.width, s.height);
 	terminit();
 	readybit = 1;
@@ -286,6 +287,9 @@ mouseset(Point p)
 		NSPoint s;
 
 		s = NSMakePoint(p.x, p.y);
+		CGFloat scale = myview.window.backingScaleFactor;
+		s.x *= scale;
+		s.y *= scale;
 		LOG(@"-> pixel  %g %g", s.x, s.y);
 		s = [[myview window] convertPointFromBacking:s];
 		LOG(@"-> point  %g %g", s.x, s.y);
@@ -336,8 +340,9 @@ mainproc(void *aux)
 
 	NSRect r = [[NSScreen mainScreen] visibleFrame];
 
-	r.size.width = r.size.width*3/4;
-	r.size.height = r.size.height*3/4;
+	CGFloat sizeFactor = 3.0 / 4.0;
+	r.size.width = r.size.width*sizeFactor;
+	r.size.height = r.size.height*sizeFactor;
 	r = [NSWindow contentRectForFrameRect:r styleMask:Winstyle];
 
 	_window = [[NSWindow alloc] initWithContentRect:r styleMask:Winstyle
@@ -384,7 +389,8 @@ mainproc(void *aux)
 {
 	NSPoint p;
 	p = [_window convertPointToBacking:[_window mouseLocationOutsideOfEventStream]];
-	absmousetrack(p.x, [myview convertSizeToBacking:myview.frame.size].height - p.y, 0, ticks());
+	CGFloat scale = myview.window.backingScaleFactor;
+	absmousetrack(p.x / scale, ([myview convertSizeToBacking:myview.frame.size].height - p.y) / scale, 0, ticks());
 }
 
 - (void) windowDidResignKey:(id)arg
@@ -601,10 +607,11 @@ evkey(uint v)
 	NSUInteger u;
 	NSEventModifierFlags m;
 
+	CGFloat scale = myview.window.backingScaleFactor;
 	p = [self.window convertPointToBacking:[self.window mouseLocationOutsideOfEventStream]];
 	u = [NSEvent pressedMouseButtons];
-	q.x = p.x;
-	q.y = p.y;
+	q.x = p.x / scale;
+	q.y = p.y / scale;
 	if(!ptinrect(q, gscreen->clipr)) return;
 	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
 	if(u == 1){
@@ -615,7 +622,7 @@ evkey(uint v)
 		}else if(m & NSEventModifierFlagCommand)
 			u = 4;
 	}
-	absmousetrack(p.x, [self convertSizeToBacking:self.frame.size].height - p.y, u, ticks());
+	absmousetrack(p.x / scale, ([self convertSizeToBacking:self.frame.size].height - p.y) / scale, u, ticks());
 	if(u && _lastInputRect.size.width && _lastInputRect.size.height)
 		[self resetLastInputRect];
 }
@@ -702,6 +709,9 @@ evkey(uint v)
 - (void) reshape
 {
 	NSSize s = [self convertSizeToBacking:self.frame.size];
+	CGFloat scale = myview.window.backingScaleFactor;
+	s.width /= scale;
+	s.height /= scale;
 	LOG(@"%g %g", s.width, s.height);
 	if(gscreen != nil){
 		screenresize(Rect(0, 0, s.width, s.height));
