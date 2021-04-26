@@ -31,6 +31,7 @@ from The Open Group.
 #include <config.h>
 #endif
 #include <stddef.h>
+#include "ParseGeom.h"
 
 /*
  *    XParseGeometry parses strings of the form
@@ -76,12 +77,13 @@ int *y,
 unsigned int *width,	/* RETURN */
 unsigned int *height)	 /* RETURN */
 {
+	int mask = NoValue;
 	register char *strind;
 	unsigned int tempWidth = 0, tempHeight = 0;
 	int tempX = 0, tempY = 0;
 	char *nextCharacter;
 
-	if ( (string == NULL) || (*string == '\0')) return(0);
+	if ( (string == NULL) || (*string == '\0')) return(mask);
 	if (*string == '=')
 		string++;  /* ignore possible '=' at beg of geometry spec */
 
@@ -91,6 +93,7 @@ unsigned int *height)	 /* RETURN */
 		if (strind == nextCharacter)
 			return (0);
 		strind = nextCharacter;
+		mask |= WidthValue;
 	}
 
 	if (*strind == 'x' || *strind == 'X') {
@@ -99,6 +102,7 @@ unsigned int *height)	 /* RETURN */
 		if (strind == nextCharacter)
 			return (0);
 		strind = nextCharacter;
+		mask |= HeightValue;
 	}
 
 	if ((*strind == '+') || (*strind == '-')) {
@@ -108,6 +112,7 @@ unsigned int *height)	 /* RETURN */
 			if (strind == nextCharacter)
 				return (0);
 			strind = nextCharacter;
+			mask |= XNegative;
 
 		}
 		else
@@ -118,6 +123,7 @@ unsigned int *height)	 /* RETURN */
 				return(0);
 			strind = nextCharacter;
 		}
+		mask |= XValue;
 		if ((*strind == '+') || (*strind == '-')) {
 			if (*strind == '-') {
 			strind++;
@@ -125,6 +131,7 @@ unsigned int *height)	 /* RETURN */
 			if (strind == nextCharacter)
 					return(0);
 			strind = nextCharacter;
+			mask |= YNegative;
 
 			}
 			else
@@ -136,6 +143,7 @@ unsigned int *height)	 /* RETURN */
 				strind = nextCharacter;
 			}
 		}
+		mask |= YValue;
 	}
 
 	/* If strind isn't at the end of the string the it's an invalid
@@ -143,9 +151,13 @@ unsigned int *height)	 /* RETURN */
 
 	if (*strind != '\0') return (0);
 
-	*x = tempX;
-	*y = tempY;
-	*width = tempWidth;
-	*height = tempHeight;
-	return (0);
+	if (mask & XValue)
+		*x = tempX;
+	if (mask & YValue)
+		*y = tempY;
+	if (mask & WidthValue)
+		*width = tempWidth;
+	if (mask & HeightValue)
+		*height = tempHeight;
+	return (mask);
 }

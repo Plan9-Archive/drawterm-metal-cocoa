@@ -17,16 +17,10 @@
 #include "screen.h"
 #include "keyboard.h"
 #include "ball9png.h"
+#include "ParseGeom.h"
 
 extern char		*geometry;	/* defined in cpu.c */
 
-int
-XParseGeometry (
-const char *string,
-int *x,
-int *y,
-unsigned int *width,    /* RETURN */
-unsigned int *height);    /* RETURN */
 #ifndef DEBUG
 #define DEBUG 0
 #endif
@@ -349,12 +343,16 @@ mainproc(void *aux)
 	r.size.width = s.size.width*sizeFactor;
 	r.size.height = s.size.height*sizeFactor;
 	if (geometry != NULL) {
-		unsigned int width = r.size.width;
-		unsigned int height = r.size.height;
+		unsigned int width = 0;
+		unsigned int height = 0;
 		int xoff = 0;
 		int yoff = 0;
-		XParseGeometry(geometry, &xoff, &yoff, &width, &height);
+		int mask = XParseGeometry(geometry, &xoff, &yoff, &width, &height);
 		CGFloat goldenRatio = 1.61833;
+		if (!(mask & WidthValue || mask & HeightValue)) {
+			width = r.size.width;
+			height = r.size.height;
+		}
 		if (width == 0) {
 			width = height * goldenRatio;
 		}
