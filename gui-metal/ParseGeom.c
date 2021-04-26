@@ -30,8 +30,7 @@ from The Open Group.
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-#include "Xlibint.h"
-#include "Xutil.h"
+#include <stddef.h>
 
 /*
  *    XParseGeometry parses strings of the form
@@ -71,19 +70,18 @@ ReadInteger(char *string, char **NextString)
 
 int
 XParseGeometry (
-_Xconst char *string,
+const char *string,
 int *x,
 int *y,
 unsigned int *width,	/* RETURN */
 unsigned int *height)	 /* RETURN */
 {
-	int mask = NoValue;
 	register char *strind;
 	unsigned int tempWidth = 0, tempHeight = 0;
 	int tempX = 0, tempY = 0;
 	char *nextCharacter;
 
-	if ( (string == NULL) || (*string == '\0')) return(mask);
+	if ( (string == NULL) || (*string == '\0')) return(0);
 	if (*string == '=')
 		string++;  /* ignore possible '=' at beg of geometry spec */
 
@@ -93,7 +91,6 @@ unsigned int *height)	 /* RETURN */
 		if (strind == nextCharacter)
 			return (0);
 		strind = nextCharacter;
-		mask |= WidthValue;
 	}
 
 	if (*strind == 'x' || *strind == 'X') {
@@ -102,7 +99,6 @@ unsigned int *height)	 /* RETURN */
 		if (strind == nextCharacter)
 			return (0);
 		strind = nextCharacter;
-		mask |= HeightValue;
 	}
 
 	if ((*strind == '+') || (*strind == '-')) {
@@ -112,7 +108,6 @@ unsigned int *height)	 /* RETURN */
 			if (strind == nextCharacter)
 				return (0);
 			strind = nextCharacter;
-			mask |= XNegative;
 
 		}
 		else
@@ -123,7 +118,6 @@ unsigned int *height)	 /* RETURN */
 				return(0);
 			strind = nextCharacter;
 		}
-		mask |= XValue;
 		if ((*strind == '+') || (*strind == '-')) {
 			if (*strind == '-') {
 			strind++;
@@ -131,7 +125,6 @@ unsigned int *height)	 /* RETURN */
 			if (strind == nextCharacter)
 					return(0);
 			strind = nextCharacter;
-			mask |= YNegative;
 
 			}
 			else
@@ -142,7 +135,6 @@ unsigned int *height)	 /* RETURN */
 				return(0);
 				strind = nextCharacter;
 			}
-			mask |= YValue;
 		}
 	}
 
@@ -151,13 +143,9 @@ unsigned int *height)	 /* RETURN */
 
 	if (*strind != '\0') return (0);
 
-	if (mask & XValue)
-		*x = tempX;
-	if (mask & YValue)
-		*y = tempY;
-	if (mask & WidthValue)
-		*width = tempWidth;
-	if (mask & HeightValue)
-		*height = tempHeight;
-	return (mask);
+	*x = tempX;
+	*y = tempY;
+	*width = tempWidth;
+	*height = tempHeight;
+	return (0);
 }
