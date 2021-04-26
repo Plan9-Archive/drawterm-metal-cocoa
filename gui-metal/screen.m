@@ -20,6 +20,13 @@
 
 extern char		*geometry;	/* defined in cpu.c */
 
+int
+XParseGeometry (
+const char *string,
+int *x,
+int *y,
+unsigned int *width,    /* RETURN */
+unsigned int *height);    /* RETURN */
 #ifndef DEBUG
 #define DEBUG 0
 #endif
@@ -336,31 +343,32 @@ mainproc(void *aux)
 		| NSWindowStyleMaskMiniaturizable
 		| NSWindowStyleMaskResizable;
 
-	NSRect r = [[NSScreen mainScreen] visibleFrame];
-	if (geometry == NULL) {
-		CGFloat sizeFactor = 3.0 / 4.0;
-		r.size.width = r.size.width*sizeFactor;
-		r.size.height = r.size.height*sizeFactor;
-	} else {
-		NSInteger width = 0;
-		NSInteger height = 0;
-		NSInteger xoff = 0;
-		NSInteger yoff = 0;
-		NSScanner* geometryScanner = [[NSScanner alloc] initWithString:@(geometry)];
-		NSCharacterSet* skipChars = [NSCharacterSet characterSetWithCharactersInString:@"x"];
-		geometryScanner.charactersToBeSkipped = skipChars;
-		[geometryScanner scanInteger:&width];
-		[geometryScanner scanInteger:&height];
-		[geometryScanner scanInteger:&xoff];
-		[geometryScanner scanInteger:&yoff];
+	NSRect s = [[NSScreen mainScreen] visibleFrame];
+	NSRect r;
+	CGFloat sizeFactor = 3.0 / 4.0;
+	r.size.width = s.size.width*sizeFactor;
+	r.size.height = s.size.height*sizeFactor;
+	if (geometry != NULL) {
+		unsigned int width = r.size.width;
+		unsigned int height = r.size.height;
+		int xoff = 0;
+		int yoff = 0;
+		XParseGeometry(geometry, &xoff, &yoff, &width, &height);
+		CGFloat goldenRatio = 1.61833;
+		if (width == 0) {
+			width = height * goldenRatio;
+		}
+		if (height == 0) {
+			height = width / goldenRatio;
+		}
 		if (xoff < 0) {
-			xoff = r.size.width + xoff - width;
+			xoff = s.size.width + xoff - width;
 		}
 		if (yoff < 0) {
 			// The screen origin (0,0) on macOS is the lower left corner, whereas on X11 it is the top left.
 			yoff *= -1;
 		} else {
-			yoff = r.size.height - yoff - height;
+			yoff = s.size.height - yoff - height;
 		}
 		r = CGRectMake(xoff, yoff, width, height);
 	}
