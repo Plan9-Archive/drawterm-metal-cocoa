@@ -12,8 +12,6 @@ struct Oproc {
 
 static int tlsx = TLS_OUT_OF_INDEXES;
 
-char	*argv0;
-
 Proc*
 _getproc(void)
 {
