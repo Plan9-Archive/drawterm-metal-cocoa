@@ -285,18 +285,20 @@ mouseset(Point p)
 	dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
 		NSPoint s;
 
-		s = NSMakePoint(p.x, p.y);
-		LOG(@"-> pixel  %g %g", s.x, s.y);
-		s = [[myview window] convertPointFromBacking:s];
-		LOG(@"-> point  %g %g", s.x, s.y);
-		s = [myview convertPoint:s toView:nil];
-		LOG(@"-> window %g %g", s.x, s.y);
-		s = [[myview window] convertPointToScreen: s];
-		LOG(@"(%g, %g) <- toScreen", s.x, s.y);
-		s.y = NSScreen.screens[0].frame.size.height - s.y;
-		LOG(@"(%g, %g) <- setmouse", s.x, s.y);
-		CGWarpMouseCursorPosition(s);
-		CGAssociateMouseAndMouseCursorPosition(true);
+		if([[myview window] isKeyWindow]){
+			s = NSMakePoint(p.x, p.y);
+			LOG(@"-> pixel  %g %g", s.x, s.y);
+			s = [[myview window] convertPointFromBacking:s];
+			LOG(@"-> point  %g %g", s.x, s.y);
+			s = [myview convertPoint:s toView:nil];
+			LOG(@"-> window %g %g", s.x, s.y);
+			s = [[myview window] convertPointToScreen: s];
+			LOG(@"(%g, %g) <- toScreen", s.x, s.y);
+			s.y = NSScreen.screens[0].frame.size.height - s.y;
+			LOG(@"(%g, %g) <- setmouse", s.x, s.y);
+			CGWarpMouseCursorPosition(s);
+			CGAssociateMouseAndMouseCursorPosition(true);
+		}
 	}});
 }
 
