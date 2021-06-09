@@ -16,7 +16,9 @@ Features of CONF=osx-metal
 
 - basic support for macOS input method
 
-Features of CONF=osx-cocoa
+~~
+
+Features of CONF=osx-cocoa (no longer supported)
 
 - native resolution support for HiDPI screens
 
