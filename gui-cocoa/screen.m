@@ -364,43 +364,76 @@ evkey(NSEvent *event)
 		kbdkey(m, 0);
 }
 
-- (void)flagsChanged:(NSEvent*)event {
-	static NSEventModifierFlags y;
-	NSEventModifierFlags x;
+- (void)sendmouse:(NSUInteger)b
+{
+	NSPoint p;
+	Point q;
 
-	x = [event modifierFlags];
-	if((x & ~y & NSEventModifierFlagShift) != 0)
-		kbdkey(Kshift, 1);
-	if((x & ~y & NSEventModifierFlagControl) != 0)
-		kbdkey(Kctl, 1);
-	if((x & ~y & NSEventModifierFlagOption) != 0)
-		kbdkey(Kalt, 1);
-	if((x & ~y & NSEventModifierFlagCapsLock) != 0)
-		kbdkey(Kcaps, 1);
-	if((~x & y & NSEventModifierFlagShift) != 0)
-		kbdkey(Kshift, 0);
-	if((~x & y & NSEventModifierFlagControl) != 0)
-		kbdkey(Kctl, 0);
-	if((~x & y & NSEventModifierFlagOption) != 0)
-		kbdkey(Kalt, 0);
-	if((x & ~y & NSEventModifierFlagCapsLock) != 0)
-		kbdkey(Kcaps, 0);
-	y = x;
+	p = [self.window mouseLocationOutsideOfEventStream];
+	q.x = p.x;
+	q.y = p.y;
+	if(!ptinrect(q, gscreen->clipr)) return;
+	absmousetrack(p.x, self.frame.size.height - p.y, b, ticks());
+}
+
+- (void)flagsChanged:(NSEvent*)event {
+	static NSEventModifierFlags omod;
+	NSEventModifierFlags m;
+	NSUInteger b;
+
+	m = [event modifierFlags];
+	b = [NSEvent pressedMouseButtons];
+	b = b & ~6 | b << 1 & 4 | b >> 1 & 2;
+	if(b){
+		if(m & ~omod & NSEventModifierFlagControl)
+			b |= 1;
+		if(m & ~omod & NSEventModifierFlagOption)
+			b |= 2;
+		if(m & ~omod & NSEventModifierFlagCommand)
+			b |= 4;
+		[self sendmouse:b];
+	}else{
+		if((m & ~omod & NSEventModifierFlagShift) != 0)
+			kbdkey(Kshift, 1);
+		if((m & ~omod & NSEventModifierFlagControl) != 0)
+			kbdkey(Kctl, 1);
+		if((m & ~omod & NSEventModifierFlagOption) != 0)
+			kbdkey(Kalt, 1);
+		if((m & ~omod & NSEventModifierFlagCapsLock) != 0)
+			kbdkey(Kcaps, 1);
+		if((~m & omod & NSEventModifierFlagShift) != 0)
+			kbdkey(Kshift, 0);
+		if((~m & omod & NSEventModifierFlagControl) != 0)
+			kbdkey(Kctl, 0);
+		if((~m & omod & NSEventModifierFlagOption) != 0)
+			kbdkey(Kalt, 0);
+		if((m & ~omod & NSEventModifierFlagCapsLock) != 0)
+			kbdkey(Kcaps, 0);
+	}
+	omod = m;
 }
 
 - (void)mouseevent:(NSEvent*)event
 {
-	NSPoint p;
-	Point q;
-	NSUInteger u;
+	NSUInteger b;
+	NSEventModifierFlags m;
 
-	p = [self.window mouseLocationOutsideOfEventStream];
-	u = [NSEvent pressedMouseButtons];
-	q.x = p.x;
-	q.y = p.y;
-	if(!ptinrect(q, gscreen->clipr)) return;
-	u = u & ~6 | u << 1 & 4 | u >> 1 & 2;
-	absmousetrack(p.x, self.frame.size.height - p.y, u, ticks());
+	b = [NSEvent pressedMouseButtons];
+	b = b & ~6 | b << 1 & 4 | b >> 1 & 2;
+	if(b==1){
+		m = [event modifierFlags];
+		if(m & NSEventModifierFlagOption)
+			b=2;
+		else if(m & NSEventModifierFlagCommand)
+			b=4;
+		else if(m & NSEventModifierFlagControl)
+			b=8;
+	}else if(b==4){
+		m = [event modifierFlags];
+		if(m & NSEventModifierFlagCommand)
+			b=8;
+	}
+	[self sendmouse:b];
 }
 
 - (void) mouseDown:(NSEvent*)event { [self mouseevent:event]; }
