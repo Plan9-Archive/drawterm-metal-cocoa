@@ -7,6 +7,7 @@ OFILES=\
 	poly1305.$O chacha.$O chachablock.$O ccpoly.$O\
 	des.$O des3CBC.$O desmodes.$O\
 	ecc.$O jacobian.$O secp256k1.$O secp256r1.$O secp384r1.$O\
+	curve25519.$O curve25519_dh.$O\
 	genrandom.$O fastrand.$O nfastrand.$O prng.$O\
 	hmac.$O hkdf.$O pbkdf2.$O\
 	rsaalloc.$O rsadecrypt.$O rsaencrypt.$O\

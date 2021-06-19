@@ -990,8 +990,8 @@ tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 			return nil;
 
 		memset(Q, 0, sizeof(*Q));
-		Q->x = mpnew(0);
-		Q->y = mpnew(0);
+		Q->a.x = mpnew(0);
+		Q->a.y = mpnew(0);
 		Q->d = mpnew(0);
 
 		memset(&K, 0, sizeof(K));
@@ -1004,7 +1004,7 @@ tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 		n = (mpsignif(dom->p)+7)/8;
 		setMasterSecret(sec, mptobytes(K.x, n));
 		Yc = newbytes(1 + 2*n);
-		Yc->len = ecencodepub(dom, Q, Yc->data, Yc->len);
+		Yc->len = ecencodepub(dom, &Q->a, Yc->data, Yc->len);
 
 		mpfree(K.x);
 		mpfree(K.y);
@@ -2084,8 +2084,8 @@ tlsConnectionFree(TlsConnection *c)
 
 	dh_finish(&c->sec->dh, nil);
 
-	mpfree(c->sec->ec.Q.x);
-	mpfree(c->sec->ec.Q.y);
+	mpfree(c->sec->ec.Q.a.x);
+	mpfree(c->sec->ec.Q.a.y);
 	mpfree(c->sec->ec.Q.d);
 	ecdomfree(&c->sec->ec.dom);
 
@@ -2559,15 +2559,15 @@ tlsSecECDHEs1(TlsSec *sec)
 	}else{
 		ecdominit(dom, sec->nc->init);
 		memset(Q, 0, sizeof(*Q));
-		Q->x = mpnew(0);
-		Q->y = mpnew(0);
+		Q->a.x = mpnew(0);
+		Q->a.y = mpnew(0);
 		Q->d = mpnew(0);
 		ecgen(dom, Q);
 		n = 1 + 2*((mpsignif(dom->p)+7)/8);
 		par = newbytes(1+2+1+n);
 		par->data[0] = 3;
 		put16(par->data+1, sec->nc->tlsid);
-		n = ecencodepub(dom, Q, par->data+4, par->len-4);
+		n = ecencodepub(dom, &Q->a, par->data+4, par->len-4);
 		par->data[3] = n;
 		par->len = 1+2+1+n;
 	}
