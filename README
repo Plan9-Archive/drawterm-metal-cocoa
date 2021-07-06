@@ -1,10 +1,8 @@
 DESCRIPTION
 -----------
-This is a fork of 9front's drawterm to add features for macOS.
+This is a fork of 9front's drawterm with the addition of osx-metal.
 
-Features of CONF=osx-metal
-
-- native resolution support for HiDPI screens
+- native resolution support for HiDPI screens using metal
 
 - use control, option, and command keys for mouse 1, 2, and 3 clicks
 
@@ -15,14 +13,6 @@ Features of CONF=osx-metal
 - scale cursor to 32x32 using an EPX algorithm
 
 - basic support for macOS input method
-
-~~
-
-Features of CONF=osx-cocoa (no longer supported)
-
-- native resolution support for HiDPI screens
-
-- use control, option, and command keys for mouse 1, 2, and 3 clicks
 
 ~~
 

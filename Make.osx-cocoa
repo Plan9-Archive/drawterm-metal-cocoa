@@ -3,12 +3,12 @@ PTHREAD=	# for Mac
 AR=ar
 AS=as
 RANLIB=ranlib
-CC=xcrun --sdk macosx clang
-CFLAGS=-Wall -Wno-missing-braces -g -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -march=native -O2 -DGL_SILENCE_DEPRECATION
+CC=gcc
+CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -O2
 O=o
 OS=posix
 GUI=cocoa
-LDADD=-ggdb -framework Cocoa -framework OpenGL
+LDADD=-ggdb -framework AppKit -framework OpenGL
 LDFLAGS=$(PTHREAD)
 TARG=drawterm
 AUDIO=none
