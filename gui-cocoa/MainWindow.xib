@@ -50,9 +50,6 @@
                     </customView>
                 </subviews>
             </view>
-            <connections>
-                <outlet property="delegate" destination="Voe-Tx-rLC" id="4wA-h5-i2C"/>
-            </connections>
         </window>
     </objects>
 </document>
