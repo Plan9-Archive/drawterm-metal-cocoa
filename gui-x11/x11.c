@@ -50,7 +50,7 @@ static	Drawable	xscreenid;
 static	XImage*		xscreenimage;
 static	Visual		*xvis;
 
-extern char		*geometry;	/* defined in main.c */
+extern char		*geometry;	/* defined in cpu.c */
 
 #include "../glenda-t.xbm"
 
