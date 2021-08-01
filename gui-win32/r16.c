@@ -21,8 +21,9 @@ enum
 	Maskx	= (1<<Bitx)-1,		/* 0011 1111 */
 	Testx	= Maskx ^ 0xFF,		/* 1100 0000 */
 
-	SurrogateMin	= 0xD800,
 	SurrogateMax	= 0xDFFF,
+	HiSurrogate		= 0xD800,
+	LoSurrogate		= 0xDC00,
 
 	Bad	= Runeerror,
 };
@@ -34,8 +35,8 @@ runes16dup(Rune16 *r)
 	Rune16 *s;
 
 	n = runes16len(r) + 1;
-	s = malloc(n * sizeof(Rune16));
-	memmove(s, r, n * sizeof(Rune16));
+	s = calloc(n, sizeof(Rune16));
+	memcpy(s, r, n * sizeof(Rune16));
 	return s;
 }
 
@@ -59,17 +60,29 @@ runes16toutf(char *p, Rune16 *r, int nc)
 
 	op = p;
 	ep = p + nc;
-	while(c = *r++) {
+	while(c = *r++){
 		n = 1;
 		if(c >= Runeself)
 			n = runelen(c);
 		if(p + n >= ep)
 			break;
-		rc = c;
-		if(c < Runeself)
+		if(c < Runeself){
 			*p++ = c;
-		else
-			p += runetochar(p, &rc);
+			continue;
+		}
+		rc = c;
+		if(c >= LoSurrogate && c <= SurrogateMax)
+			rc = Bad;
+		else if(c >= HiSurrogate && c <= 0xDBFF){ /* decode a surrogate pair properly */
+			if(p + n+1 >= ep)
+				rc = Bad;
+			else if((c = *r) >= LoSurrogate && c <= SurrogateMax){
+				rc = 0x10000 | (*(r-1) - HiSurrogate) << 10 | (c - LoSurrogate);
+				r++;
+			}else
+				rc = Bad;
+		}
+		p += runetochar(p, &rc);
 	}
 	*p = '\0';
 	return op;
@@ -107,7 +120,12 @@ utftorunes16(Rune16 *r, char *p, int nc)
 	er = r + nc;
 	while(*p != '\0' && r + 1 < er){
 		p += chartorune(&rc, p);
-		*r++ = rc;	/* we'll ignore surrogate pairs */
+		if(rc >= 0x10000){ /* got to encode it in a surrogate pair */
+			rc -= 0x10000;
+			*r++ = (rc >> 10)+HiSurrogate;
+			*r++ = (rc & 0x3FF)+LoSurrogate;
+		}else
+			*r++ = rc;
 	}
 	*r = '\0';
 	return or;
@@ -138,7 +156,7 @@ widen(char *s)
 	wchar_t *ws;
 
 	n = utflen(s) + 1;
-	ws = malloc(n*sizeof(wchar_t));
+	ws = calloc(n, sizeof(wchar_t));
 	utftorunes16(ws, s, n);
 	return ws;
 }
@@ -162,7 +180,7 @@ widebytes(wchar_t *ws)
 {
 	int n = 0;
 
-	while (*ws)
+	while(*ws)
 		n += runelen(*ws++);
 	return n+1;
 }
