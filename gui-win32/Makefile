@@ -4,7 +4,6 @@ LIB=libgui.a
 
 OFILES=\
 	screen.$O\
-	r16.$O
 
 default: $(LIB)
 $(LIB): $(OFILES)
