@@ -1,0 +1,38 @@
+# Android
+SDKPREFIX=$(HOME)/Android/Sdk
+JAVA_HOME=/usr
+OBJS=lib/arm64-v8a/libdrawterm.so lib/armeabi-v7a/libdrawterm.so lib/x86/libdrawterm.so lib/x86_64/libdrawterm.so
+
+all: drawterm.apk
+
+clean:
+	rm -f *.apk lib/*/*.so
+
+lib/arm64-v8a/libdrawterm.so:
+	CONF=android-arm64 make -j5;
+	CONF=android-arm64 make clean;
+
+lib/armeabi-v7a/libdrawterm.so:
+	CONF=android-arm make -j5;
+	CONF=android-arm make clean;
+
+lib/x86/libdrawterm.so:
+	CONF=android-386 make -j5;
+	CONF=android-386 make clean;
+
+lib/x86_64/libdrawterm.so:
+	CONF=android-amd64 make -j5;
+	CONF=android-amd64 make clean;
+
+drawterm.apk: drawterm-signed.apk
+	$(SDKPREFIX)/build-tools/30.0.3/zipalign -v -f 4 $< $@
+
+drawterm-signed.apk: drawterm-unsigned.apk drawterm.keystore
+	$(JAVA_HOME)/bin/jarsigner -verbose -keystore ./drawterm.keystore -storepass glendarocks -keypass glendarocks -signedjar $@ $< drawtermKey
+
+drawterm-unsigned.apk: $(OBJS)
+	$(SDKPREFIX)/build-tools/30.0.3/aapt package -v -f -M gui-android/AndroidManifest.xml -S gui-android/res -I $(SDKPREFIX)/platforms/android-21/android.jar -F $@ gui-android/bin
+	$(SDKPREFIX)/build-tools/30.0.3/aapt add $@ $(OBJS)
+
+drawterm.keystore:
+	$(JAVA_HOME)/bin/keytool -genkeypair -validity 1000 -dname "CN=9front,O=Android,C=US" -keystore $@ -storepass glendarocks -keypass glendarocks -alias drawtermKey -keyalg RSA -v
