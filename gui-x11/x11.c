@@ -308,6 +308,7 @@ screeninit(void)
 		initmap(rootwin);
 	}
 
+	x = y = 0;
 	r = ZR;
 	if(geometry != nil)
 		XParseGeometry(geometry, &x, &y, &r.max.x, &r.max.y);
