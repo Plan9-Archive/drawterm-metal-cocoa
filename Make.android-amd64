@@ -1,0 +1,26 @@
+# Android
+SDKPREFIX=$(HOME)/Android/Sdk
+NDKPREFIX=$(SDKPREFIX)/ndk/21.1.6352462/toolchains/llvm/prebuilt/linux-x86_64/bin
+JAVA_HOME=/usr
+
+PTHREAD=-pthread
+AR=$(NDKPREFIX)/x86_64-linux-android-ar
+AS=$(NDKPREFIX)/x86_64-linux-android-as
+RANLIB=$(NDKPREFIX)/x86_64-linux-android-ranlib
+STRIP=$(NDKPREFIX)/x86_64-linux-android-strip
+CC=$(NDKPREFIX)/x86_64-linux-android21-clang
+CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -Dmain=dt_main -fPIC
+O=o
+OS=posix
+GUI=android
+LDADD=-ggdb -lm -shared -llog -landroid
+LDFLAGS=$(PTHREAD)
+TARG=lib/x86_64/libdrawterm.so
+AUDIO=none
+
+all: default
+
+libmachdep.a:
+	arch=amd64; \
+	(cd posix-$$arch &&  make)
+

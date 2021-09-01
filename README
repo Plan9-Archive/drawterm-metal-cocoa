@@ -39,6 +39,17 @@ To build on Mac OS X with X11 (xquartz), run CONF=osx-x11 make.
 
 To build on Mac OS X with Cocoa, run CONF=osx-cocoa make and "cp drawterm gui-cocoa/drawterm.app/".
 
+To build for Android, make sure Make.android* and gui-android/Makefile are correct for your build and target systems, then run make -f Make.android
+
+USAGE
+-------
+On Android the five checkboxes at the top represent the three mouse buttons and mousewheel, determining which "buttons" are clicked. The "kb" button toggles the soft keyboard.
+
+
+CAVEATS
+--------
+Be aware that right now on Android the login details are saved as a plaintext string if saved, and there is no secstore support.
+
 
 BINARIES
 ---------

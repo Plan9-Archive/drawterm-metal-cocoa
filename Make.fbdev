@@ -1,0 +1,22 @@
+# Unix
+#PTHREAD=	# for Mac
+PTHREAD=-pthread
+AR=ar
+AS=as
+RANLIB=ranlib
+CC=gcc
+CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -O2
+O=o
+OS=posix
+GUI=fbdev
+LDADD=-ggdb -lm -lasound
+LDFLAGS=$(PTHREAD)
+TARG=drawterm
+# AUDIO=none
+AUDIO=alsa
+
+all: default
+
+libmachdep.a:
+	arch=`uname -m|sed 's/i.86/386/;s/Power Macintosh/power/; s/x86_64/amd64/; s/armv[567].*/arm/; s/aarch64/arm64/'`; \
+	(cd posix-$$arch &&  make)
