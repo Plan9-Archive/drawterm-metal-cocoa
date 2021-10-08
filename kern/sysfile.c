@@ -293,7 +293,7 @@ _sysopen(char *name, int mode)
 }
 
 static void
-fdclose(int fd, int flag)
+_fdclose(int fd, int flag)
 {
 	int i;
 	Chan *c;
@@ -325,7 +325,7 @@ long
 _sysclose(int fd)
 {
 	fdtochan(fd, -1, 0, 0);
-	fdclose(fd, 0);
+	_fdclose(fd, 0);
 
 	return 0;
 }
@@ -698,7 +698,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* 
 	poperror();
 	cclose(c0);
 	if(ismount){
-		fdclose(fd, 0);
+		_fdclose(fd, 0);
 		poperror();
 		free(spec);
 	}
