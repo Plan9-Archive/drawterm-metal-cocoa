@@ -112,7 +112,7 @@ wlallocbuffer(Wlwin *wl)
 	wl->cursorbuffer = wl_shm_pool_create_buffer(wl->pool, size, 16, 16, 16*4, WL_SHM_FORMAT_ARGB8888);
 }
 
-static enum {
+enum {
 	White = 0xFFFFFFFF,
 	Black = 0xFF000000,
 	Green = 0xFF00FF00,
