@@ -112,6 +112,58 @@ keyboard_enter (void *data, struct wl_keyboard *keyboard, uint32_t serial, struc
 	qunlock(&wl->clip.lk);
 }
 
+static struct {
+	Rendez z;
+	QLock lk;
+	int active;
+	int32_t key;
+	int32_t rate;
+	int32_t delay;
+} repeatstate;
+
+static int
+isactive(void *arg)
+{
+	return repeatstate.active;
+}
+
+void
+repeatproc(void*)
+{
+	int ms;
+	int32_t key;
+
+	for(;;){
+		ksleep(&repeatstate.z, isactive, 0);
+		qlock(&repeatstate.lk);
+		key = repeatstate.key;
+		qunlock(&repeatstate.lk);
+		osmsleep(repeatstate.delay);
+
+repeat:
+		qlock(&repeatstate.lk);
+		if(repeatstate.active == 0 || key != repeatstate.key){
+			qunlock(&repeatstate.lk);
+			continue;
+		}
+		ms = 1000/repeatstate.rate;
+		kbdkey(repeatstate.key, 0);
+		kbdkey(repeatstate.key, 1);
+		qunlock(&repeatstate.lk);
+		osmsleep(ms);
+		goto repeat;
+	}
+}
+
+static void
+keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, int32_t delay)
+{
+	qlock(&repeatstate.lk);
+	repeatstate.rate = rate;
+	repeatstate.delay = delay;
+	qunlock(&repeatstate.lk);
+}
+
 static void
 keyboard_leave (void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface)
 {
@@ -132,16 +184,35 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Tab:
 		utf32 = '\t';
 		break;
+	case XKB_KEY_Up:
+		utf32 = Kup;
+		break;
+	case XKB_KEY_Down:
+		utf32 = Kdown;
+		break;
+	case XKB_KEY_Left:
+		utf32 = Kleft;
+		break;
+	case XKB_KEY_Right:
+		utf32 = Kright;
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
 	}
+	if(utf32 == 0)
+		return;
+
 	if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
 	if(utf32 >= 'a' && utf32 <= 'z')
 		utf32 -= ('a' - 1);
-	if(utf32){
-		kbdkey(utf32, state);
-	}
+
+	kbdkey(utf32, state);
+	qlock(&repeatstate.lk);
+	repeatstate.active = state;
+	repeatstate.key = utf32;
+	qunlock(&repeatstate.lk);
+	wakeup(&repeatstate.z);
 }
 
 static void
@@ -158,11 +229,12 @@ static const struct wl_callback_listener wl_surface_frame_listener = {
 };
 
 static struct wl_keyboard_listener keyboard_listener = {
-	&keyboard_keymap,
-	&keyboard_enter,
-	&keyboard_leave,
-	&keyboard_key,
-	&keyboard_modifiers
+	.keymap = keyboard_keymap,
+	.enter = keyboard_enter,
+	.leave = keyboard_leave,
+	.key = keyboard_key,
+	.modifiers = keyboard_modifiers,
+	.repeat_info = keyboard_repeat_info,
 };
 
 enum{
@@ -229,6 +301,8 @@ pointer_handle_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
 
 	wl = data;
 	wl->pointerserial = serial;
+	if(wl->cursorsurface == nil)
+		return;
 	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, 0, 0);
 }
 
@@ -282,8 +356,15 @@ seat_handle_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities
 	}
 }
 
+static void
+seat_handle_name(void *data, struct wl_seat *seat, const char *name)
+{
+
+}
+
 static const struct wl_seat_listener seat_listener = {
 	.capabilities = seat_handle_capabilities,
+	.name = seat_handle_name,
 };
 
 static void
@@ -391,7 +472,7 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 	if(strcmp(interface, wl_shm_interface.name) == 0) {
 		wl->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
 	} else if(strcmp(interface, wl_seat_interface.name) == 0) {
-		wl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 1);
+		wl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 4);
 		wl_seat_add_listener(wl->seat, &seat_listener, wl);
 	} else if(strcmp(interface, wl_compositor_interface.name) == 0) {
 		wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
@@ -422,6 +503,13 @@ wlsetcb(Wlwin *wl)
 	struct xdg_surface *xdg_surface;
 	struct wl_callback *cb;
 	struct zxdg_toplevel_decoration_v1 *deco;
+
+	//Wayland doesn't do keyboard repeat, but also may
+	//not tell us what the user would like, so we
+	//pick some sane defaults.
+	repeatstate.delay = 200;
+	repeatstate.rate = 20;
+	kproc("keyboard repeat", repeatproc, 0);
 
 	registry = wl_display_get_registry(wl->display);
 	wl_registry_add_listener(registry, &registry_listener, wl);
