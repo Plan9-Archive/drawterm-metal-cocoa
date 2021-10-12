@@ -114,11 +114,12 @@ wlattach(char *label)
 	gscreen->r = r;
 	rectclip(&(gscreen->clipr), gscreen->r);
 
-	wldrawcursor(wl, &arrow);
 	wl->runing = 1;
 	kproc("wldispatch", dispatchproc, wl);
 	terminit();
+	qlock(&drawlock);
 	wlflush(wl);
+	qunlock(&drawlock);
 	return wl;
 }
 
@@ -169,7 +170,9 @@ screensize(Rectangle r, ulong chan)
 void
 setcursor(void)
 {
-	wldrawcursor(snarfwin, &cursor);
+	qlock(&drawlock);
+	wldrawcursor(snarfwin, &arrow);
+	qunlock(&drawlock);
 }
 
 void
