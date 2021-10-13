@@ -5,15 +5,15 @@ AR=ar
 AS=as
 RANLIB=ranlib
 CC=gcc
-CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE -DPTHREAD $(PTHREAD) -O2
+CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE -DPTHREAD $(PTHREAD) -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2 -D_REENTRANT -O2
 O=o
 OS=posix
 GUI=wl
-LDADD=-lwayland-client -lxkbcommon -ggdb -lm -lrt
+LDADD=-lwayland-client -lxkbcommon -ggdb -lm -lrt -lpipewire-0.3
 LDFLAGS=$(PTHREAD)
 TARG=drawterm
 # AUDIO=none
-AUDIO=unix
+AUDIO=pipewire
 
 all: default
 
