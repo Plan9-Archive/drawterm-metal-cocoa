@@ -171,7 +171,7 @@ void
 setcursor(void)
 {
 	qlock(&drawlock);
-	wldrawcursor(snarfwin, &arrow);
+	wldrawcursor(snarfwin, &cursor);
 	qunlock(&drawlock);
 }
 
