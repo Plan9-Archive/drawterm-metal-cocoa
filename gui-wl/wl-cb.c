@@ -303,7 +303,7 @@ pointer_handle_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
 	wl->pointerserial = serial;
 	if(wl->cursorsurface == nil)
 		return;
-	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, 0, 0);
+	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, -cursor.offset.x, -cursor.offset.y);
 }
 
 static void

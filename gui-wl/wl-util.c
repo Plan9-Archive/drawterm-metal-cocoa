@@ -149,5 +149,5 @@ wldrawcursor(Wlwin *wl, Cursorinfo *c)
 	wl->cursorsurface = wl_compositor_create_surface(wl->compositor);
 	wl_surface_attach(wl->cursorsurface, wl->cursorbuffer, 0, 0);
 	wl_surface_commit(wl->cursorsurface);
-	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, 0, 0);
+	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, -c->offset.x, -c->offset.y);
 }
