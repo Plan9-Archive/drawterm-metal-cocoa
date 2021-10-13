@@ -116,6 +116,7 @@ static struct {
 	Rendez z;
 	QLock lk;
 	int active;
+	long keytime;
 	int32_t key;
 	int32_t rate;
 	int32_t delay;
@@ -131,18 +132,18 @@ void
 repeatproc(void*)
 {
 	int ms;
-	int32_t key;
+	long keytime;
 
 	for(;;){
 		ksleep(&repeatstate.z, isactive, 0);
 		qlock(&repeatstate.lk);
-		key = repeatstate.key;
+		keytime = repeatstate.keytime;
 		qunlock(&repeatstate.lk);
 		osmsleep(repeatstate.delay);
 
 repeat:
 		qlock(&repeatstate.lk);
-		if(repeatstate.active == 0 || key != repeatstate.key){
+		if(repeatstate.active == 0 || keytime != repeatstate.keytime){
 			qunlock(&repeatstate.lk);
 			continue;
 		}
@@ -210,6 +211,7 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	kbdkey(utf32, state);
 	qlock(&repeatstate.lk);
 	repeatstate.active = state;
+	repeatstate.keytime = time;
 	repeatstate.key = utf32;
 	qunlock(&repeatstate.lk);
 	wakeup(&repeatstate.z);
