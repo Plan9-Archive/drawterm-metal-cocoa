@@ -50,7 +50,7 @@ on_process(void *data)
 	buf->datas[0].chunk->offset = 0;
 	buf->datas[0].chunk->stride = sizeof(int16_t) * 2;
 	buf->datas[0].chunk->size = pwstate.written;
-	
+
 	pw_stream_queue_buffer(pwstate.output, b);
 	pwstate.written = 0;
 	unlock(&pwstate.lk);
@@ -68,18 +68,16 @@ pwproc(void *arg)
 	struct pw_main_loop *loop;
 
 	loop = arg;
-	fprintf(stderr, "running main pipewire loop\n");
 	pw_main_loop_run(loop);
 }
 
 void
 audiodevopen(void)
 {
-	struct spa_pod *params[1];
+	const struct spa_pod *params[1];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(pwstate.buf, sizeof(pwstate.buf));
 	int err;
 
-	fprintf(stderr, "opening...\n");
 	lock(&pwstate.lk);
 	if(pwstate.init > 0){
 		kproc("pipewire main loop", pwproc, pwstate.loop);
@@ -88,8 +86,7 @@ audiodevopen(void)
 	}
 
 	pwstate.init++;
-	fprintf(stderr, "initint...\n");
-	pw_init(&argc, &argv);
+	pw_init(&argc, (char***)&argv);
 	pwstate.loop = pw_main_loop_new(NULL);
 	if(pwstate.loop == NULL)
 		sysfatal("could not create loop");

@@ -42,7 +42,7 @@ randname(char *buf)
 static int
 wlcreateshm(off_t size)
 {
-	char name[] = "/devdraw--XXXXXX";
+	char name[] = "/drawterm--XXXXXX";
 	int retries = 100;
 	int fd;
 

@@ -517,7 +517,7 @@ wlsetcb(Wlwin *wl)
 	wl_registry_add_listener(registry, &registry_listener, wl);
 	wl_display_roundtrip(wl->display);
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	
+
 	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil)
 		sysfatal("Registration fell short");
 
