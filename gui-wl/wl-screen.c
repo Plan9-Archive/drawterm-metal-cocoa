@@ -25,9 +25,7 @@
 
 #undef close
 
-static Wlwin *snarfwin;
-
-static int clientruning;
+static Wlwin *gwin;
 
 Memimage *gscreen;
 
@@ -98,7 +96,7 @@ wlattach(char *label)
 	Wlwin *wl;
 
 	wl = newwlwin();
-	snarfwin = wl;
+	gwin = wl;
 	wl->display = wl_display_connect(NULL);
 	if(wl->display == nil)
 		sysfatal("could not connect to display");
@@ -138,9 +136,6 @@ guimain(void)
 Memdata*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
-	Wlwin *wl;
-
-	wl = snarfwin;
 	*r = gscreen->clipr;
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
@@ -156,7 +151,7 @@ flushmemscreen(Rectangle r)
 {
 	Wlwin *wl;
 
-	wl = snarfwin;
+	wl = gwin;
 	wl->dirty = 1;
 	wlflush(wl);
 }
@@ -164,14 +159,14 @@ flushmemscreen(Rectangle r)
 void
 screensize(Rectangle r, ulong chan)
 {
-	snarfwin->dirty = 1;
+	gwin->dirty = 1;
 }
 
 void
 setcursor(void)
 {
 	qlock(&drawlock);
-	wldrawcursor(snarfwin, &cursor);
+	wldrawcursor(gwin, &cursor);
 	qunlock(&drawlock);
 }
 
@@ -183,13 +178,13 @@ mouseset(Point p)
 char*
 clipread(void)
 {
-	return wlgetsnarf(snarfwin);
+	return wlgetsnarf(gwin);
 }
 
 int
 clipwrite(char *data)
 {
-	wlsetsnarf(snarfwin, data);
+	wlsetsnarf(gwin, data);
 	return strlen(data);
 }
 
