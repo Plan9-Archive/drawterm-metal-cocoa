@@ -503,9 +503,7 @@ static vlong
 _sysseek(int fd, vlong off, int whence)
 {
 	Chan *c;
-	uchar buf[sizeof(Dir)+100];
-	Dir dir;
-	int n;
+	Dir *d;
 
 	c = fdtochan(fd, -1, 1, 1);
 	if(waserror()){
@@ -538,10 +536,9 @@ _sysseek(int fd, vlong off, int whence)
 	case 2:
 		if(c->qid.type & QTDIR)
 			error(Eisdir);
-		n = devtab[c->type]->stat(c, buf, sizeof buf);
-		if(convM2D(buf, n, &dir, nil) == 0)
-			error("internal error: stat error in seek");
-		off = dir.length + off;
+		d = dirchanstat(c);
+		off = d->length + off;
+		free(d);
 		if(off < 0)
 			error(Enegoff);
 		c->offset = off;
