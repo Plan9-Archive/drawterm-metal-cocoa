@@ -56,6 +56,8 @@ static	struct
 	"bass",		Fout, 		50,	50,
 
 	"speed",	Fin|Fout|Fmono,	Speed,	Speed,
+
+	"pcm",		Fout, 		50,	50,
 	0
 };
 
@@ -192,7 +194,11 @@ audioread(Chan *c, void *v, long n, vlong off)
 		j = 0;
 		buf[0] = 0;
 		for(m=0; volumes[m].name; m++){
+			lov = -1;
+			rov = -1;
 			audiodevgetvol(m, &lov, &rov);
+			if(lov < 0 && rov < 0)
+				continue;
 			liv = lov;
 			riv = rov;
 			j += snprint(buf+j, sizeof(buf)-j, "%s", volumes[m].name);
