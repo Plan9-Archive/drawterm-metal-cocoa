@@ -870,6 +870,10 @@ xkeyboard(XEvent *e)
 		case XK_Alt_R:
 			k = Kalt;
 			break;
+		case XK_Super_L:
+		case XK_Super_R:
+			k = Kmod4;
+			break;
 
 		case XK_Shift_L:
 		case XK_Shift_R:
@@ -904,8 +908,6 @@ xkeyboard(XEvent *e)
 
 		case XK_Meta_L:
 		case XK_Meta_R:
-		case XK_Super_L:
-		case XK_Super_R:
 		case XK_Hyper_L:
 		case XK_Hyper_R:
 			return;
