@@ -293,7 +293,7 @@ _sysopen(char *name, int mode)
 }
 
 static void
-closefd(int fd, int flag)
+_fdclose(int fd, int flag)
 {
 	int i;
 	Chan *c;
@@ -325,7 +325,7 @@ long
 _sysclose(int fd)
 {
 	fdtochan(fd, -1, 0, 0);
-	closefd(fd, 0);
+	_fdclose(fd, 0);
 
 	return 0;
 }
@@ -503,9 +503,7 @@ static vlong
 _sysseek(int fd, vlong off, int whence)
 {
 	Chan *c;
-	uchar buf[sizeof(Dir)+100];
-	Dir dir;
-	int n;
+	Dir *d;
 
 	c = fdtochan(fd, -1, 1, 1);
 	if(waserror()){
@@ -538,10 +536,9 @@ _sysseek(int fd, vlong off, int whence)
 	case 2:
 		if(c->qid.type & QTDIR)
 			error(Eisdir);
-		n = devtab[c->type]->stat(c, buf, sizeof buf);
-		if(convM2D(buf, n, &dir, nil) == 0)
-			error("internal error: stat error in seek");
-		off = dir.length + off;
+		d = dirchanstat(c);
+		off = d->length + off;
+		free(d);
 		if(off < 0)
 			error(Enegoff);
 		c->offset = off;
@@ -636,31 +633,30 @@ _syschdir(char *name)
 	return 0;
 }
 
-long
-bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char* spec)
+static int
+bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* spec)
 {
 	int ret;
 	Chan *c0, *c1, *ac, *bc;
-	struct{
-		Chan	*chan;
-		Chan	*authchan;
-		char	*spec;
-		int	flags;
-	}bogus;
 
 	if((flag&~MMASK) || (flag&MORDER)==(MBEFORE|MAFTER))
 		error(Ebadarg);
 
-	bogus.flags = flag & MCACHE;
-
 	if(ismount){
+		validaddr((uintptr)spec, 1, 0);
+		spec = validnamedup(spec, 1);
+		if(waserror()){
+			free(spec);
+			nexterror();
+		}
+
 		if(up->pgrp->noattach)
 			error(Enoattach);
 
 		ac = nil;
 		bc = fdtochan(fd, ORDWR, 0, 1);
 		if(waserror()) {
-			if(ac)
+			if(ac != nil)
 				cclose(ac);
 			cclose(bc);
 			nexterror();
@@ -669,26 +665,14 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		if(afd >= 0)
 			ac = fdtochan(afd, ORDWR, 0, 1);
 
-		bogus.chan = bc;
-		bogus.authchan = ac;
-
-		validaddr((ulong)spec, 1, 0);
-		bogus.spec = spec;
-		if(waserror())
-			error(Ebadspec);
-		validname(spec, 1);
-		poperror();
-
-		ret = devno('M', 0);
-		c0 = devtab[ret]->attach((char*)&bogus);
-
-		poperror();
-		if(ac)
+		c0 = mntattach(bc, ac, spec, flag&MCACHE);
+		poperror();	/* ac bc */
+		if(ac != nil)
 			cclose(ac);
 		cclose(bc);
 	}else{
-		bogus.spec = 0;
-		validaddr((ulong)arg0, 1, 0);
+		spec = nil;
+		validaddr((uintptr)arg0, 1, 0);
 		c0 = namec(arg0, Abind, 0, 0);
 	}
 
@@ -697,22 +681,24 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		nexterror();
 	}
 
-	validaddr((ulong)arg1, 1, 0);
+	validaddr((uintptr)arg1, 1, 0);
 	c1 = namec(arg1, Amount, 0, 0);
 	if(waserror()){
 		cclose(c1);
 		nexterror();
 	}
 
-	ret = cmount(&c0, c1, flag, bogus.spec);
+	ret = cmount(c0, c1, flag, spec);
 
 	poperror();
 	cclose(c1);
 	poperror();
 	cclose(c0);
-	if(ismount)
-		closefd(fd, 0);
-
+	if(ismount){
+		_fdclose(fd, 0);
+		poperror();
+		free(spec);
+	}
 	return ret;
 }
 
