@@ -1230,7 +1230,7 @@ if(0) iprint("xselect target=%d requestor=%d property=%d selection=%d\n",
 				/* nothing */
 			}else if(strcasecmp(name, "text/plain") == 0 || strcasecmp(name, "text/plain;charset=UTF-8") == 0){
 				goto text;
-			}else
+			}else if(0)
 				iprint("cannot handle selection request for '%s' (%d)\n", name, (int)xe->target);
 		}
 		r.xselection.property = None;
