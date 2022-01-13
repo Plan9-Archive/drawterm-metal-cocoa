@@ -770,6 +770,7 @@ xkeyboard(XEvent *e)
 {
 	static int altdown;
 	static int shiftdown;
+	static int superdown;
 	KeySym k;
 
 	switch(e->xany.type){
@@ -787,6 +788,10 @@ xkeyboard(XEvent *e)
 		if(shiftdown){
 			shiftdown = 0;
 			kbdkey(Kshift, 0);
+		}
+		if(superdown){
+			superdown = 0;
+			kbdkey(Kmod4, 0);
 		}
 		/* wet floor */
 	default:
@@ -870,6 +875,10 @@ xkeyboard(XEvent *e)
 		case XK_Alt_R:
 			k = Kalt;
 			break;
+		case XK_Super_L:
+		case XK_Super_R:
+			k = Kmod4;
+			break;
 
 		case XK_Shift_L:
 		case XK_Shift_R:
@@ -904,8 +913,6 @@ xkeyboard(XEvent *e)
 
 		case XK_Meta_L:
 		case XK_Meta_R:
-		case XK_Super_L:
-		case XK_Super_R:
 		case XK_Hyper_L:
 		case XK_Hyper_R:
 			return;
@@ -929,6 +936,7 @@ xkeyboard(XEvent *e)
 		return;
 	altdown = e->xany.type == KeyPress && k == Kalt;
 	shiftdown = e->xany.type == KeyPress && k == Kshift;
+	superdown = e->xany.type == KeyPress && k == Kmod4;
 	kbdkey(k, e->xany.type == KeyPress);
 }
 
@@ -1222,7 +1230,7 @@ if(0) iprint("xselect target=%d requestor=%d property=%d selection=%d\n",
 				/* nothing */
 			}else if(strcasecmp(name, "text/plain") == 0 || strcasecmp(name, "text/plain;charset=UTF-8") == 0){
 				goto text;
-			}else
+			}else if(0)
 				iprint("cannot handle selection request for '%s' (%d)\n", name, (int)xe->target);
 		}
 		r.xselection.property = None;

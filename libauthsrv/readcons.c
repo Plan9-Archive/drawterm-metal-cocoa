@@ -8,7 +8,7 @@ char*
 readcons(char *prompt, char *def, int raw)
 {
 	int fdin, fdout, ctl, n;
-	char *s, *p;
+	signed char *s, *p;
 
 	s = p = nil;
 	fdout = ctl = -1;
