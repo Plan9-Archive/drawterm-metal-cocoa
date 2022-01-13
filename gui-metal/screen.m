@@ -242,7 +242,6 @@ setcursor(void)
 			}
 		}
 	}
-@autoreleasepool{
 	NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
 		initWithBitmapDataPlanes:planes
 		pixelsWide:16
@@ -271,7 +270,6 @@ setcursor(void)
 	[img addRepresentation:rep2];
 	[img addRepresentation:rep];
 	currentCursor = [[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(-cursor.offset.x, -cursor.offset.y)];
-}
 	unlock(&cursor.lk);
 
 	dispatch_async(dispatch_get_main_queue(), ^(void){
