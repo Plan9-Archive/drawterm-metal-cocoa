@@ -12,12 +12,12 @@
 
 static struct {
 	Lock lk;
-	Rendez z;
+	Rendez w;
 	int init;
 	struct pw_main_loop *loop;
 	struct pw_stream *output;
 
-	char buf[8192];
+	char buf[2*2*44100/10]; /* 1/10th sec */
 	int written; /* 0 means empty buffer */
 } pwstate;
 
@@ -30,26 +30,34 @@ on_process(void *data)
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	int16_t *dst;
+	int n;
 
 	lock(&pwstate.lk);
+	if(pwstate.written == sizeof(pwstate.buf))
+		wakeup(&pwstate.w);
 	if(pwstate.written == 0){
 		unlock(&pwstate.lk);
 		return;
 	}
-	b = pw_stream_dequeue_buffer(pwstate.output);
 
+	if((b = pw_stream_dequeue_buffer(pwstate.output)) == nil)
+		return;
 	buf = b->buffer;
 	dst = buf->datas[0].data;
 
-	memcpy(dst, pwstate.buf, pwstate.written);
+	n = pwstate.written;
+	if(n > buf->datas[0].maxsize)
+		n = buf->datas[0].maxsize;
+	memcpy(dst, pwstate.buf, n);
 	buf->datas[0].chunk->offset = 0;
 	buf->datas[0].chunk->stride = sizeof(int16_t) * 2;
-	buf->datas[0].chunk->size = pwstate.written;
+	buf->datas[0].chunk->size = n;
+	pwstate.written -= n;
+	if(pwstate.written > 0)
+		memmove(pwstate.buf, pwstate.buf+n, pwstate.written);
 
 	pw_stream_queue_buffer(pwstate.output, b);
-	pwstate.written = 0;
 	unlock(&pwstate.lk);
-	wakeup(&pwstate.z);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -64,6 +72,7 @@ pwproc(void *arg)
 
 	loop = arg;
 	pw_main_loop_run(loop);
+	pexit("", 0);
 }
 
 void
@@ -74,6 +83,7 @@ audiodevopen(void)
 	int err;
 
 	lock(&pwstate.lk);
+	pwstate.written = 0;
 	if(pwstate.init > 0){
 		kproc("pipewire main loop", pwproc, pwstate.loop);
 		unlock(&pwstate.lk);
@@ -127,9 +137,7 @@ audiodevopen(void)
 void
 audiodevclose(void)
 {
-	lock(&pwstate.lk);
 	pw_main_loop_quit(pwstate.loop);
-	unlock(&pwstate.lk);
 }
 
 int
@@ -142,26 +150,30 @@ audiodevread(void *a, int n)
 static int
 canwrite(void *arg)
 {
-	return pwstate.written == 0;
+	return pwstate.written < sizeof(pwstate.buf);
 }
 
 int
 audiodevwrite(void *a, int n)
 {
-	if(n > sizeof(pwstate.buf)){
-		error("write too large");
-		return -1;
-	}
-	lock(&pwstate.lk);
-	if(pwstate.written != 0){
-		unlock(&pwstate.lk);
-		sleep(&pwstate.z, canwrite, 0);
+	int w, x, max;
+	char *p;
+
+	w = n;
+	for(p = a; n > 0; p += x, n -= x){
 		lock(&pwstate.lk);
+		max = sizeof(pwstate.buf) - pwstate.written;
+		x = n > max ? max : n;
+		if(x < 1){
+			unlock(&pwstate.lk);
+			sleep(&pwstate.w, canwrite, 0);
+		}else{
+			memmove(pwstate.buf+pwstate.written, p, x);
+			pwstate.written += x;
+			unlock(&pwstate.lk);
+		}
 	}
-	memcpy(pwstate.buf, a, n);
-	pwstate.written = n;
-	unlock(&pwstate.lk);
-	return n;
+	return w;
 }
 
 void
