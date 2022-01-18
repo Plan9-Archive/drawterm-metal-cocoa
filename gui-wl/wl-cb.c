@@ -197,6 +197,12 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Right:
 		utf32 = Kright;
 		break;
+	case XKB_KEY_Page_Up:
+		utf32 = Kpgup;
+		break;
+	case XKB_KEY_Page_Down:
+		utf32 = Kpgdown;
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
@@ -537,7 +543,7 @@ wlsetcb(Wlwin *wl)
 	wl_surface_commit(wl->surface);
 	wl_display_roundtrip(wl->display);
 
-	xdg_toplevel_set_app_id(wl->xdg_toplevel, "devdraw");
+	xdg_toplevel_set_app_id(wl->xdg_toplevel, "drawterm");
 
 	cb = wl_surface_frame(wl->surface);
 	wl_callback_add_listener(cb, &wl_surface_frame_listener, wl);
