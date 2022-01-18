@@ -129,11 +129,12 @@ isactive(void *arg)
 }
 
 void
-repeatproc(void*)
+repeatproc(void *_dummy)
 {
 	int ms;
 	long keytime;
 
+	USED(_dummy);
 	for(;;){
 		ksleep(&repeatstate.z, isactive, 0);
 		qlock(&repeatstate.lk);
