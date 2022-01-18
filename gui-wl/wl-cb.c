@@ -562,9 +562,7 @@ wlsetsnarf(Wlwin *wl, char *s)
 	struct wl_data_source *source;
 
 	qlock(&wl->clip.lk);
-	if(wl->clip.content != nil)
-		free(wl->clip.content);
-
+	free(wl->clip.content);
 	wl->clip.content = strdup(s);
 	/* Do we still own the clipboard? */
 	if(wl->clip.posted == 1)
@@ -584,7 +582,7 @@ wlgetsnarf(Wlwin *wl)
 {
 	char *s;
 	qlock(&wl->clip.lk);
-	s = strdup(wl->clip.content);
+	s = strdup(wl->clip.content != nil ? wl->clip.content : "");
 	qunlock(&wl->clip.lk);
 	return s;
 }
