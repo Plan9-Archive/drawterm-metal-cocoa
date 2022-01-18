@@ -4,15 +4,18 @@ LIB=libgui.a
 
 XDG_SHELL=/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml
 XDG_DECO=/usr/share/wayland-protocols/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
+XDG_PRIMSEL=/usr/share/wayland-protocols/unstable/primary-selection/primary-selection-unstable-v1.xml
 
 HFILES=\
 	xdg-shell-protocol.h\
 	xdg-decoration-protocol.h\
+	xdg-primary-selection-protocol.h\
 	wl-inc.h\
 
 OFILES=\
 	xdg-shell-protocol.$O\
 	xdg-decoration-protocol.$O\
+	xdg-primary-selection-protocol.$O\
 	wl-cb.$O\
 	wl-screen.$O\
 	wl-util.$O\
@@ -28,6 +31,12 @@ xdg-decoration-protocol.c:
 
 xdg-decoration-protocol.h:
 	wayland-scanner client-header < $(XDG_DECO) > $@ || { rm -f $@; exit 1; }
+
+xdg-primary-selection-protocol.c:
+	wayland-scanner private-code < $(XDG_PRIMSEL) > $@ || { rm -f $@; exit 1; }
+
+xdg-primary-selection-protocol.h:
+	wayland-scanner client-header < $(XDG_PRIMSEL) > $@ || { rm -f $@; exit 1; }
 
 default: $(LIB)
 $(LIB): $(HFILES) $(OFILES)

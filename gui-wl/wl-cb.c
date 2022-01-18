@@ -10,6 +10,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include "xdg-shell-protocol.h"
 #include "xdg-decoration-protocol.h"
+#include "xdg-primary-selection-protocol.h"
 
 #include "u.h"
 #include "lib.h"
@@ -415,6 +416,44 @@ static const struct wl_data_source_listener data_source_listener = {
 };
 
 static void
+primsel_source_handle_send(void *data, struct zwp_primary_selection_source_v1 *source, const char *mime_type, int fd)
+{
+	ulong n;
+	ulong pos;
+	ulong len;
+	Wlwin *wl;
+
+	if(strcmp(mime_type, "text/plain;charset=utf-8") != 0)
+		return;
+
+	wl = data;
+	qlock(&wl->clip.lk);
+	len = strlen(wl->clip.content);
+	for(pos = 0; (n = write(fd, wl->clip.content+pos, len-pos)) > 0 && pos < len; pos += n)
+		;
+	wl->clip.primsel_posted = 0;
+	close(fd);
+	qunlock(&wl->clip.lk);
+}
+
+static void
+primsel_source_handle_cancelled(void *data, struct zwp_primary_selection_source_v1 *source)
+{
+	Wlwin *wl;
+
+	wl = data;
+	qlock(&wl->clip.lk);
+	wl->clip.primsel_posted = 0;
+	qunlock(&wl->clip.lk);
+	zwp_primary_selection_source_v1_destroy(source);
+}
+
+static const struct zwp_primary_selection_source_v1_listener primsel_source_listener = {
+	.send = primsel_source_handle_send,
+	.cancelled = primsel_source_handle_cancelled,
+};
+
+static void
 data_device_handle_data_offer(void *data, struct wl_data_device *data_device, struct wl_data_offer *offer)
 {
 }
@@ -492,6 +531,8 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		wl->data_device_manager = wl_registry_bind(registry, name, &wl_data_device_manager_interface, 3);
 	} else if(strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
 		wl->decoman = wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
+	} else if(strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
+		wl->primsel = wl_registry_bind(registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
 	}
 }
 
@@ -525,9 +566,10 @@ wlsetcb(Wlwin *wl)
 	wl_display_roundtrip(wl->display);
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
-	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil)
+	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil || wl->primsel == nil)
 		sysfatal("Registration fell short");
 
+	wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
 
 	wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
 	wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
@@ -560,20 +602,30 @@ void
 wlsetsnarf(Wlwin *wl, char *s)
 {
 	struct wl_data_source *source;
+	struct zwp_primary_selection_source_v1 *psource;
 
 	qlock(&wl->clip.lk);
 	free(wl->clip.content);
 	wl->clip.content = strdup(s);
-	/* Do we still own the clipboard? */
-	if(wl->clip.posted == 1)
-		goto done;
 
-	source = wl_data_device_manager_create_data_source(wl->data_device_manager);
-	wl_data_source_add_listener(source, &data_source_listener, wl);
-	wl_data_source_offer(source, "text/plain;charset=utf-8");
-	wl_data_device_set_selection(wl->data_device, source, wl->clip.serial);
-	wl->clip.posted = 1;
-done:
+	/* Do we still own the clipboard? */
+	if(wl->clip.posted == 0){
+		source = wl_data_device_manager_create_data_source(wl->data_device_manager);
+		wl_data_source_add_listener(source, &data_source_listener, wl);
+		wl_data_source_offer(source, "text/plain;charset=utf-8");
+		wl_data_device_set_selection(wl->data_device, source, wl->clip.serial);
+		wl->clip.posted = 1;
+	}
+
+	/* Primary selection */
+	if(wl->clip.primsel_posted == 0){
+		psource = zwp_primary_selection_device_manager_v1_create_source(wl->primsel);
+		zwp_primary_selection_source_v1_add_listener(psource, &primsel_source_listener, wl);
+		zwp_primary_selection_source_v1_offer(psource, "text/plain;charset=utf-8");
+		zwp_primary_selection_device_v1_set_selection(wl->primsel_device, psource, wl->clip.serial);
+		wl->clip.primsel_posted = 1;
+	}
+
 	qunlock(&wl->clip.lk);
 }
 
