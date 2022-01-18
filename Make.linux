@@ -1,5 +1,4 @@
-# Unix
-#PTHREAD=	# for Mac
+# Linux
 PTHREAD=-pthread
 AR=ar
 AS=as
