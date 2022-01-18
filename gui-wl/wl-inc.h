@@ -25,6 +25,7 @@ struct Clipboard {
 	 * Posted stores if we already made
 	 * our round trip */
 	int posted;
+	int primsel_posted;
 };
 
 struct Mouse {
@@ -66,6 +67,9 @@ struct Wlwin {
 	struct xkb_context *xkb_context;
 
 	struct zxdg_decoration_manager_v1 *decoman;
+
+	struct zwp_primary_selection_device_manager_v1 *primsel;
+	struct zwp_primary_selection_device_v1 *primsel_device;
 };
 
 void wlallocbuffer(Wlwin*);
