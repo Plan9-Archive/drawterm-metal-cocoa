@@ -205,6 +205,10 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Page_Down:
 		utf32 = Kpgdown;
 		break;
+	case XKB_KEY_Alt_L:
+	case XKB_KEY_Alt_R:
+		utf32 = Kalt;
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
