@@ -18,16 +18,16 @@ OFILES=\
 	wl-util.$O\
 
 xdg-shell-protocol.c:
-	wayland-scanner private-code < $(XDG_SHELL) > xdg-shell-protocol.c
+	wayland-scanner private-code < $(XDG_SHELL) > $@ || { rm -f $@; exit 1; }
 
 xdg-shell-protocol.h:
-	wayland-scanner client-header < $(XDG_SHELL) > xdg-shell-protocol.h
+	wayland-scanner client-header < $(XDG_SHELL) > $@ || { rm -f $@; exit 1; }
 
 xdg-decoration-protocol.c:
-	wayland-scanner private-code < $(XDG_DECO) > xdg-decoration-protocol.c
+	wayland-scanner private-code < $(XDG_DECO) > $@ || { rm -f $@; exit 1; }
 
 xdg-decoration-protocol.h:
-	wayland-scanner client-header < $(XDG_DECO) > xdg-decoration-protocol.h
+	wayland-scanner client-header < $(XDG_DECO) > $@ || { rm -f $@; exit 1; }
 
 default: $(LIB)
 $(LIB): $(HFILES) $(OFILES)
