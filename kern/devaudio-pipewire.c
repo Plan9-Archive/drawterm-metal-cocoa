@@ -6,6 +6,7 @@
 #include	"devaudio.h"
 
 #undef long
+#undef ulong
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
 
@@ -36,15 +37,9 @@ on_process(void *data)
 		return;
 	}
 	b = pw_stream_dequeue_buffer(pwstate.output);
-	if(b == NULL)
-		sysfatal("pipewire ran out of buffers");
 
 	buf = b->buffer;
 	dst = buf->datas[0].data;
-	if(dst == NULL)
-		sysfatal("can't write anywhere");
-	if(buf->datas[0].maxsize < pwstate.written)
-		sysfatal("we buffered too much, or pipewire has comically low output rate");
 
 	memcpy(dst, pwstate.buf, pwstate.written);
 	buf->datas[0].chunk->offset = 0;
@@ -101,8 +96,11 @@ audiodevopen(void)
 		&stream_events,
 		NULL);
 
-	if(pwstate.output == NULL)
-		sysfatal("could not create output");
+	if(pwstate.output == NULL){
+		unlock(&pwstate.lk);
+		error("could not create pipewire output");
+		return;
+	}
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 		&SPA_AUDIO_INFO_RAW_INIT(
 			.format = SPA_AUDIO_FORMAT_S16_LE,
@@ -117,10 +115,12 @@ audiodevopen(void)
 		PW_STREAM_FLAG_RT_PROCESS,
 		params, 1);
 
-	if(err < 0)
-		sysfatal("failed to connect");
-
 	unlock(&pwstate.lk);
+	if(err < 0){
+		error("could not connect pipewire stream");
+		return;
+	}
+
 	kproc("pipewire main loop", pwproc, pwstate.loop);
 }
 
@@ -149,8 +149,8 @@ int
 audiodevwrite(void *a, int n)
 {
 	if(n > sizeof(pwstate.buf)){
-		sysfatal("write too large of size:", n);
-		n = sizeof(pwstate.buf);
+		error("write too large");
+		return -1;
 	}
 	lock(&pwstate.lk);
 	if(pwstate.written != 0){
@@ -167,12 +167,12 @@ audiodevwrite(void *a, int n)
 void
 audiodevsetvol(int what, int left, int right)
 {
-	error("no audio support");
+	error("no volume support");
 }
 
 void
 audiodevgetvol(int what, int *left, int *right)
 {
-	error("no audio support");
+	error("no volume support");
 }
 
