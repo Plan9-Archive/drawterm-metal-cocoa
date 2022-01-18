@@ -473,7 +473,7 @@ data_device_handle_selection(void *data, struct wl_data_device *data_device, str
 	}
 
 	wl = data;
-	pipe(fds);
+	pipe2(fds, O_CLOEXEC);
 	wl_data_offer_receive(offer, "text/plain;charset=utf-8", fds[1]);
 	close(fds[1]);
 
