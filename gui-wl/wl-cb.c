@@ -213,6 +213,15 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Shift_R:
 		utf32 = Kshift;
 		break;
+	case XKB_KEY_End:
+		utf32 = Kend;
+		break;
+	case XKB_KEY_Begin:
+		utf32 = Khome;
+		break;
+	case XKB_KEY_Insert:
+		utf32 = Kins;
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
