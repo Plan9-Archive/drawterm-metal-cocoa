@@ -23,43 +23,28 @@
 #include "screen.h"
 #include "wl-inc.h"
 
+#undef getenv
 #undef close
-
-static void
-randname(char *buf)
-{
-	struct timespec ts;
-	int i;
-
-	clock_gettime(CLOCK_REALTIME, &ts);
-	long r = ts.tv_nsec;
-	for(i=0; i < 6; i++) {
-		buf[i] = 'A'+(r&15)+(r+16)*2;
-		r >>= 5;
-	}
-}
 
 static int
 wlcreateshm(off_t size)
 {
 	char name[] = "/drawterm--XXXXXX";
-	int retries = 100;
+	char *dir, *path;
 	int fd;
 
-	do {
-		randname(name + strlen(name) - 6);
-		--retries;
-		fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
-		if(fd >= 0){
-			shm_unlink(name);
-			if(ftruncate(fd, size) < 0){
-				close(fd);
-				return -1;
-			}
-			return fd;
-		}
-	} while (retries > 0 && errno == EEXIST);
-	return -1;
+	if((dir = getenv("XDG_RUNTIME_DIR")) == nil)
+		sysfatal("XDG_RUNTIME_DIR not set");
+
+	path = malloc(strlen(dir) + sizeof(name) + 1);
+	strcpy(path, dir);
+	strcat(path, name);
+
+	if((fd = mkostemp(path, O_CLOEXEC)) >= 0)
+		unlink(path);
+	free(path);
+
+	return fd;
 }
 
 void
@@ -82,6 +67,7 @@ wlallocpool(Wlwin *wl)
 	fd = wlcreateshm(screensize+cursorsize);
 	if(fd < 0)
 		sysfatal("could not mk_shm_fd");
+	ftruncate(fd, screensize+cursorsize);
 
 	wl->shm_data = mmap(nil, screensize+cursorsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if(wl->shm_data == MAP_FAILED)
