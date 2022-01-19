@@ -51,7 +51,8 @@ wlflush(Wlwin *wl)
 		memcpy(wl->shm_data, gscreen->data->bdata, wl->dx*wl->dy*4);
 
 	wl_surface_attach(wl->surface, wl->screenbuffer, 0, 0);
-	wl_surface_damage(wl->surface, 0, 0, wl->dx, wl->dy);
+	if(wl->dirty)
+		wl_surface_damage(wl->surface, 0, 0, wl->dx, wl->dy);
 	wl_surface_commit(wl->surface);
 	wl->dirty = 0;
 }
