@@ -52,7 +52,7 @@ wlflush(Wlwin *wl)
 
 	wl_surface_attach(wl->surface, wl->screenbuffer, 0, 0);
 	if(wl->dirty)
-		wl_surface_damage(wl->surface, 0, 0, wl->dx, wl->dy);
+		wl_surface_damage(wl->surface, wl->r.min.x, wl->r.min.y, Dx(wl->r), Dy(wl->r));
 	wl_surface_commit(wl->surface);
 	wl->dirty = 0;
 }
@@ -76,6 +76,7 @@ wlresize(Wlwin *wl, int x, int y)
 
 	qlock(&drawlock);
 	wl->dirty = 1;
+	wl->r = r;
 	wlflush(wl);
 	qunlock(&drawlock);
 }
@@ -154,6 +155,7 @@ flushmemscreen(Rectangle r)
 
 	wl = gwin;
 	wl->dirty = 1;
+	wl->r = r;
 	wlflush(wl);
 }
 
@@ -161,6 +163,7 @@ void
 screensize(Rectangle r, ulong chan)
 {
 	gwin->dirty = 1;
+	gwin->r = r;
 }
 
 void

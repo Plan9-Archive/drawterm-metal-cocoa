@@ -41,6 +41,7 @@ struct Wlwin {
 	int mony;
 	Mouse mouse;
 	Clipboard clip;
+	Rectangle r;
 	int dirty;
 
 	/* Wayland State */
