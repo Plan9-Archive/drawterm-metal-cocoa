@@ -130,10 +130,10 @@ wldrawcursor(Wlwin *wl, Cursorinfo *c)
 				buf[pos] = Black;
 		}
 	}
-	if(wl->cursorsurface != nil)
-		wl_surface_destroy(wl->cursorsurface);
-	wl->cursorsurface = wl_compositor_create_surface(wl->compositor);
+	if(wl->cursorsurface == nil)
+		wl->cursorsurface = wl_compositor_create_surface(wl->compositor);
 	wl_surface_attach(wl->cursorsurface, wl->cursorbuffer, 0, 0);
+	wl_surface_damage(wl->cursorsurface, 0, 0, 16, 16);
 	wl_surface_commit(wl->cursorsurface);
 	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, -c->offset.x, -c->offset.y);
 }
