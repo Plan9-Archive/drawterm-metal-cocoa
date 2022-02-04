@@ -328,9 +328,8 @@ pointer_handle_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
 
 	wl = data;
 	wl->pointerserial = serial;
-	if(wl->cursorsurface == nil)
-		return;
-	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, -cursor.offset.x, -cursor.offset.y);
+	pointer_handle_motion(data, wl_pointer, wl->mouse.msec, surface_x, surface_y);
+	setcursor();
 }
 
 static void
