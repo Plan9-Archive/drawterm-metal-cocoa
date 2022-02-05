@@ -330,16 +330,11 @@ pointer_handle_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, ui
 	if(axis == 1)
 		return; /* Horizontal scroll */
 	wl = data;
-	buttons = wl->mouse.buttons;
-	if(value < 0){
-		buttons |= 8;
-	} else {
-		buttons |= 16;
-	}
 	wl->mouse.msec = time;
 	/* p9 expects a scroll event to work like a button, a set and a release */
+	buttons = wl->mouse.buttons & ~24;
+	absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, buttons | (value > 0 ? 16 : 8), wl->mouse.msec);
 	absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, buttons, wl->mouse.msec);
-	absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, wl->mouse.buttons, wl->mouse.msec);
 }
 
 static const struct wl_pointer_listener pointer_listener = {
