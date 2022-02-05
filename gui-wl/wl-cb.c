@@ -265,10 +265,6 @@ static struct wl_keyboard_listener keyboard_listener = {
 };
 
 enum{
-	WlMouse1 = 272,
-	WlMouse2 = 274,
-	WlMouse3 = 273,
-
 	P9Mouse1 = 1,
 	P9Mouse2 = 2,
 	P9Mouse3 = 4,
@@ -278,32 +274,20 @@ static void
 pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
 	Wlwin *wl;
+	int m;
 
 	wl = data;
+	switch(button){
+	case BTN_LEFT: m = P9Mouse1; break;
+	case BTN_MIDDLE: m = P9Mouse2; break;
+	case BTN_RIGHT: m = P9Mouse3; break;
+	default: m = 0; break;
+	}
+
 	if(state)
-		switch(button){
-		case WlMouse1: /* M1 */
-			wl->mouse.buttons |= P9Mouse1;
-			break;
-		case WlMouse2: /* M2 */
-			wl->mouse.buttons |= P9Mouse2;
-			break;
-		case WlMouse3: /* M3 */
-			wl->mouse.buttons |= P9Mouse3;
-			break;
-		}
+		wl->mouse.buttons |= m;
 	else
-		switch(button){
-		case WlMouse1: /* M1 */
-			wl->mouse.buttons &= ~P9Mouse1;
-			break;
-		case WlMouse2: /* M2 */
-			wl->mouse.buttons &= ~P9Mouse2;
-			break;
-		case WlMouse3: /* M3 */
-			wl->mouse.buttons &= ~P9Mouse3;
-			break;
-		}
+		wl->mouse.buttons &= ~m;
 
 	wl->mouse.msec = time;
 	absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, wl->mouse.buttons, wl->mouse.msec);
