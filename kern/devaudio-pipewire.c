@@ -99,6 +99,7 @@ audiodevopen(void)
 		pw_main_loop_get_loop(pwstate.loop),
 		"drawterm",
 		pw_properties_new(
+			PW_KEY_NODE_NAME, "drawterm",
 			PW_KEY_MEDIA_TYPE, "Audio",
 			PW_KEY_MEDIA_CATEGORY, "Playback",
 			PW_KEY_MEDIA_ROLE, "Music",
