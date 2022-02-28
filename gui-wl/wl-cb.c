@@ -173,6 +173,7 @@ keyboard_leave (void *data, struct wl_keyboard *keyboard, uint32_t serial, struc
 	kbdkey(Kshift, 0);
 	kbdkey(Kctl, 0);
 	kbdkey(Kalt, 0);
+	kbdkey(Kmod4, 0);
 	qlock(&repeatstate.lk);
 	repeatstate.active = 0;
 	repeatstate.key = 0;
@@ -221,6 +222,10 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Shift_R:
 		utf32 = Kshift;
 		break;
+	case XKB_KEY_Super_L:
+	case XKB_KEY_Super_R:
+		utf32 = Kmod4;
+		break;
 	case XKB_KEY_End:
 		utf32 = Kend;
 		break;
@@ -237,7 +242,7 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	if(utf32 == 0)
 		return;
 
-	repeat = state && utf32 != Kctl && utf32 != Kshift && utf32 != Kalt;
+	repeat = state && utf32 != Kctl && utf32 != Kshift && utf32 != Kalt && utf32 != Kmod4;
 	if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
 	if(utf32 >= 'a' && utf32 <= 'z')
 		utf32 -= ('a' - 1);
