@@ -170,6 +170,13 @@ keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, 
 static void
 keyboard_leave (void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface)
 {
+	kbdkey(Kshift, 0);
+	kbdkey(Kctl, 0);
+	kbdkey(Kalt, 0);
+	qlock(&repeatstate.lk);
+	repeatstate.active = 0;
+	repeatstate.key = 0;
+	qunlock(&repeatstate.lk);
 }
 
 static void
@@ -177,6 +184,7 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 {
 	Wlwin *wl;
 	uint32_t utf32;
+	int repeat;
 
 	wl = data;
 	xkb_keysym_t keysym = xkb_state_key_get_one_sym(wl->xkb_state, key+8);
@@ -229,13 +237,14 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	if(utf32 == 0)
 		return;
 
+	repeat = state && utf32 != Kctl && utf32 != Kshift && utf32 != Kalt;
 	if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
 	if(utf32 >= 'a' && utf32 <= 'z')
 		utf32 -= ('a' - 1);
 
 	kbdkey(utf32, state);
 	qlock(&repeatstate.lk);
-	repeatstate.active = state;
+	repeatstate.active = repeat;
 	repeatstate.keytime = time;
 	repeatstate.key = utf32;
 	qunlock(&repeatstate.lk);
