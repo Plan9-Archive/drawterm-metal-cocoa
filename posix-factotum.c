@@ -83,24 +83,28 @@ dialfactotum(void)
 	name = smprint("%s/factotum", getns());
 
 	if(name == nil || access(name, 0) < 0)
-		return -1;
+		goto err;
 	memset(&su, 0, sizeof su);
 	su.sun_family = AF_UNIX;
 	if(strlen(name)+1 > sizeof su.sun_path){
 		werrstr("socket name too long");
-		return -1;
+		goto err;
 	}
 	strcpy(su.sun_path, name);
 	if((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
 		werrstr("socket: %r");
-		return -1;
+		goto err;
 	}
 	if(connect(fd, (struct sockaddr*)&su, sizeof su) < 0){
 		werrstr("connect %s: %r", name);
 		close(fd);
-		return -1;
+		goto err;
 	}
 
+	free(name);
 	return lfdfd(fd);
+err:
+	free(name);
+	return -1;
 }
 

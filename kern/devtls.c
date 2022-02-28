@@ -763,8 +763,8 @@ if(tr->debug)pprint("consumed %d header\n", RecHdrLen);
 	if(ver != tr->version && (tr->verset || ver < MinProtoVersion || ver > MaxProtoVersion))
 		rcvError(tr, EProtocolVersion, "devtls expected ver=%x%s, saw (len=%d) type=%x ver=%x '%.12s'",
 			tr->version, tr->verset?"/set":"", len, type, ver, (char*)header);
-	if(len > MaxCipherRecLen || len < 0)
-		rcvError(tr, ERecordOverflow, "record message too long %d", len);
+	if(len > MaxCipherRecLen || len <= 0)
+		rcvError(tr, ERecordOverflow, "bad record message length %d", len);
 	ensure(tr, &tr->unprocessed, len);
 	nconsumed = 0;
 	poperror();
@@ -1749,10 +1749,10 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 	}else if(strcmp(cb->f[0], "alert") == 0){
 		if(cb->nf != 2)
 			error("usage: alert n");
+		m = strtol(cb->f[1], nil, 0);
+	Hangup:
 		if(tr->c == nil)
 			error("must set fd before sending alerts");
-		m = strtol(cb->f[1], nil, 0);
-
 		qunlock(&tr->in.seclock);
 		qunlock(&tr->out.seclock);
 		poperror();
@@ -1765,6 +1765,9 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			tlsclosed(tr, SLClose);
 
 		return n;
+	} else if(strcmp(cb->f[0], "hangup") == 0){
+		m = ECloseNotify;
+		goto Hangup;
 	} else if(strcmp(cb->f[0], "debug") == 0){
 		if(cb->nf == 2){
 			if(strcmp(cb->f[1], "on") == 0)
