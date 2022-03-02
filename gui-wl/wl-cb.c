@@ -79,10 +79,8 @@ wl_surface_frame_done(void *data, struct wl_callback *cb, uint32_t time)
 	wl = data;
 	wl_callback_destroy(cb);
 	cb = wl_surface_frame(wl->surface);
-	qlock(&drawlock);
-	wlflush(wl);
-	qunlock(&drawlock);
 	wl_callback_add_listener(cb, &wl_surface_frame_listener, wl);
+	wlflush(wl);
 }
 
 static void
@@ -93,7 +91,7 @@ keyboard_keymap(void *data, struct wl_keyboard *keyboard, uint32_t format, int32
 	Wlwin *wl;
 
 	wl = data;
-	keymap_string = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+	keymap_string = mmap(nil, size, PROT_READ, MAP_SHARED, fd, 0);
 	xkb_keymap_unref(keymap);
 	keymap = xkb_keymap_new_from_string(wl->xkb_context, keymap_string, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
 	munmap(keymap_string, size);
@@ -477,9 +475,8 @@ data_device_handle_selection(void *data, struct wl_data_device *data_device, str
 	int fds[2];
 
 	// An application has set the clipboard contents
-	if (offer == NULL) {
+	if(offer == nil)
 		return;
-	}
 
 	wl = data;
 	pipe2(fds, O_CLOEXEC);
