@@ -47,14 +47,17 @@ newwlwin(void)
 void
 wlflush(Wlwin *wl)
 {
-	if(wl->dirty == 1)
-		memcpy(wl->shm_data, gscreen->data->bdata, wl->dx*wl->dy*4);
+	Point p;
 
 	wl_surface_attach(wl->surface, wl->screenbuffer, 0, 0);
-	if(wl->dirty)
-		wl_surface_damage(wl->surface, wl->r.min.x, wl->r.min.y, Dx(wl->r), Dy(wl->r));
+	if(wl->dirty){
+		p.x = wl->r.min.x;
+		for(p.y = wl->r.min.y; p.y < wl->r.max.y; p.y++)
+			memcpy(wl->shm_data+(p.y*wl->dx+p.x)*4, byteaddr(gscreen, p), Dx(wl->r)*4);
+		wl_surface_damage(wl->surface, p.x, wl->r.min.y, Dx(wl->r), Dy(wl->r));
+		wl->dirty = 0;
+	}
 	wl_surface_commit(wl->surface);
-	wl->dirty = 0;
 }
 
 void
@@ -86,9 +89,8 @@ dispatchproc(void *a)
 {
 	Wlwin *wl;
 	wl = a;
-	for(;wl->runing == 1;){
+	while(wl->runing)
 		wl_display_dispatch(wl->display);
-	}
 }
 
 static Wlwin*
@@ -99,7 +101,7 @@ wlattach(char *label)
 
 	wl = newwlwin();
 	gwin = wl;
-	wl->display = wl_display_connect(NULL);
+	wl->display = wl_display_connect(nil);
 	if(wl->display == nil)
 		sysfatal("could not connect to display");
 
@@ -151,19 +153,15 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 void
 flushmemscreen(Rectangle r)
 {
-	Wlwin *wl;
-
-	wl = gwin;
-	wl->dirty = 1;
-	wl->r = r;
-	wlflush(wl);
+	gwin->dirty = 1;
+	gwin->r = r;
+	wlflush(gwin);
 }
 
 void
 screensize(Rectangle r, ulong chan)
 {
-	gwin->dirty = 1;
-	gwin->r = r;
+	flushmemscreen(r);
 }
 
 void
