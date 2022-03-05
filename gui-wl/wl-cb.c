@@ -376,7 +376,6 @@ seat_handle_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities
 static void
 seat_handle_name(void *data, struct wl_seat *seat, const char *name)
 {
-
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -526,8 +525,14 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 	if(strcmp(interface, wl_shm_interface.name) == 0) {
 		wl->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
 	} else if(strcmp(interface, wl_seat_interface.name) == 0) {
+		//We don't support multiseat
+		if(wl->seat != nil)
+			return;
 		wl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 4);
 		wl_seat_add_listener(wl->seat, &seat_listener, wl);
+		wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
+		wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
+		wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
 	} else if(strcmp(interface, wl_compositor_interface.name) == 0) {
 		wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
 	} else if(strcmp(interface, xdg_wm_base_interface.name) == 0) {
@@ -573,12 +578,8 @@ wlsetcb(Wlwin *wl)
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
 	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil || wl->primsel == nil)
-		sysfatal("Registration fell short");
+		sysfatal("registration fell short");
 
-	wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
-
-	wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
-	wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
 	wlallocbuffer(wl);
 	wl->surface = wl_compositor_create_surface(wl->compositor);
 
