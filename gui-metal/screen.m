@@ -696,7 +696,9 @@ evkey(uint v)
 - (void) resetCursorRects
 {
 	[super resetCursorRects];
+	lock(&cursor.lk);
 	[self addCursorRect:self.bounds cursor:currentCursor];
+	unlock(&cursor.lk);
 }
 
 - (void) reshape
