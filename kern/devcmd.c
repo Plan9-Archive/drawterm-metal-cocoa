@@ -570,7 +570,7 @@ cmdwstat(Chan *c, uchar *dp, int n)
 			error(Eperm);
 		if(!emptystr(d->uid))
 			kstrdup(&cv->owner, d->uid);
-		if(d->mode != ~0UL)
+		if(d->mode != (ulong)~0UL)
 			cv->perm = d->mode & 0777;
 		poperror();
 		free(d);
