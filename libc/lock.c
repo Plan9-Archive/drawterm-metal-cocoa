@@ -101,7 +101,8 @@ lock(Lock *lk)
 void
 unlock(Lock *lk)
 {
-	assert(lk->key);
+	if(canlock(lk))
+		abort();
 	lk->key = 0;
 }
 

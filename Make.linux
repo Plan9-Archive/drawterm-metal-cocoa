@@ -1,0 +1,21 @@
+# Linux
+PTHREAD=-pthread
+AR=ar
+AS=as
+RANLIB=ranlib
+CC?=cc
+CFLAGS=-Wall -Wno-missing-braces -Wno-parentheses -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE -DPTHREAD $(PTHREAD) -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2 -D_REENTRANT -O2
+O=o
+OS=posix
+GUI=wl
+LDADD=-lwayland-client -lxkbcommon -ggdb -lm -lrt -lpipewire-0.3
+LDFLAGS=$(PTHREAD)
+TARG=drawterm
+# AUDIO=none
+AUDIO=pipewire
+
+all: default
+
+libmachdep.a:
+	arch=`uname -m|sed 's/i.86/386/;s/Power Macintosh/power/; s/x86_64/amd64/; s/armv[567].*/arm/; s/aarch64/arm64/'`; \
+	(cd posix-$$arch &&  make)
