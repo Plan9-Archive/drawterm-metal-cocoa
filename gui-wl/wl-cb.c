@@ -218,6 +218,8 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 		break;
 	case XKB_KEY_Shift_L:
 	case XKB_KEY_Shift_R:
+	case XKB_KEY_ISO_Prev_Group:
+	case XKB_KEY_ISO_Next_Group:
 		utf32 = Kshift;
 		break;
 	case XKB_KEY_Super_L:
