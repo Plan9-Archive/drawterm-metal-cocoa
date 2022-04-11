@@ -882,6 +882,8 @@ xkeyboard(XEvent *e)
 
 		case XK_Shift_L:
 		case XK_Shift_R:
+		case XK_ISO_Prev_Group:
+		case XK_ISO_Next_Group:
 			k = Kshift;
 			break;
 		case XK_Control_L:
