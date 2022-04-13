@@ -1,15 +1,15 @@
 # Unix
 #PTHREAD=	# for Mac
-PTHREAD=-pthread
+PTHREAD=-pthread -DPTHREAD
 AR=ar
 AS=as
 RANLIB=ranlib
 CC=gcc
-CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -O2
+CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -DKBDSCANCODE -O2 -march=native -flto
 O=o
 OS=posix
 GUI=fbdev
-LDADD=-ggdb -lm -lasound
+LDADD=-ggdb -lm -lasound -O2 -march=native -flto
 LDFLAGS=$(PTHREAD)
 TARG=drawterm
 # AUDIO=none

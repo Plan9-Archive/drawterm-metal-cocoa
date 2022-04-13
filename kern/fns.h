@@ -80,6 +80,7 @@ int		iseve(void);
 #define	islo()	(0)
 int		kbdputc(Queue*, int);
 void		kbdkey(Rune, int);
+void		kbdsc(int);
 int		kproc(char*, void(*)(void*), void*);
 void		ksetenv(char*, char*, int);
 void		kstrcpy(char*, char*, int);

@@ -26,14 +26,36 @@ kbdkey(Rune r, int down)
 	qproduce(keyq, buf, 2+runetochar(buf+1, &r));
 }
 
+void
+kbdsc(int k)
+{
+	uchar buf[2];
+
+	if(k == 0)
+		return;
+	if(keyq == nil)
+		panic("kbdcode");
+	k &= 0xffff;
+	if(k > 0xff){
+		buf[0] = k >> 8;
+		buf[1] = k & 0xff;
+		qproduce(keyq, buf, 2);
+	}else{
+		buf[0] = k;
+		qproduce(keyq, buf, 1);
+	}
+}
+
 enum{
 	Qdir,
 	Qkbd,
+	Qscancode,
 };
 
 static Dirtab kbddir[]={
 	".",	{Qdir, 0, QTDIR},	0,		DMDIR|0555,
 	"kbd",		{Qkbd},		0,		0444,
+	"scancode",	{Qscancode},		0,		0444,
 };
 
 static void
@@ -67,8 +89,16 @@ static Chan*
 kbdopen(Chan *c, int omode)
 {
 	c = devopen(c, omode, kbddir, nelem(kbddir), devgen);
+#ifdef KBDSCANCODE
+	if(c->qid.path == Qkbd)
+#else
+	if(c->qid.path == Qscancode)
+#endif
+		error(Eperm);
+	else
 	switch((ulong)c->qid.path){
 	case Qkbd:
+	case Qscancode:
 		if(tas(&kbdinuse) != 0){
 			c->flag &= ~COPEN;
 			error(Einuse);
@@ -83,6 +113,7 @@ kbdclose(Chan *c)
 {
 	switch((ulong)c->qid.path){
 	case Qkbd:
+	case Qscancode:
 		if(c->flag&COPEN)
 			kbdinuse = 0;
 		break;
@@ -100,6 +131,7 @@ kbdread(Chan *c, void *buf, long n, vlong off)
 	case Qdir:
 		return devdirread(c, buf, n, kbddir, nelem(kbddir), devgen);
 	case Qkbd:
+	case Qscancode:
 		return qread(keyq, buf, n);
 	default:
 		print("kbdread 0x%llux\n", c->qid.path);

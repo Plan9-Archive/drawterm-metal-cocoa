@@ -145,7 +145,7 @@ rcpu(char *host, char *cmd)
 "syscall fversion 0 65536 buf 256 >/dev/null >[2=1]\n"
 "mount -nc /fd/0 /mnt/term || exit\n"
 "bind -q /mnt/term/dev/cons /dev/cons\n"
-"if(test -r /mnt/term/dev/kbd){\n"
+"if(test -r /mnt/term/dev/kbd || test -r /mnt/term/dev/scancode){\n"
 "	</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
 "	bind -q /mnt/term/dev/cons /dev/cons\n"
 "}\n"
@@ -157,7 +157,7 @@ rcpu(char *host, char *cmd)
 	if((fd = dial(netmkaddr(host, "tcp", "rcpu"), nil, nil, nil)) < 0)
 		return;
 
-	/* provide /dev/kbd for kbdfs */
+	/* provide /dev/kbd or /dev/scancode for kbdfs */
 	if(!nokbd)
 		bind("#b", "/dev", MAFTER);
 

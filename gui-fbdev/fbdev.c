@@ -50,26 +50,6 @@ int		depth;
 
 #define ulong p9_ulong
 
-int code2key[] = {
-	Kesc, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\x08',
-	'\x09', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
-	Kctl, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', Kshift,
-	'\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', Kshift, '*', Kalt,
-	' ', Kcaps, KF|1, KF|2, KF|3, KF|4, KF|5, KF|6, KF|7, KF|8, KF|9, KF|10,
-	Knum, Kscroll,
-	'7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.',
-};
-
-int code2key_shift[] = {
-	Kesc, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\x08',
-	'\x09', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
-	Kctl, 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', Kshift,
-	'|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', Kshift, '*', Kalt,
-	' ', Kcaps, KF|1, KF|2, KF|3, KF|4, KF|5, KF|6, KF|7, KF|8, KF|9, KF|10,
-	Knum, Kscroll,
-	'7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.',
-};
-
 Memimage *gscreen;
 char *snarfbuf = nil;
 
@@ -582,66 +562,59 @@ onevent(struct input_event *data)
 		default:
 			if (hidden)
 				return 0;
-			if (data->code > 0 && data->code <= nelem(code2key)) {
-				if (shift_state & (1 << KG_SHIFT))
-					key = code2key_shift[data->code-1];
-				else
-					key = code2key[data->code-1];
-				if (key == Kshift)
-					return -1;
-				kbdkey(key, data->value);
-				return 0;
-			}
-			switch(data->code) {
-			case 87:
-				kbdkey(KF|11, data->value);
-				break;
-			case 88:
-				kbdkey(KF|12, data->value);
-				break;
+			/* Convert linux keycode to 9front scancode
+			 * linux: input_event_codes.h
+			 * 9front: kbdfs.c
+			 */
+			if (data->code > 0 && data->code <= 0x58)
+				key = data->code;
+			else switch(data->code) {
 			case 96:
-				kbdkey('\n', data->value);
+				key = 0x1c; // '\n'
 				break;
 			case 97:
-				kbdkey(Kctl, data->value);
+				key = 0x1d; // Kctl
 				break;
 			case 98:
-				kbdkey('/', data->value);
+				key = 0x35; // '/'
 				break;
 			case 100:
-				kbdkey(Kalt, data->value);
+				key = 0x38; // Kalt
 				break;
 			case 102:
-				kbdkey(Khome, data->value);
+				key = 0xe047; // Khome
 				break;
 			case 103:
-				kbdkey(Kup, data->value);
+				key = 0xe048; // Kup
 				break;
 			case 104:
-				kbdkey(Kpgup, data->value);
+				key = 0xe049; // Kpgup
 				break;
 			case 105:
-				kbdkey(Kleft, data->value);
+				key = 0xe04b; // Kleft
 				break;
 			case 106:
-				kbdkey(Kright, data->value);
+				key = 0xe04d; // Kright
 				break;
 			case 107:
-				kbdkey(Kend, data->value);
+				key = 0xe04f; // Kend
 				break;
 			case 108:
-				kbdkey(Kdown, data->value);
+				key = 0xe050; // Kdown
 				break;
 			case 109:
-				kbdkey(Kpgdown, data->value);
+				key = 0xe051; // Kpgdown
 				break;
 			case 110:
-				kbdkey(Kins, data->value);
+				key = 0xe052; // Kins
 				break;
 			case 111:
-				kbdkey(Kdel, data->value);
+				key = 0xe053; // Kdel
 				break;
 			}
+			if(!data->value)
+				key |= 0x80;
+			kbdsc(key);
 			return 0;
 		}
 		break;
