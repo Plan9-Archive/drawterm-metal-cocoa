@@ -16,6 +16,7 @@
 #include <linux/fb.h>
 #include <linux/input.h>
 
+Rectangle	update_rect;
 uchar*		fbp;
 Memimage*	screenimage;
 Memimage*	backbuf;
@@ -175,11 +176,6 @@ eventattach()
 void
 flushmemscreen(Rectangle r)
 {
-	int x, y, i;
-	Point p;
-	long fbloc;
-	int x2, y2;
-
 	if (rectclip(&r, screenimage->r) == 0)
 		return;
 	if (Dx(r) == 0 || Dy(r) == 0)
@@ -187,60 +183,93 @@ flushmemscreen(Rectangle r)
 
 	assert(!canqlock(&drawlock));
 
-	memimagedraw(screenimage, r, backbuf, r.min, nil, r.min, S);
+	if (Dx(update_rect) == 0 || Dy(update_rect) == 0)
+		update_rect = r;
+	else
+		combinerect(&update_rect, r);
+}
 
-	if (hidden != 0)
-		return;
+static void
+fbflush(void *v)
+{
+	Rectangle r;
+	int x, y, i;
+	Point p;
+	long fbloc;
+	int x2, y2;
+	ulong del;
+	ulong ms;
 
-	p = mousexy;
+	del = 16;
 
-	// draw cursor
-	for (x = 0; x < 16; x++) {
-		x2 = x + cursor.offset.x;
+	for(;;){
+		ms = ticks();
 
-		if ((p.x + x2) < 0)
-			continue;
+		qlock(&drawlock);
+		r = update_rect;
+		update_rect = Rect(0,0,0,0);
+		if (Dx(r) == 0 || Dy(r) == 0 || hidden != 0){
+			qunlock(&drawlock);
+			goto wait;
+		}
+		memimagedraw(screenimage, r, backbuf, r.min, nil, r.min, S);
+		qunlock(&drawlock);
 
-		if ((p.x + x2) >= screenimage->r.max.x)
-			break;
+		p = mousexy;
 
-		for (y = 0; y < 16; y++) {
-			y2 = y + cursor.offset.y;
+		// draw cursor
+		for (x = 0; x < 16; x++) {
+			x2 = x + cursor.offset.x;
 
-			if ((p.y + y2) < 0)
+			if ((p.x + x2) < 0)
 				continue;
 
-			if ((p.y + y2) >= screenimage->r.max.y)
+			if ((p.x + x2) >= screenimage->r.max.x)
 				break;
 
-			i = y * 2 + x / 8;
-			fbloc = ((p.y+y2) * screenimage->r.max.x + (p.x+x2)) * depth;
+			for (y = 0; y < 16; y++) {
+				y2 = y + cursor.offset.y;
 
-			if (cursor.clr[i] & (128 >> (x % 8))) {
-				switch (depth) {
-				case 2:
-					*((uint16_t*)(screenimage->data->bdata + fbloc)) = 0xFFFF;
+				if ((p.y + y2) < 0)
+					continue;
+
+				if ((p.y + y2) >= screenimage->r.max.y)
 					break;
-				case 4:
-					*((uint32_t*)(screenimage->data->bdata + fbloc)) = 0xFFFFFFFF;
-					break;
+
+				i = y * 2 + x / 8;
+				fbloc = ((p.y+y2) * screenimage->r.max.x + (p.x+x2)) * depth;
+
+				if (cursor.clr[i] & (128 >> (x % 8))) {
+					switch (depth) {
+					case 2:
+						*((uint16_t*)(screenimage->data->bdata + fbloc)) = 0xFFFF;
+						break;
+					case 4:
+						*((uint32_t*)(screenimage->data->bdata + fbloc)) = 0xFFFFFFFF;
+						break;
+					}
 				}
-			}
 
-			if (cursor.set[i] & (128 >> (x % 8))) {
-				switch (depth) {
-				case 2:
-					*((uint16_t*)(screenimage->data->bdata + fbloc)) = 0x0000;
-					break;
-				case 4:
-					*((uint32_t*)(screenimage->data->bdata + fbloc)) = 0xFF000000;
-					break;
+				if (cursor.set[i] & (128 >> (x % 8))) {
+					switch (depth) {
+					case 2:
+						*((uint16_t*)(screenimage->data->bdata + fbloc)) = 0x0000;
+						break;
+					case 4:
+						*((uint32_t*)(screenimage->data->bdata + fbloc)) = 0xFF000000;
+						break;
+					}
 				}
 			}
 		}
-	}
 
-	_fbput(screenimage, r);
+		_fbput(screenimage, r);
+
+wait:
+		ms = ms + del - ticks();
+		if(ms > 0 && ms < del)
+			osmsleep(ms);
+	}
 }
 
 static void
@@ -386,6 +415,7 @@ screeninit(void)
 		panic("screensize failed");
 
 	gscreen->clipr = screenr;
+	kproc("fbflush", fbflush, nil);
 	kproc("fbdev", fbproc, nil);
 
 	terminit();
