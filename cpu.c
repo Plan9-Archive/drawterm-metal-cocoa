@@ -387,6 +387,7 @@ cpubody(void)
 			if(s){
 				if(strlen(s) >= sizeof secstorebuf)
 					sysfatal("secstore data too big");
+				mlock(secstorebuf, sizeof secstorebuf);
 				strcpy(secstorebuf, s);
 				memset(s, 0, strlen(s));
 				free(s);

@@ -8,4 +8,4 @@ extern char *getuser(void);
 extern void cpumain(int, char**);
 extern char *estrdup(char*);
 extern int aanclient(char*, int);
-
+extern int mlock(void *, size_t);

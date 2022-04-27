@@ -384,6 +384,7 @@ getfile(SConn *conn, uchar *key, int nkey)
 		n = ibw-ibr-CHK;
 		if(n > 0){
 			buf = realloc(buf, nbuf+n+1);
+			mlock(buf, nbuf+n+1);
 			if(buf == nil)
 				sysfatal("out of memory");
 			memmove(buf+nbuf, ibr, n);
