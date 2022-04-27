@@ -3,6 +3,7 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"error.h"
+#include	"keyboard.h"
 
 static Queue*	keyq;
 static int kbdinuse;
@@ -26,15 +27,65 @@ kbdkey(Rune r, int down)
 	qproduce(keyq, buf, 2+runetochar(buf+1, &r));
 }
 
+int code2key[] = {
+	0, Kesc, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\x08',
+	'\x09', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
+	Kctl, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', Kshift,
+	'\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', Kshift, '*', Kalt,
+	' ', Kcaps, KF|1, KF|2, KF|3, KF|4, KF|5, KF|6, KF|7, KF|8, KF|9, KF|10,
+	Knum, Kscroll,
+	'7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.',
+};
+int code2key_shift[] = {
+	0, Kesc, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\x08',
+	'\x09', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
+	Kctl, 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', Kshift,
+	'|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', Kshift, '*', Kalt,
+	' ', Kcaps, KF|1, KF|2, KF|3, KF|4, KF|5, KF|6, KF|7, KF|8, KF|9, KF|10,
+	Knum, Kscroll,
+	'7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.',
+};
+
 void
 kbdsc(int k)
 {
+	static int shift;
+	int down;
 	uchar buf[2];
 
 	if(k == 0)
 		return;
-	if(keyq == nil)
-		panic("kbdcode");
+	if(!kbdinuse || keyq == nil){
+		/* manual transformation for /dev/cons */
+		down = !(k & 0x80);
+		k &= 0xff7f;
+		if(down || shift){
+			switch(k){
+			case 0xe047:	k = Khome;	break;
+			case 0xe048:	k = Kup;	break;
+			case 0xe049:	k = Kpgup;	break;
+			case 0xe04b:	k = Kleft;	break;
+			case 0xe04d:	k = Kright;	break;
+			case 0xe04f:	k = Kend;	break;
+			case 0xe050:	k = Kdown;	break;
+			case 0xe051:	k = Kpgdown;	break;
+			case 0xe052:	k = Kins;	break;
+			case 0xe053:	k = Kdel;	break;
+			default:
+				if(k < nelem(code2key)){
+					if(shift)
+						k = code2key_shift[k];
+					else
+						k = code2key[k];
+				}
+			}
+			if(k == Kshift)
+				shift = down;
+			else if(down)
+				kbdputc(kbdq, k);
+		}
+		return;
+	}
 	k &= 0xffff;
 	if(k > 0xff){
 		buf[0] = k >> 8;
