@@ -13,75 +13,93 @@
 #undef long
 #undef ulong
 
+#include <fcntl.h>
+#include <limits.h>
 #include <linux/fb.h>
 #include <linux/input.h>
-
-Rectangle	update_rect;
-uchar*		fbp;
-Memimage*	screenimage;
-Memimage*	backbuf;
-Rectangle	screenr;
-char*		snarfbuf;
-struct fb_fix_screeninfo finfo;
-struct fb_var_screeninfo vinfo;
-int		*eventfds = NULL;
-int		neventfds;
-Point		mousexy;
-char		shift_state;
-int		ttyfd;
-char*		tty;
-char		hidden;
-int		devicesfd;
-ulong		chan;
-int		depth;
-
+#include <linux/kd.h>
+#include <linux/kdev_t.h>
+#include <linux/keyboard.h>
+#include <linux/vt.h>
+#include <poll.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <limits.h>
-
-#include <fcntl.h>
+#include <sys/stat.h>
 #include <termios.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <linux/keyboard.h>
-#include <signal.h>
 
-#include <termios.h>
+#include <stdatomic.h>
 
 #define ulong p9_ulong
 
 Memimage *gscreen;
-char *snarfbuf = nil;
 
-int onevent(struct input_event*);
-void termctl(uint32_t o, int or);
-void ctrlc(int sig);
+static Rectangle	update_rect;
+static Rectangle	screenr;
+static int	startmode;
+static int	altdown;
+static uchar	*fbp;
+static Memimage	*screenimage;
+static Memimage	*backbuf;
+static int	linelength;
+static Point	mousexy;
+static char	shift_state;
+static ulong	chan;
+static int	depth;
+static _Atomic int	dirty;
+static _Atomic int	switchaway;
+static Rendez	rendezflush;
+static QLock	flushlock;
+static char	*snarfbuf;
 
-void
+static Memimage* fbattach(int fbdevidx);
+static int onevent(struct input_event*);
+static void termctl(uint32_t o, int or);
+static void ttyswitch(int sig);
+static void consinit(void);
+static void consfinal(void);
+static void consfinalsig(int sig);
+static int needflush(void *);
+
+static int
+needflush(void *v)
+{
+	return atomic_load(&dirty);
+}
+
+static void
 _fbput(Memimage *m, Rectangle r) {
-	int y;
+	int dx, xoffset, ylen;
+	void *ptr, *p, *max_row;
 
-	for (y = r.min.y; y < r.max.y; y++){
-		long loc = y * finfo.line_length + r.min.x * depth;
-		void *ptr = m->data->bdata + y * m->width * 4 + r.min.x * depth;
-
-		memcpy(fbp + loc, ptr, Dx(r) * depth);
+	ylen = 4 * m->width;
+	dx = depth * Dx(r);
+	xoffset = depth * r.min.x;
+	p = fbp + xoffset + r.min.y * linelength;
+	ptr = m->data->bdata + xoffset + r.min.y * ylen;
+	max_row = m->data->bdata + r.max.y * ylen;
+	while(ptr < max_row){
+		memcpy(p, ptr, dx);
+		p += linelength;
+		ptr += ylen;
 	}
 }
 
-Memimage*
+static Memimage*
 fbattach(int fbdevidx)
 {
 	Rectangle r;
 	char devname[64];
 	size_t size;
 	int fd;
+	struct fb_fix_screeninfo finfo;
+	struct fb_var_screeninfo vinfo;
 
 	/*
 	 * Connect to /dev/fb0
 	 */
 	snprintf(devname, sizeof(devname) - 1, "/dev/fb%d", fbdevidx);
-	if ((fd = open(devname, O_RDWR)) < 0)
+	if ((fd = open(devname, O_RDWR | O_CLOEXEC)) < 0)
 		goto err;
 
 	if (ioctl(fd, FBIOGET_VSCREENINFO, &(vinfo)) < 0)
@@ -102,8 +120,9 @@ fbattach(int fbdevidx)
 
 	if (ioctl(fd, FBIOGET_FSCREENINFO, &(finfo)) < 0)
 		goto err;
+	linelength = finfo.line_length;
 
-	size = vinfo.yres_virtual * finfo.line_length;
+	size = vinfo.yres_virtual * linelength;
 	if ((fbp = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)0)) < 0)
 		goto err;
 	/*
@@ -121,36 +140,73 @@ err:
 	return nil;
 }
 
-int
-eventattach()
+static void
+eventattach(struct pollfd **pfd, int *nstart)
 {
-	char eventfile[PATH_MAX] = "";
-	char line[PATH_MAX];
-	FILE *devices;
-	char *ptr;
+	char eventfile[PATH_MAX] = "/dev/input/event";
+	char buf[1024], *pbuf, *end;
+	struct pollfd *p;
+	int n, m;
 
-	neventfds = 0;
-	devices = fopen("/proc/bus/input/devices", "r");
-	if (devices == NULL)
-		return -1;
-	while (fgets(line, sizeof(line)-1, devices) != NULL)
-		if (line[0] == 'H') {
-			ptr = strstr(line, "event");
-			if (ptr == NULL)
-				continue;
-			ptr[strcspn(ptr, " \r\n")] = '\0';
-			snprintf(eventfile, sizeof(eventfile)-1, "/dev/input/%s", ptr);
-			neventfds++;
-			eventfds = realloc(eventfds, neventfds * sizeof(int));
-			eventfds[neventfds-1] = open(eventfile, O_RDONLY);
-			if (eventfds[neventfds-1] < 0)
-				neventfds--;
-		}
-	fclose(devices);
+	p = *pfd;
+	n = *nstart;
+	pbuf = buf;
 
-	if (neventfds == 0)
-		return -1;
-	return 1;
+	while(read(p->fd, buf, sizeof(buf)) > 0 || errno == EINTR)
+		;	// read left over
+	lseek(p->fd, 0, SEEK_SET);
+	while((m = read(p->fd, pbuf, buf+sizeof(buf)-1-pbuf)) > 0 || errno == EINTR){
+		if(m<=0)
+			continue;
+		pbuf[m] = '\0';
+		pbuf = buf;
+		do{
+			end = strchr(pbuf, '\n');
+			if(!end){
+				if(buf==pbuf)
+					panic("event line too long");
+				for(m=0; pbuf[m]; ++m)
+					buf[m] = pbuf[m];
+				pbuf = buf + m;
+				break;
+			}
+			if(*pbuf == 'H'){
+				for(++pbuf; strncmp(pbuf, "event", 5) && pbuf < end; ++pbuf);
+				if(pbuf == end){
+					++pbuf;
+					continue;
+				}
+				pbuf += 5;	// event
+				m = strcspn(pbuf, " \n");
+				pbuf[m] = '\0';
+				if(m < sizeof(eventfile)-17)	// skip "/dev/input/event"
+					strcpy(eventfile+16, pbuf);
+				++n;
+				p = realloc(p, n * sizeof(struct pollfd));
+				if(!p)
+					panic("realloc pollfd: %r");
+				p[n-1].fd = open(eventfile, O_RDONLY|O_CLOEXEC);
+				p[n-1].events = POLLIN;
+				if (p[n-1].fd < 0)
+					n--;
+			}
+			pbuf = end + 1;
+		}while(*pbuf);
+	}
+	if(n <= *nstart)
+		panic("no input events: %r");
+
+	*pfd = p;
+	*nstart = n;
+}
+
+static void
+eventdetach(struct pollfd pfd[], int npfd)
+{
+	int n;
+
+	for(n = 0; n < npfd; ++n)
+		close(pfd[n].fd);
 }
 
 void
@@ -167,6 +223,8 @@ flushmemscreen(Rectangle r)
 		update_rect = r;
 	else
 		combinerect(&update_rect, r);
+	atomic_store(&dirty, 1);
+	wakeup(&rendezflush);
 }
 
 static void
@@ -183,16 +241,16 @@ fbflush(void *v)
 	del = 16;
 
 	for(;;){
+		ksleep(&rendezflush, needflush, 0);
+		qlock(&flushlock);
+
 		ms = ticks();
 
 		qlock(&drawlock);
 		r = update_rect;
 		update_rect = Rect(0,0,0,0);
-		if (Dx(r) == 0 || Dy(r) == 0 || hidden != 0){
-			qunlock(&drawlock);
-			goto wait;
-		}
 		memimagedraw(screenimage, r, backbuf, r.min, nil, r.min, S);
+		atomic_store(&dirty, 0);
 		qunlock(&drawlock);
 
 		p = mousexy;
@@ -200,25 +258,18 @@ fbflush(void *v)
 		// draw cursor
 		for (x = 0; x < 16; x++) {
 			x2 = x + cursor.offset.x;
-
 			if ((p.x + x2) < 0)
 				continue;
-
 			if ((p.x + x2) >= screenimage->r.max.x)
 				break;
-
 			for (y = 0; y < 16; y++) {
 				y2 = y + cursor.offset.y;
-
 				if ((p.y + y2) < 0)
 					continue;
-
 				if ((p.y + y2) >= screenimage->r.max.y)
 					break;
-
 				i = y * 2 + x / 8;
 				fbloc = ((p.y+y2) * screenimage->r.max.x + (p.x+x2)) * depth;
-
 				if (cursor.clr[i] & (128 >> (x % 8))) {
 					switch (depth) {
 					case 2:
@@ -229,7 +280,6 @@ fbflush(void *v)
 						break;
 					}
 				}
-
 				if (cursor.set[i] & (128 >> (x % 8))) {
 					switch (depth) {
 					case 2:
@@ -242,10 +292,9 @@ fbflush(void *v)
 				}
 			}
 		}
-
 		_fbput(screenimage, r);
+		qunlock(&flushlock);
 
-wait:
 		ms = ms + del - ticks();
 		if(ms > 0 && ms < del)
 			osmsleep(ms);
@@ -253,94 +302,153 @@ wait:
 }
 
 static void
+ignore0(void *v)
+{
+	int n;
+	char buf[32];
+
+	while((n = read(0, buf, sizeof buf)) > 0 || errno == EINTR)
+		if (n <= 0 && errno != EINTR)
+			panic("read 0: %r");
+}
+
+static void
+consinit(void)
+{
+	struct vt_mode vm;
+
+	if(ioctl(0, KDGETMODE, &startmode) < 0)
+		panic("ioctl KDGETMODE: %r");
+	write(0, "\e[?25l", 6);
+	termctl(~(ICANON|ECHO), 0);
+	signal(SIGUSR1, ttyswitch);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, consfinalsig);
+
+	vm.mode = VT_PROCESS;
+	vm.waitv = 0;
+	vm.relsig = SIGUSR1;
+	vm.acqsig = 0;
+	vm.frsig = 0;
+	if(ioctl(0, VT_SETMODE, &vm) < 0)
+		panic("ioctl VT_SETMODE: %r");
+}
+
+static void
+consfinal(void)
+{
+	write(0, "\e[?25h", 6);
+	if (startmode == KD_TEXT)
+		ioctl(0, KDSETMODE, KD_GRAPHICS);
+	else
+		ioctl(0, KDSETMODE, KD_TEXT);
+	ioctl(0, KDSETMODE, startmode);
+	termctl(ECHO, 1);
+}
+
+static void
+consfinalsig(int sig)
+{
+	consfinal();
+	exit(128+sig);
+}
+
+static void
 fbproc(void *v)
 {
 	struct input_event data;
-	char buf[32];
+	struct stat ts;
 	struct pollfd *pfd;
-	int r;
+	int ttyfd;
+	int npfd;
 	int ioctlarg;
+	int vt;
+	int r;
 
-	pfd = calloc(3, sizeof(struct pollfd));
-	pfd[0].fd = ttyfd; // for virtual console switches
-	pfd[0].events = POLLPRI;
-	pfd[1].fd = 0; // stdin goes to nowhere
-	pfd[1].events = POLLIN;
-	pfd[2].fd = open("/proc/bus/input/devices", O_RDONLY); // input hotplug
-	if (pfd[2].fd < 0)
+	if(fstat(0, &ts) < 0)
+		panic("fstat current tty: %r");
+	vt = MINOR(ts.st_rdev);
+
+	kproc("ignore0", ignore0, nil);
+
+	consinit();
+
+	npfd = 1;
+	pfd = malloc(sizeof(struct pollfd));
+	if(!pfd)
+		panic("malloc pollfd: %r");
+	pfd->fd = open("/proc/bus/input/devices", O_RDONLY|O_CLOEXEC); // input hotplug
+	if (pfd->fd < 0)
 		panic("cannot open /proc/bus/input/devices: %r");
-	pfd[2].events = POLLIN;
+	pfd->events = POLLIN;
 
+	ttyfd = open("/dev/tty", O_RDWR|O_CLOEXEC);
+	if(ttyfd < 0)
+		panic("open tty: %r");
+
+	qlock(&flushlock);
 TOP:
-	while(read(pfd[2].fd, buf, 31) > 0);
+	while(ioctl(ttyfd, VT_WAITACTIVE, vt) < 0)
+		if (errno != EINTR)
+			panic("ioctl VT_WAITACTIVE: %r");
+	qunlock(&flushlock);
 
-	pfd = realloc(pfd, sizeof(struct pollfd) * (neventfds + 3));
-	for (r = 0; r < neventfds; r++) {
-		pfd[r+3].fd = eventfds[r];
-		pfd[r+3].events = POLLIN;
-	}
+	qlock(&drawlock);
+	flushmemscreen(gscreen->clipr);
+	qunlock(&drawlock);
 
-	for(;;) {
-		shift_state = 6;
-		if (ioctl(0, TIOCLINUX, &shift_state) < 0)
+	eventattach(&pfd, &npfd);
+
+	for (;;) {
+		shift_state = 6;	// TODO convert this to LEDs
+		if(ioctl(ttyfd, TIOCLINUX, &shift_state) < 0)
 			panic("ioctl TIOCLINUX 6: %r");
 
-		r = poll(pfd, 3+neventfds, -1);
-		if (r < 0)
+		if(poll(pfd, npfd, -1) < 0)
 			oserror();
-		if (pfd[0].revents & POLLPRI) {
-			if ((r = read(ttyfd, buf, 31)) <= 0)
-				panic("ttyfd read: %r");
-			buf[r] = '\0';
-			if (strcmp(buf, tty) == 0) {
-				hidden = 0;
-				printf("\e[?25l");
-				fflush(stdout);
-				qlock(&drawlock);
-				flushmemscreen(gscreen->clipr);
-				qunlock(&drawlock);
+		if(atomic_load(&switchaway)) {
+			if(altdown){	// Kalt used to switch vt, clear it up
+				kbdsc(0x38|0x80);
+				kbdsc(0x38);
+				kbdsc(0x38|0x80);
+				altdown = 0;
 			}
-			else
-				hidden = 1;
-			close(ttyfd);
-			ttyfd = open("/sys/class/tty/tty0/active", O_RDONLY);
-			if (ttyfd < 0)
-				panic("cannot open tty active fd: %r");
-			pfd[0].fd = ttyfd;
-			read(ttyfd, buf, 0);
-		}
-		if (pfd[1].revents & POLLIN)
-			read(pfd[1].fd, buf, 31);
-		if (pfd[2].revents & POLLIN) {
-			for (r = 0; r < neventfds; r++)
-				close(eventfds[r]);
-			if(eventattach() < 0) {
-				panic("cannot open event files: %r");
-			}
+			eventdetach(pfd + 1, npfd - 1);
+			npfd = 1;
+			qlock(&flushlock);
+			if(ioctl(ttyfd, VT_RELDISP, 1) < 0)
+				panic("ioctl VT_RELDISP: %r");
+			atomic_store(&switchaway, 0);
 			goto TOP;
 		}
-		for (r = 0; r < neventfds; r++)
-			if (pfd[r+3].revents & POLLIN) {
-				if (read(pfd[r+3].fd, &data, sizeof(data)) != sizeof(data))
+		if (pfd->revents & POLLIN) {
+			eventdetach(pfd + 1, npfd - 1);
+			npfd = 1;
+			qlock(&flushlock);
+			goto TOP;
+		}
+		for(r = 1; r < npfd; r++)
+			if (pfd[r].revents & POLLIN) {
+				if (read(pfd[r].fd, &data, sizeof(data)) != sizeof(data))
 					panic("eventfd read: %r");
 				if (onevent(&data) == 0) {
-					ioctlarg = 15;
-					if (ioctl(0, TIOCLINUX, &ioctlarg) != 0) {
-						ioctlarg = 4;
-						ioctl(0, TIOCLINUX, &ioctlarg);
+					ioctlarg = 15;	// blanked screen
+					if(ioctl(ttyfd, TIOCLINUX, &ioctlarg) != 0) {
+						ioctlarg = 4;	// unblank
+						ioctl(ttyfd, TIOCLINUX, &ioctlarg);
 						qlock(&drawlock);
 						flushmemscreen(gscreen->clipr);
 						qunlock(&drawlock);
 					} else {
-						write(1, "\033[9;30]", 7);
+						write(ttyfd, "\033[9;30]", 7);	// blank time 30 min
 					}
 				}
 			}
 	}
 
-	printf("\e[?25h");
-	fflush(stdout);
-	termctl(ECHO, 1);
+	consfinal();
+	close(ttyfd);
+	close(pfd->fd);
 	free(pfd);
 }
 
@@ -354,40 +462,10 @@ screensize(Rectangle r, ulong chan)
 void
 screeninit(void)
 {
-	int r;
-	char buf[1];
-
-	// set up terminal
-	printf("\e[?25l");
-	fflush(stdout);
-	termctl(~(ICANON|ECHO), 0);
-	signal(SIGINT, ctrlc);
-
 	memimageinit();
-
-	// tty switching
-	ttyfd = open("/sys/class/tty/tty0/active", O_RDONLY);
-	if (ttyfd >= 0) {
-		tty = malloc(32);
-		r = read(ttyfd, tty, 31);
-		if (r >= 0)
-			tty[r] = '\0';
-		else
-			tty[0] = '\0';
-		close(ttyfd);
-		ttyfd = open("/sys/class/tty/tty0/active", O_RDONLY);
-	}
-	if (ttyfd < 0)
-		panic("cannot open tty active fd: %r");
-	read(ttyfd, buf, 0);
-	hidden = 0;
 
 	if(fbattach(0) == nil) {
 		panic("cannot open framebuffer: %r");
-	}
-
-	if(eventattach() < 0) {
-		panic("cannot open event files: %r");
 	}
 
 	screensize(screenr, chan);
@@ -459,7 +537,7 @@ guimain(void)
 	cpubody();
 }
 
-void
+static void
 termctl(uint32_t o, int or)
 {
 	struct termios t;
@@ -472,8 +550,10 @@ termctl(uint32_t o, int or)
 	tcsetattr(0, TCSANOW, &t);
 }
 
-void
-ctrlc(int sig) {
+static void
+ttyswitch(int sig)
+{
+	atomic_store(&switchaway, 1);
 }
 
 int
@@ -488,9 +568,6 @@ onevent(struct input_event *data)
 	static Point startpt;
 	int key;
 	static ulong lastmsec = 0;
-
-	if (hidden != 0)
-		return -1;
 
 	msec = ticks();
 
@@ -560,10 +637,8 @@ onevent(struct input_event *data)
 				buttons &= ~2;
 			break;
 		default:
-			if (hidden)
-				return 0;
 			/* Convert linux keycode to 9front scancode
-			 * linux: input_event_codes.h
+			 * linux: input-event-codes.h
 			 * 9front: kbdfs.c
 			 */
 			if (data->code > 0 && data->code <= 0x58)
@@ -611,9 +686,20 @@ onevent(struct input_event *data)
 			case 111:
 				key = 0xe053; // Kdel
 				break;
+			case 125:
+			case 126:
+				key = 0xe05b; // Kmod4
+				break;
+			default:
+				fprint(2, "DEBUG: got key data->code=%d\n", data->code);
+				break;
 			}
 			if(!data->value)
 				key |= 0x80;
+			if(key == 0x38)
+				altdown = 1;
+			else if(key == (0x38|0x80))
+				altdown = 0;
 			kbdsc(key);
 			return 0;
 		}
