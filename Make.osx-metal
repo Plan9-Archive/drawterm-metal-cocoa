@@ -1,14 +1,14 @@
 # Mac OS X
-PTHREAD=	# for Mac
+PTHREAD=-DPTHREAD	# for Mac
 AR=ar
 AS=as
 RANLIB=ranlib
 CC=xcrun --sdk macosx clang
-CFLAGS=-Wall -Wno-missing-braces -g -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -march=native -O2 $(DEBUGCFLAGS)
+CFLAGS=-Wall -Wno-missing-braces -g -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -march=native -O2 -flto $(DEBUGCFLAGS)
 O=o
 OS=posix
 GUI=metal
-LDADD=-ggdb -framework Cocoa -framework Metal -framework QuartzCore
+LDADD=-ggdb -framework Cocoa -framework Metal -framework QuartzCore -march=native -O2 -flto
 LDFLAGS=$(PTHREAD)
 TARG=drawterm
 AUDIO=none
