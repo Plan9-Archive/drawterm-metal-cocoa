@@ -43,7 +43,6 @@ static Memimage	*screenimage;
 static Memimage	*backbuf;
 static int	linelength;
 static Point	mousexy;
-static char	shift_state;
 static ulong	chan;
 static int	depth;
 static _Atomic int	dirty;
@@ -60,6 +59,8 @@ static void consinit(void);
 static void consfinal(void);
 static void consfinalsig(int sig);
 static int needflush(void *);
+static void ignore0(void *);
+static void unblank(void *);
 
 static int
 needflush(void *v)
@@ -302,7 +303,7 @@ fbflush(void *v)
 }
 
 static void
-ignore0(void *v)
+ignore0(void *)
 {
 	int n;
 	char buf[32];
@@ -313,13 +314,27 @@ ignore0(void *v)
 }
 
 static void
+unblank(void *)
+{
+	for(;;){
+		struct vt_event e = {.event = VT_EVENT_UNBLANK};
+		if(!ioctl(0, VT_WAITEVENT, &e)){
+			qlock(&drawlock);
+			flushmemscreen(gscreen->clipr);
+			qunlock(&drawlock);
+		}
+	}
+}
+
+static void
 consinit(void)
 {
 	struct vt_mode vm;
 
 	if(ioctl(0, KDGETMODE, &startmode) < 0)
 		panic("ioctl KDGETMODE: %r");
-	write(0, "\e[?25l", 6);
+	write(0, "\e[9;30]", 7);	// blank time 30 min
+	write(0, "\e[?25l", 6);		// hide cursor
 	termctl(~(ICANON|ECHO), 0);
 	signal(SIGUSR1, ttyswitch);
 	signal(SIGINT, SIG_IGN);
@@ -361,7 +376,6 @@ fbproc(void *v)
 	struct pollfd *pfd;
 	int ttyfd;
 	int npfd;
-	int ioctlarg;
 	int vt;
 	int r;
 
@@ -369,6 +383,7 @@ fbproc(void *v)
 		panic("fstat current tty: %r");
 	vt = MINOR(ts.st_rdev);
 
+	kproc("unblank", unblank, nil);
 	kproc("ignore0", ignore0, nil);
 
 	consinit();
@@ -400,10 +415,6 @@ TOP:
 	eventattach(&pfd, &npfd);
 
 	for (;;) {
-		shift_state = 6;	// TODO convert this to LEDs
-		if(ioctl(ttyfd, TIOCLINUX, &shift_state) < 0)
-			panic("ioctl TIOCLINUX 6: %r");
-
 		if(poll(pfd, npfd, -1) < 0)
 			oserror();
 		if(atomic_load(&switchaway)) {
@@ -431,18 +442,7 @@ TOP:
 			if (pfd[r].revents & POLLIN) {
 				if (read(pfd[r].fd, &data, sizeof(data)) != sizeof(data))
 					panic("eventfd read: %r");
-				if (onevent(&data) == 0) {
-					ioctlarg = 15;	// blanked screen
-					if(ioctl(ttyfd, TIOCLINUX, &ioctlarg) != 0) {
-						ioctlarg = 4;	// unblank
-						ioctl(ttyfd, TIOCLINUX, &ioctlarg);
-						qlock(&drawlock);
-						flushmemscreen(gscreen->clipr);
-						qunlock(&drawlock);
-					} else {
-						write(ttyfd, "\033[9;30]", 7);	// blank time 30 min
-					}
-				}
+				onevent(&data);
 			}
 	}
 
@@ -626,9 +626,9 @@ onevent(struct input_event *data)
 			break;
 		case 0x111:
 			if (data->value == 1)
-				buttons |= shift_state & (1 << KG_SHIFT)? 2: 4;
+				buttons |= 4;
 			else
-				buttons &= ~(shift_state & (1 << KG_SHIFT)? 2: 4);
+				buttons &= ~4;
 			break;
 		case 0x112:
 			if (data->value == 1)
