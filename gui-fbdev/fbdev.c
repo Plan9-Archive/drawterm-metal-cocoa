@@ -567,7 +567,6 @@ onevent(struct input_event *data)
 	static Point startmousept;
 	static Point startpt;
 	int key;
-	static ulong lastmsec = 0;
 
 	msec = ticks();
 
@@ -726,12 +725,6 @@ onevent(struct input_event *data)
 	qlock(&drawlock);
 	flushmemscreen(new);
 	qunlock(&drawlock);
-
-	if ((msec - lastmsec) < 10)
-		if (data->type != 1)
-			return 0;
-
-	lastmsec = msec;
 
 	absmousetrack(mousexy.x, mousexy.y, buttons, msec);
 
