@@ -374,7 +374,6 @@ fbproc(void *v)
 	struct input_event data;
 	struct stat ts;
 	struct pollfd *pfd;
-	int ttyfd;
 	int npfd;
 	int vt;
 	int r;
@@ -397,13 +396,9 @@ fbproc(void *v)
 		panic("cannot open /proc/bus/input/devices: %r");
 	pfd->events = POLLIN;
 
-	ttyfd = open("/dev/tty", O_RDWR|O_CLOEXEC);
-	if(ttyfd < 0)
-		panic("open tty: %r");
-
 	qlock(&flushlock);
 TOP:
-	while(ioctl(ttyfd, VT_WAITACTIVE, vt) < 0)
+	while(ioctl(0, VT_WAITACTIVE, vt) < 0)
 		if (errno != EINTR)
 			panic("ioctl VT_WAITACTIVE: %r");
 	qunlock(&flushlock);
@@ -418,16 +413,15 @@ TOP:
 		if(poll(pfd, npfd, -1) < 0)
 			oserror();
 		if(atomic_load(&switchaway)) {
-			if(altdown){	// Kalt used to switch vt, clear it up
-				kbdsc(0x38|0x80);
-				kbdsc(0x38);
-				kbdsc(0x38|0x80);
+			if(altdown){	// Kalt used to switch vt
+				kbdsc(0x1d);	// Send Kctl to break the compose sequence
+				kbdsc(0x1d|0x80);
 				altdown = 0;
 			}
 			eventdetach(pfd + 1, npfd - 1);
 			npfd = 1;
 			qlock(&flushlock);
-			if(ioctl(ttyfd, VT_RELDISP, 1) < 0)
+			if(ioctl(0, VT_RELDISP, 1) < 0)
 				panic("ioctl VT_RELDISP: %r");
 			atomic_store(&switchaway, 0);
 			goto TOP;
@@ -447,8 +441,7 @@ TOP:
 	}
 
 	consfinal();
-	close(ttyfd);
-	close(pfd->fd);
+	eventdetach(pfd, npfd);
 	free(pfd);
 }
 
@@ -566,6 +559,7 @@ onevent(struct input_event *data)
 	static char touched;
 	static Point startmousept;
 	static Point startpt;
+	static int mod4down;
 	int key;
 
 	msec = ticks();
@@ -699,6 +693,12 @@ onevent(struct input_event *data)
 				altdown = 1;
 			else if(key == (0x38|0x80))
 				altdown = 0;
+			else if(key == 0xe05b)
+				mod4down = 1;
+			else if(key == (0xe05b|0x80))
+				mod4down = 0;
+			else if(key >= 0x3b && key <= 0x44 && (altdown | mod4down))
+				return 0;	// Ignore alt/mod4-F1~F10 for console switching
 			kbdsc(key);
 			return 0;
 		}
