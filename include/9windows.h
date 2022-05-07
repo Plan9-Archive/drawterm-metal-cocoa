@@ -18,4 +18,4 @@
 
 typedef __int64		p9_vlong;
 typedef	unsigned __int64 p9_uvlong;
-typedef unsigned uintptr;
+typedef uintptr_t uintptr;
