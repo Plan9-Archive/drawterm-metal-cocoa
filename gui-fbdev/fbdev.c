@@ -338,6 +338,7 @@ consinit(void)
 	termctl(~(ICANON|ECHO), 0);
 	signal(SIGUSR1, ttyswitch);
 	signal(SIGINT, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
 	signal(SIGTERM, consfinalsig);
 
 	vm.mode = VT_PROCESS;
