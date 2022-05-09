@@ -368,7 +368,7 @@ static Dirtab consdir[]={
 	"osversion",	{Qosversion},	0,		0444,
 	"random",	{Qrandom},	0,		0444,
 	"reboot",	{Qreboot},	0,		0664,
-	"secstore",	{Qsecstore},	0,		0666,
+	"secstore",	{Qsecstore},	0,		0600,
 	"showfile",	{Qshowfile},	0,	0220,
 	"snarf",	{Qsnarf},		0,		0666,
 	"sysname",	{Qsysname},	0,		0664,
