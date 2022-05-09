@@ -337,8 +337,6 @@ consinit(void)
 	write(0, "\e[?25l", 6);		// hide cursor
 	termctl(~(ICANON|ECHO), 0);
 	signal(SIGUSR1, ttyswitch);
-	signal(SIGINT, SIG_IGN);
-	signal(SIGTSTP, SIG_IGN);
 	signal(SIGTERM, consfinalsig);
 
 	vm.mode = VT_PROCESS;
@@ -456,6 +454,9 @@ screensize(Rectangle r, ulong chan)
 void
 screeninit(void)
 {
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+
 	memimageinit();
 
 	if(fbattach(0) == nil) {
