@@ -1,0 +1,32 @@
+# Windows via mingw-w64
+# MING=mingw32- is necessary if you're cross-compiling
+# on another platform.  Otherwise the binaries are just
+# named gcc, etc.
+
+AUDIO=win32
+MING=x86_64-w64-mingw32-
+#MING=
+AR=$(MING)ar
+CC=$(MING)gcc
+AS=$(MING)as
+RANLIB=$(MING)ranlib
+WINDRES=$(MING)windres
+CFLAGS=-Wall -Wno-missing-braces -I$(ROOT)/include -I$(ROOT) -I$(ROOT)/kern -c -DWINDOWS -DUNICODE -O2
+O=o
+FS=fs-win32
+IP=win32
+OS=win32
+GUI=win32
+LDADD=-lgdi32 -lws2_32 -lwinmm -mwindows
+TARG=drawterm.exe
+XOFILES=glenda-t.$O
+
+all: default
+
+# for root
+libmachdep.a:
+	(cd posix-amd64; make)
+
+glenda-t.$O: glenda-t.rc glenda-t.ico
+	$(WINDRES) -i glenda-t.rc -o glenda-t.o
+

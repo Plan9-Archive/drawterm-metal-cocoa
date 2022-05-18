@@ -532,7 +532,7 @@ setcursor(void)
 	free(and);
 	free(xor);
 
-	PostMessage(window, WM_SETCURSOR, (int)window, 0);
+	PostMessage(window, WM_SETCURSOR, (WPARAM)window, 0);
 }
 
 void
@@ -543,7 +543,7 @@ cursorarrow(void)
 		hcursor = 0;
 	}
 	SetCursor(LoadCursor(0, IDC_ARROW));
-	PostMessage(window, WM_SETCURSOR, (int)window, 0);
+	PostMessage(window, WM_SETCURSOR, (WPARAM)window, 0);
 }
 
 
