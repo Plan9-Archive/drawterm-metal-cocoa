@@ -233,6 +233,20 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Insert:
 		utf32 = Kins;
 		break;
+	case XKB_KEY_F1:
+	case XKB_KEY_F2:
+	case XKB_KEY_F3:
+	case XKB_KEY_F4:
+	case XKB_KEY_F5:
+	case XKB_KEY_F6:
+	case XKB_KEY_F7:
+	case XKB_KEY_F8:
+	case XKB_KEY_F9:
+	case XKB_KEY_F10:
+	case XKB_KEY_F11:
+	case XKB_KEY_F12:
+		utf32 = KF|(keysym - XKB_KEY_F1 + 1);
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
