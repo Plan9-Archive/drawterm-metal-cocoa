@@ -117,6 +117,7 @@ resizeproc(void *arg)
 		screenwin();
 		deletescreenimage();
 		resetscreenimage();
+		osmsleep(1000);
 	}
 }
 
