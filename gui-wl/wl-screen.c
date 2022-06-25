@@ -39,8 +39,8 @@ newwlwin(void)
 		sysfatal("malloc Wlwin");
 	wl->dx = 1024;
 	wl->dy = 1024;
-	wl->monx = 1920;
-	wl->mony = 1080;
+	wl->monx = wl->dx;
+	wl->mony = wl->dy;
 	return wl;
 }
 
@@ -60,6 +60,8 @@ wlflush(Wlwin *wl)
 	wl_surface_commit(wl->surface);
 }
 
+void  _screenresize(Rectangle);
+
 void
 wlresize(Wlwin *wl, int x, int y)
 {
@@ -73,11 +75,7 @@ wlresize(Wlwin *wl, int x, int y)
 	r = Rect(0, 0, wl->dx, wl->dy);
 	gscreen = allocmemimage(r, XRGB32);
 	gscreen->clipr = ZR;
-	qunlock(&drawlock);
-
-	screenresize(r);
-
-	qlock(&drawlock);
+	_screenresize(r);
 	wl->dirty = 1;
 	wl->r = r;
 	wlflush(wl);

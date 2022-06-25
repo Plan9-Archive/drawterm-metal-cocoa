@@ -531,13 +531,39 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 };
 
 static void
-handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
+mode(void *data, struct wl_output*, uint, int x, int y, int)
 {
 	Wlwin *wl;
 
 	wl = data;
+	if(x >= wl->monx && y >= wl->mony){
+		wl->monx = x;
+		wl->mony = y;
+	}
+}
+static void done(void*, struct wl_output*){}
+static void scale(void*, struct wl_output*, int){}
+static void geometry(void*, struct wl_output*, int, int, int, int, int, const char*, const char*, int){}
+
+static const struct wl_output_listener output_listener = {
+	.geometry = geometry,
+	.mode = mode,
+	.done = done,
+	.scale = scale,
+};
+
+static void
+handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
+{
+	Wlwin *wl;
+	struct wl_output *out;
+
+	wl = data;
 	if(strcmp(interface, wl_shm_interface.name) == 0) {
 		wl->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+	} else if(strcmp(interface, wl_output_interface.name) == 0) {
+		out = wl_registry_bind(registry, name, &wl_output_interface, 2);
+		wl_output_add_listener(out, &output_listener, wl);
 	} else if(strcmp(interface, wl_seat_interface.name) == 0) {
 		//We don't support multiseat
 		if(wl->seat != nil)
