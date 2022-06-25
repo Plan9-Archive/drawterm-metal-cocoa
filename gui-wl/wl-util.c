@@ -50,7 +50,6 @@ wlcreateshm(off_t size)
 void
 wlallocpool(Wlwin *wl)
 {
-	int screenx, screeny;
 	int screensize, cursorsize;
 	int depth;
 	int fd;
@@ -59,9 +58,7 @@ wlallocpool(Wlwin *wl)
 		wl_shm_pool_destroy(wl->pool);
 
 	depth = 4;
-	screenx = wl->dx > wl->monx ? wl->dx : wl->monx;
-	screeny = wl->dy > wl->mony ? wl->dy : wl->mony;
-	screensize = screenx * screeny * depth;
+	screensize = wl->monx * wl->mony * depth;
 	cursorsize = 16 * 16 * depth;
 
 	fd = wlcreateshm(screensize+cursorsize);
@@ -88,6 +85,8 @@ wlallocbuffer(Wlwin *wl)
 	size = wl->dx * wl->dy * depth;
 	if(wl->pool == nil || size+(16*16*depth) > wl->poolsize)
 		wlallocpool(wl);
+
+	assert(size+(16*16*depth) <= wl->poolsize);
 
 	if(wl->screenbuffer != nil)
 		wl_buffer_destroy(wl->screenbuffer);
