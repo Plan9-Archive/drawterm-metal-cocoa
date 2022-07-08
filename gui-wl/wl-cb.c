@@ -375,15 +375,25 @@ static void
 seat_handle_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities)
 {
 	Wlwin *wl;
+	int pointer, keyboard;
 
 	wl = data;
-	if(capabilities & WL_SEAT_CAPABILITY_POINTER) {
+	pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+	if(pointer && wl->pointer == nil){
 		wl->pointer = wl_seat_get_pointer(seat);
 		wl_pointer_add_listener(wl->pointer, &pointer_listener, wl);
+	}else if(!pointer && wl->pointer != nil){
+		wl_pointer_release(wl->pointer);
+		wl->pointer = nil;
 	}
-	if(capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
-		struct wl_keyboard *keyboard = wl_seat_get_keyboard(seat);
-		wl_keyboard_add_listener(keyboard, &keyboard_listener, wl);
+
+	keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+	if(keyboard && wl->keyboard == nil){
+		wl->keyboard = wl_seat_get_keyboard(seat);
+		wl_keyboard_add_listener(wl->keyboard, &keyboard_listener, wl);
+	}else if(!keyboard && wl->keyboard != nil){
+		wl_keyboard_release(wl->keyboard);
+		wl->keyboard = nil;
 	}
 }
 
