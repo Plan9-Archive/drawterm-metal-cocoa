@@ -63,6 +63,7 @@ struct Wlwin {
 	struct wl_data_device_manager *data_device_manager;
 	struct wl_data_device *data_device;
 	struct wl_pointer *pointer;
+	struct wl_keyboard *keyboard;
 	/* Keyboard state */
 	struct xkb_state *xkb_state;
 	struct xkb_context *xkb_context;
