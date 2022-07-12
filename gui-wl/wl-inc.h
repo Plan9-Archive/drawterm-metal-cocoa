@@ -34,6 +34,13 @@ struct Mouse {
 	ulong msec;
 };
 
+enum{
+	Aunpress,
+	Apress,
+	Aenter1,
+	Aenter2,
+};
+
 struct Wlwin {
 	int dx;
 	int dy;
@@ -43,6 +50,7 @@ struct Wlwin {
 	Clipboard clip;
 	Rectangle r;
 	int dirty;
+	int alt; /* Kalt state */
 
 	/* Wayland State */
 	int runing;

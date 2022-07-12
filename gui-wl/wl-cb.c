@@ -168,10 +168,18 @@ keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, 
 static void
 keyboard_leave (void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface)
 {
+	Wlwin *wl;
+
+	wl = data;
 	kbdkey(Kshift, 0);
+	kbdkey(Kmod4, 0);
 	kbdkey(Kctl, 0);
 	kbdkey(Kalt, 0);
-	kbdkey(Kmod4, 0);
+	if(wl->alt != Aunpress){
+		kbdkey(Kalt, 1);
+		kbdkey(Kalt, 0);
+		wl->alt = Aunpress;
+	}
 	qlock(&repeatstate.lk);
 	repeatstate.active = 0;
 	repeatstate.key = 0;
@@ -254,10 +262,30 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	if(utf32 == 0)
 		return;
 
+	if(state == 1){
+		if(utf32 == Kalt){
+			if(wl->alt == Aunpress)
+				wl->alt = Apress;
+			else
+				wl->alt = Aunpress;
+		} else {
+			switch(wl->alt){
+			case Apress:
+			case Aenter1:
+				wl->alt++;
+				break;
+			case Aenter2:
+				wl->alt = Aunpress;
+			}
+		}
+	}
 	repeat = state && utf32 != Kctl && utf32 != Kshift && utf32 != Kalt && utf32 != Kmod4;
-	if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
-	if(utf32 >= 'a' && utf32 <= 'z')
-		utf32 -= ('a' - 1);
+	if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0){
+		if(utf32 == '\\')
+			utf32 = 0x1c;
+		else if(utf32 >= 'a' && utf32 <= '~')
+			utf32 -= ('a' - 1);
+	}
 
 	kbdkey(utf32, state);
 	qlock(&repeatstate.lk);
