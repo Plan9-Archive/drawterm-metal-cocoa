@@ -9,6 +9,8 @@
 #include	"screen.h"
 
 extern Memimage		*gscreen;
+int	initscreenimage(void);
+void	_deletescreenimage(void);
 
 static Memsubfont	*memdefont;
 static Lock		screenlock;
@@ -112,21 +114,27 @@ resizeproc(void *arg)
 			continue;
 		}
 		gscreen->clipr = resize.r;
+		_deletescreenimage();
+		initscreenimage();
 		qunlock(&drawlock);
 
 		screenwin();
-		deletescreenimage();
-		resetscreenimage();
 	}
+}
+
+void
+_screenresize(Rectangle r)
+{
+	resize.r = r;
+	resize.f = 1;
+	wakeup(&resize.z);
 }
 
 void
 screenresize(Rectangle r)
 {
 	qlock(&drawlock);
-	resize.r = r;
-	resize.f = 1;
-	wakeup(&resize.z);
+	_screenresize(r);
 	qunlock(&drawlock);
 }
 

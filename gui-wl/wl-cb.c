@@ -235,6 +235,20 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Insert:
 		utf32 = Kins;
 		break;
+	case XKB_KEY_F1:
+	case XKB_KEY_F2:
+	case XKB_KEY_F3:
+	case XKB_KEY_F4:
+	case XKB_KEY_F5:
+	case XKB_KEY_F6:
+	case XKB_KEY_F7:
+	case XKB_KEY_F8:
+	case XKB_KEY_F9:
+	case XKB_KEY_F10:
+	case XKB_KEY_F11:
+	case XKB_KEY_F12:
+		utf32 = KF|(keysym - XKB_KEY_F1 + 1);
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
@@ -363,15 +377,25 @@ static void
 seat_handle_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities)
 {
 	Wlwin *wl;
+	int pointer, keyboard;
 
 	wl = data;
-	if(capabilities & WL_SEAT_CAPABILITY_POINTER) {
+	pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+	if(pointer && wl->pointer == nil){
 		wl->pointer = wl_seat_get_pointer(seat);
 		wl_pointer_add_listener(wl->pointer, &pointer_listener, wl);
+	}else if(!pointer && wl->pointer != nil){
+		wl_pointer_release(wl->pointer);
+		wl->pointer = nil;
 	}
-	if(capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
-		struct wl_keyboard *keyboard = wl_seat_get_keyboard(seat);
-		wl_keyboard_add_listener(keyboard, &keyboard_listener, wl);
+
+	keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+	if(keyboard && wl->keyboard == nil){
+		wl->keyboard = wl_seat_get_keyboard(seat);
+		wl_keyboard_add_listener(wl->keyboard, &keyboard_listener, wl);
+	}else if(!keyboard && wl->keyboard != nil){
+		wl_keyboard_release(wl->keyboard);
+		wl->keyboard = nil;
 	}
 }
 
@@ -519,13 +543,39 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 };
 
 static void
-handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
+mode(void *data, struct wl_output*, uint, int x, int y, int)
 {
 	Wlwin *wl;
 
 	wl = data;
+	if(x >= wl->monx && y >= wl->mony){
+		wl->monx = x;
+		wl->mony = y;
+	}
+}
+static void done(void*, struct wl_output*){}
+static void scale(void*, struct wl_output*, int){}
+static void geometry(void*, struct wl_output*, int, int, int, int, int, const char*, const char*, int){}
+
+static const struct wl_output_listener output_listener = {
+	.geometry = geometry,
+	.mode = mode,
+	.done = done,
+	.scale = scale,
+};
+
+static void
+handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
+{
+	Wlwin *wl;
+	struct wl_output *out;
+
+	wl = data;
 	if(strcmp(interface, wl_shm_interface.name) == 0) {
 		wl->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+	} else if(strcmp(interface, wl_output_interface.name) == 0) {
+		out = wl_registry_bind(registry, name, &wl_output_interface, 2);
+		wl_output_add_listener(out, &output_listener, wl);
 	} else if(strcmp(interface, wl_seat_interface.name) == 0) {
 		//We don't support multiseat
 		if(wl->seat != nil)
