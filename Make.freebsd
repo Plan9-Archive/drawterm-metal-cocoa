@@ -1,5 +1,5 @@
 # OpenBSD
-PTHREAD=-pthread
+PTHREAD=-pthread -DPTHREAD
 AR=ar
 AS=as
 RANLIB=ranlib
