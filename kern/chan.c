@@ -479,7 +479,7 @@ eqchantdqid(Chan *a, int type, int dev, Qid qid, int skipvers)
 		return 0;
 	if(a->type != type)
 		return 0;
-	if(a->dev != dev)
+	if(a->dev != (ulong)dev)
 		return 0;
 	return 1;
 }
@@ -728,7 +728,7 @@ cclone(Chan *c)
 
 /* also used by sysfile.c:/^mountfix */
 int
-findmount(Chan **cp, Mhead **mp, int type, int dev, Qid qid)
+findmount(Chan *volatile *cp, Mhead **mp, int type, int dev, Qid qid)
 {
 	Chan *to;
 	Pgrp *pg;
@@ -763,7 +763,7 @@ findmount(Chan **cp, Mhead **mp, int type, int dev, Qid qid)
  * Calls findmount but also updates path.
  */
 static int
-domount(Chan **cp, Mhead **mp, Path **path)
+domount(Chan **cp, Mhead **mp, Path *volatile *path)
 {
 	Chan **lc, *from;
 	Path *p;
@@ -1192,7 +1192,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 		up->genbuf[0] = '\0';
 		n = 0;
 		while(*name != '\0' && (*name != '/' || n < 2)){
-			if(n >= sizeof(up->genbuf)-1)
+			if((unsigned long)n >= sizeof(up->genbuf)-1)
 				error(Efilename);
 			up->genbuf[n++] = *name++;
 		}
@@ -1520,8 +1520,8 @@ char isfrog[256]={
 	/*BKS*/	1, 1, 1, 1, 1, 1, 1, 1,
 	/*DLE*/	1, 1, 1, 1, 1, 1, 1, 1,
 	/*CAN*/	1, 1, 1, 1, 1, 1, 1, 1,
-	['/']	1,
-	[0x7f]	1,
+	['/'] = 1,
+	[0x7f]= 1,
 };
 
 /*

@@ -176,6 +176,7 @@ procwakeup(Proc *p)
 void*
 oscmd(char **argv, int nice, char *dir, Chan **fd)
 {
+	USED(nice);
 	int p[3][2];
 	int i, pid;
 
@@ -276,9 +277,9 @@ randominit(void)
 ulong
 randomread(void *v, ulong n)
 {
-	int m;
+	long m;
 
-	if((m = read(randfd, v, n)) != n)
+	if((m = read(randfd, v, n)) != (long)n)
 		panic("short read from /dev/random: %d but %d", n, m);
 	return m;
 }
@@ -308,6 +309,7 @@ ticks(void)
 long
 showfilewrite(char *a, int n)
 {
+	USED(a); USED(n);
 	error("not implemented");
 	return -1;
 }

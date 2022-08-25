@@ -424,7 +424,7 @@ qidlookup(Dir *d)
 
 	h = qidhash(d->qid.path);
 	for(q=qidtab[h]; q!=nil; q=q->next)
-		if(q->type==d->type && q->dev==d->dev && q->path==d->qid.path)
+		if(q->type==d->type && (ulong)q->dev==d->dev && (uvlong)q->path==d->qid.path)
 			return q;
 	return nil;
 }

@@ -62,7 +62,7 @@ char	*sysname;
 vlong	fasthz = 1000;
 
 static int	readtime(ulong, char*, int);
-static int	readbintime(char*, int);
+static int	readbintime(char*, unsigned);
 static int	writetime(char*, int);
 static int	writebintime(char*, int);
 
@@ -81,6 +81,7 @@ Cmdtab rebootmsg[] =
 int
 return0(void *v)
 {
+	USED(v);
 	return 0;
 }
 
@@ -105,7 +106,7 @@ kmesgputs(char *str, int n)
 
 	ilock(&kmesg.lk);
 	/* take the tail of huge writes */
-	if(n > sizeof kmesg.buf){
+	if(n > (long)sizeof kmesg.buf){
 		d = n - sizeof kmesg.buf;
 		str += d;
 		n -= d;
@@ -295,6 +296,7 @@ _kbdputc(int c)
 int
 kbdputc(Queue *q, int c)
 {
+	USED(q);
 	int	i;
 	static int collecting, nk;
 	static Rune kc[5];
@@ -356,25 +358,25 @@ enum
 
 static Dirtab consdir[]={
 	".",	{Qdir, 0, QTDIR},	0,		DMDIR|0555,
-	"bintime",	{Qbintime},	24,		0664,
-	"cons",		{Qcons},	0,		0660,
-	"consctl",	{Qconsctl},	0,		0220,
-	"drivers",	{Qdrivers},	0,		0444,
-	"hostdomain",	{Qhostdomain},	DOMLEN,		0664,
-	"hostowner",	{Qhostowner},	0,	0664,
-	"kmesg",	{Qkmesg},	0,		0440,
+	"bintime",	{Qbintime, 0, 0},	24,		0664,
+	"cons",		{Qcons, 0, 0},	0,		0660,
+	"consctl",	{Qconsctl, 0, 0},	0,		0220,
+	"drivers",	{Qdrivers, 0, 0},	0,		0444,
+	"hostdomain",	{Qhostdomain, 0, 0},	DOMLEN,		0664,
+	"hostowner",	{Qhostowner, 0, 0},	0,	0664,
+	"kmesg",	{Qkmesg, 0, 0},	0,		0440,
 	"kprint",	{Qkprint, 0, QTEXCL},	0,	DMEXCL|0440,
-	"null",		{Qnull},	0,		0666,
-	"osversion",	{Qosversion},	0,		0444,
-	"random",	{Qrandom},	0,		0444,
-	"reboot",	{Qreboot},	0,		0664,
-	"secstore",	{Qsecstore},	0,		0600,
-	"showfile",	{Qshowfile},	0,	0220,
-	"snarf",	{Qsnarf},		0,		0666,
-	"sysname",	{Qsysname},	0,		0664,
-	"sysstat",	{Qsysstat},	0,		0666,
-	"time",		{Qtime},	NUMSIZE+3*VLNUMSIZE,	0664,
-	"zero",		{Qzero},	0,		0444,
+	"null",		{Qnull, 0, 0},	0,		0666,
+	"osversion",	{Qosversion, 0, 0},	0,		0444,
+	"random",	{Qrandom, 0, 0},	0,		0444,
+	"reboot",	{Qreboot, 0, 0},	0,		0664,
+	"secstore",	{Qsecstore, 0, 0},	0,		0600,
+	"showfile",	{Qshowfile, 0, 0},	0,	0220,
+	"snarf",	{Qsnarf, 0, 0},		0,		0666,
+	"sysname",	{Qsysname, 0, 0},	0,		0664,
+	"sysstat",	{Qsysstat, 0, 0},	0,		0666,
+	"time",		{Qtime, 0, 0},	NUMSIZE+3*VLNUMSIZE,	0664,
+	"zero",		{Qzero, 0, 0},	0,		0444,
 };
 
 char secstorebuf[65536];
@@ -388,9 +390,9 @@ readnum(ulong off, char *buf, ulong n, ulong val, int size)
 
 	snprint(tmp, sizeof(tmp), "%*.0lud", size-1, val);
 	tmp[size-1] = ' ';
-	if(off >= size)
+	if(off >= (ulong)size)
 		return 0;
-	if(off+n > size)
+	if(off+n > (ulong)size)
 		n = size-off;
 	memmove(buf, tmp+off, n);
 	return n;
@@ -399,7 +401,7 @@ readnum(ulong off, char *buf, ulong n, ulong val, int size)
 int
 readstr(ulong off, char *buf, ulong n, char *str)
 {
-	int size;
+	ulong size;
 
 	size = strlen(str);
 	if(off >= size)
@@ -679,15 +681,18 @@ consread(Chan *c, void *buf, long n, vlong off)
 }
 
 static long
-conswrite(Chan *c, void *va, long n, vlong off)
+conswrite(Chan *c, void *va, long n_, vlong off)
 {
 	char buf[256];
-	long l, bp;
+	ulong n;
+	long l;
+	ulong bp;
 	char *a = va;
 	ulong offset = off;
 	Cmdbuf *cb;
 	Cmdtab *ct;
 
+	n = n_;
 	switch((ulong)c->qid.path){
 	case Qcons:
 		/*
@@ -833,6 +838,8 @@ Dev consdevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };
 
 static uvlong uvorder = (uvlong) 0x0001020304050607ULL;
@@ -841,7 +848,7 @@ static uchar*
 vlong2le(uchar *t, vlong from)
 {
 	uchar *f, *o;
-	int i;
+	unsigned i;
 
 	f = (uchar*)&from;
 	o = (uchar*)&uvorder;
@@ -891,7 +898,7 @@ writetime(char *buf, int n)
  *  ticks and nsec are syncronized.
  */
 static int
-readbintime(char *buf, int n)
+readbintime(char *buf, unsigned n)
 {
 	int i;
 	vlong nsec;

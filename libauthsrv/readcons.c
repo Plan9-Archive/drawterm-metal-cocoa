@@ -43,7 +43,7 @@ readcons(char *prompt, char *def, int raw)
 		if(*p == '\n' || *p == '\r'){
 			if(p == s && def != nil){
 				free(s);
-				s = strdup(def);
+				s = (signed char *)strdup(def);
 			} else
 				*p = 0;
 			if(raw)
@@ -78,5 +78,5 @@ Out:
 	if(fdout >= 0)
 		close(fdout);
 
-	return s;
+	return (char *)s;
 }

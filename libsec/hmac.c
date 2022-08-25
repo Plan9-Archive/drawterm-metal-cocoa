@@ -6,10 +6,10 @@ DigestState*
 hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState *s,
 	DigestState*(*x)(uchar*, ulong, uchar*, DigestState*), int xlen)
 {
-	int i;
+	uint i;
 	uchar pad[Hmacblksz+1], innerdigest[256];
 
-	if(xlen > sizeof(innerdigest))
+	if(xlen > (int)sizeof(innerdigest))
 		return nil;
 	if(klen > Hmacblksz){
 		if(xlen > Hmacblksz)

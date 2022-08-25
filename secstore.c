@@ -81,7 +81,7 @@ havesecstore(char *addr, char *owner)
 		return 0;
 	}
 	n = ((buf[0]&0x7f)<<8) + buf[1];
-	if(n+1 > sizeof buf){
+	if((unsigned long)n+1 > sizeof buf){
 		werrstr("implausibly large count %d", n);
 		close(fd);
 		return 0;

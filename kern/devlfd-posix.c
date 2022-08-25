@@ -118,4 +118,6 @@ Dev lfddevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };

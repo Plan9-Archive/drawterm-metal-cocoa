@@ -258,14 +258,14 @@ static char	*tlsstate(int s);
 static void	pdump(int, void*, char*);
 
 static char *tlsnames[] = {
-[Qclonus]		"clone",
-[Qencalgs]	"encalgs",
-[Qhashalgs]	"hashalgs",
-[Qdata]		"data",
-[Qctl]		"ctl",
-[Qhand]		"hand",
-[Qstatus]		"status",
-[Qstats]		"stats",
+[Qclonus]=	"clone",
+[Qencalgs]=	"encalgs",
+[Qhashalgs]=	"hashalgs",
+[Qdata]=	"data",
+[Qctl]=		"ctl",
+[Qhand]=	"hand",
+[Qstatus]=	"status",
+[Qstats]=	"stats",
 };
 
 static int convdir[] = { Qctl, Qdata, Qhand, Qstatus, Qstats };
@@ -273,6 +273,7 @@ static int convdir[] = { Qctl, Qdata, Qhand, Qstatus, Qstats };
 static int
 tlsgen(Chan *c, char *unused1, Dirtab *unused2, int unused3, int s, Dir *dp)
 {
+	USED(unused1); USED(unused2); USED(unused3);
 	Qid q;
 	TlsRec *tr;
 	char *name, *nm;
@@ -348,7 +349,7 @@ tlsgen(Chan *c, char *unused1, Dirtab *unused2, int unused3, int s, Dir *dp)
 			devdir(c, q, "tls", 0, eve, 0555, dp);
 			return 1;
 		}
-		if(s < 0 || s >= nelem(convdir))
+		if(s < 0 || (ulong)s >= nelem(convdir))
 			return -1;
 		lock(&tdlock);
 		tr = tlsdevs[CONV(c->qid)];
@@ -513,7 +514,7 @@ tlswstat(Chan *c, uchar *dp, int n)
 		error(Eshortstat);
 	if(!emptystr(d->uid))
 		kstrdup(&tr->user, d->uid);
-	if(d->mode != -1)
+	if(d->mode != (ulong)-1)
 		tr->perm = d->mode;
 
 	free(d);
@@ -970,7 +971,7 @@ static void
 rcvAlert(TlsRec *tr, int err)
 {
 	char *s;
-	int i;
+	ulong i;
 
 	s = "unknown error";
 	for(i=0; i < nelem(tlserrs); i++){
@@ -1405,6 +1406,7 @@ initmd5key(Hashalg *ha, int version, Secret *s, uchar *p)
 static void
 initclearmac(Hashalg *ha, int version, Secret *s, uchar *p)
 {
+	USED(ha); USED(version); USED(p);
 	s->mac = nomac;
 }
 
@@ -1462,6 +1464,7 @@ struct Encalg
 static void
 initRC4key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
+	USED(iv);
 	s->enckey = secalloc(sizeof(RC4state));
 	s->enc = rc4enc;
 	s->dec = rc4enc;
@@ -1471,6 +1474,7 @@ initRC4key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 static void
 initDES3key(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
+	USED(ea);
 	s->enckey = secalloc(sizeof(DES3state));
 	s->enc = des3enc;
 	s->dec = des3dec;
@@ -1521,6 +1525,7 @@ initaesgcmkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 static void
 initclearenc(Encalg *ea, Secret *s, uchar *key, uchar *iv)
 {
+	USED(ea); USED(key); USED(iv);
 	s->enc = noenc;
 	s->dec = noenc;
 }
@@ -1560,7 +1565,8 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 	Secret *volatile tos, *volatile toc;
 	Block *volatile b;
 	Cmdbuf *volatile cb;
-	int m, ty;
+	uint m;
+	int ty;
 	char *p, *e;
 	uchar *volatile x;
 	ulong offset = off;
@@ -1677,7 +1683,7 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 
 		m = dec64(x, m, p, strlen(p));
 		memset(p, 0, strlen(p));
-		if(m < 2 * ha->maclen + 2 * ea->keylen + 2 * ea->ivlen)
+		if(m < 2 * (uint)ha->maclen + 2 * ea->keylen + 2 * ea->ivlen)
 			error("not enough secret data provided");
 
 		if(!ha->initkey || !ea->initkey)
@@ -1849,6 +1855,8 @@ Dev tlsdevtab = {
 	tlsbwrite,
 	devremove,
 	tlswstat,
+	0,
+	0,
 };
 
 /* get channel associated with an fd */
@@ -1871,7 +1879,8 @@ static void
 sendAlert(TlsRec *tr, int err)
 {
 	Block *b;
-	int i, fatal;
+	ulong i;
+	int fatal;
 	char *msg;
 
 if(tr->debug)pprint("sendAlert %d\n", err);
@@ -2048,6 +2057,7 @@ freeSec(Secret *s)
 static int
 noenc(Secret *sec, uchar *buf, int n)
 {
+	USED(sec); USED(buf);
 	return n;
 }
 
@@ -2208,6 +2218,7 @@ aesgcm_aead_dec(Secret *sec, uchar *aad, int aadlen, uchar *reciv, uchar *data, 
 static DigestState*
 nomac(uchar *p, ulong len, uchar *key, ulong keylen, uchar *digest, DigestState *s)
 {
+	USED(p); USED(len); USED(key); USED(keylen); USED(digest); USED(s);
 	return nil;
 }
 
@@ -2221,8 +2232,8 @@ sslmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState
 	int i;
 	uchar pad[48], innerdigest[20];
 
-	if(xlen > sizeof(innerdigest)
-	|| padlen > sizeof(pad))
+	if((unsigned long)xlen > sizeof(innerdigest)
+	|| (unsigned long)padlen > sizeof(pad))
 		return nil;
 
 	if(klen>64)

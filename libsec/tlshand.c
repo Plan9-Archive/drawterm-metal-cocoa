@@ -275,40 +275,40 @@ enum {
 
 static Algs cipherAlgs[] = {
 	// ECDHE-ECDSA
-	{"ccpoly96_aead", "clear", 2*(32+12), TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305},
-	{"ccpoly64_aead", "clear", 2*32, GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305},
-	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
-	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256},
+	{"ccpoly96_aead", "clear", 2*(32+12), TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, 0},
+	{"ccpoly64_aead", "clear", 2*32, GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, 0},
+	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, 0},
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, 0},
 
 	// ECDHE-RSA
-	{"ccpoly96_aead", "clear", 2*(32+12), TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305},
-	{"ccpoly64_aead", "clear", 2*32, GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305},
-	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
-	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
+	{"ccpoly96_aead", "clear", 2*(32+12), TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, 0},
+	{"ccpoly64_aead", "clear", 2*32, GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305, 0},
+	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, 0},
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, 0},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, 0},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, 0},
 
 	// DHE-RSA
-	{"ccpoly96_aead", "clear", 2*(32+12), TLS_DHE_RSA_WITH_CHACHA20_POLY1305},
-	{"ccpoly64_aead", "clear", 2*32, GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305},
-	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_DHE_RSA_WITH_AES_128_GCM_SHA256},
-	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA256},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA},
-	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA},
+	{"ccpoly96_aead", "clear", 2*(32+12), TLS_DHE_RSA_WITH_CHACHA20_POLY1305, 0},
+	{"ccpoly64_aead", "clear", 2*32, GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305, 0},
+	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_DHE_RSA_WITH_AES_128_GCM_SHA256, 0},
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA256, 0},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA, 0},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA, 0},
+	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA, 0},
 
 	// RSA
-	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_RSA_WITH_AES_128_GCM_SHA256},
-	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_RSA_WITH_AES_128_CBC_SHA256},
-	{"aes_256_cbc", "sha256", 2*(32+16+SHA2_256dlen), TLS_RSA_WITH_AES_256_CBC_SHA256},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA},
-	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA},
+	{"aes_128_gcm_aead", "clear", 2*(16+4), TLS_RSA_WITH_AES_128_GCM_SHA256, 0},
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_RSA_WITH_AES_128_CBC_SHA256, 0},
+	{"aes_256_cbc", "sha256", 2*(32+16+SHA2_256dlen), TLS_RSA_WITH_AES_256_CBC_SHA256, 0},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA, 0},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA, 0},
+	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA, 0},
 
 	// PSK
-	{"ccpoly96_aead", "clear", 2*(32+12), TLS_PSK_WITH_CHACHA20_POLY1305},
-	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_PSK_WITH_AES_128_CBC_SHA256},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_PSK_WITH_AES_128_CBC_SHA},
+	{"ccpoly96_aead", "clear", 2*(32+12), TLS_PSK_WITH_CHACHA20_POLY1305, 0},
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_PSK_WITH_AES_128_CBC_SHA256, 0},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_PSK_WITH_AES_128_CBC_SHA, 0},
 };
 
 static uchar compressors[] = {
@@ -330,12 +330,12 @@ static struct {
 	int len;
 } hashfun[] = {
 /*	[0x00]  is reserved for MD5+SHA1 for < TLS1.2 */
-	[0x01]	{md5,		MD5dlen},
-	[0x02]	{sha1,		SHA1dlen},
-	[0x03]	{sha2_224,	SHA2_224dlen},
-	[0x04]	{sha2_256,	SHA2_256dlen},
-	[0x05]	{sha2_384,	SHA2_384dlen},
-	[0x06]	{sha2_512,	SHA2_512dlen},
+	[0x01] = {md5,		MD5dlen},
+	[0x02] = {sha1,		SHA1dlen},
+	[0x03] = {sha2_224,	SHA2_224dlen},
+	[0x04] = {sha2_256,	SHA2_256dlen},
+	[0x05] = {sha2_384,	SHA2_384dlen},
+	[0x06] = {sha2_512,	SHA2_512dlen},
 };
 
 // signature algorithms (only RSA and ECDSA at the moment)
@@ -404,7 +404,7 @@ static Bytes*	pkcs1_sign(TlsSec *sec, uchar *digest, int digestlen, int sigalg);
 
 static void* emalloc(int);
 static void* erealloc(void*, int);
-static void put32(uchar *p, u32int);
+// static void put32(uchar *p, u32int);
 static void put24(uchar *p, int);
 static void put16(uchar *p, int);
 static int get24(uchar *p);
@@ -651,7 +651,7 @@ static int
 checkClientExtensions(TlsConnection *c, Bytes *ext)
 {
 	uchar *p, *e;
-	int i, j, n;
+	uint i, j, n;
 
 	if(ext == nil)
 		return 0;
@@ -664,7 +664,7 @@ checkClientExtensions(TlsConnection *c, Bytes *ext)
 			goto Short;
 		switch(get16(p-4)){
 		case Extec:
-			if(n < 4 || n % 2 || get16(p) != (n -= 2))
+			if(n < 4 || n % 2 || (uint)get16(p) != (n -= 2))
 				goto Short;
 			p += 2;
 			for(i = 0; i < nelem(namedcurves) && c->sec->nc == nil; i++)
@@ -822,7 +822,7 @@ tlsServer2(int ctl, int hand,
 	}
 	if(pskid != nil){
 		if(m.u.clientKeyExchange.pskid == nil
-		|| m.u.clientKeyExchange.pskid->len != strlen(pskid)
+		|| (unsigned long)m.u.clientKeyExchange.pskid->len != strlen(pskid)
 		|| memcmp(pskid, m.u.clientKeyExchange.pskid->data, m.u.clientKeyExchange.pskid->len) != 0){
 			tlsError(c, EUnknownPSKidentity, "unknown or missing pskid");
 			goto Err;
@@ -1467,7 +1467,7 @@ tlsReadN(TlsConnection *c, int n)
 
 	e = &c->buf[sizeof(c->buf)];
 	p = e - n;
-	if(n > sizeof(c->buf) || p < c->sendp){
+	if(n > (int)sizeof(c->buf) || p < c->sendp){
 		tlsError(c, EDecodeError, "handshake message too long %d", n);
 		return nil;
 	}
@@ -2149,7 +2149,7 @@ isECDSA(int tlsid)
 static int
 setAlgs(TlsConnection *c, int a)
 {
-	int i;
+	uint i;
 
 	for(i = 0; i < nelem(cipherAlgs); i++){
 		if(cipherAlgs[i].tlsid == a){
@@ -2168,7 +2168,7 @@ setAlgs(TlsConnection *c, int a)
 static int
 okCipher(Ints *cv, int ispsk, int canec)
 {
-	int i, c;
+	uint i, c;
 
 	for(i = 0; i < nelem(cipherAlgs); i++) {
 		c = cipherAlgs[i].tlsid;
@@ -2187,7 +2187,7 @@ okCipher(Ints *cv, int ispsk, int canec)
 static int
 okCompression(Bytes *cv)
 {
-	int i, c;
+	uint i, c;
 
 	for(i = 0; i < nelem(compressors); i++) {
 		c = compressors[i];
@@ -2205,7 +2205,8 @@ initCiphers(void)
 {
 	enum {MaxAlgF = 1024, MaxAlgs = 10};
 	char s[MaxAlgF], *flds[MaxAlgs];
-	int i, j, n, ok;
+	uint i;
+	int j, n, ok;
 
 	lock(&ciphLock);
 	if(nciphers){
@@ -2270,7 +2271,7 @@ static Ints*
 makeciphers(int ispsk)
 {
 	Ints *is;
-	int i, j;
+	uint i, j;
 
 	is = newints(nciphers);
 	j = 0;
@@ -2355,7 +2356,7 @@ tlsP(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar
 	DigestState *s;
 	int n, i;
 
-	assert(xlen <= sizeof(ai) && xlen <= sizeof(tmp));
+	assert(xlen <= (int)sizeof(ai) && xlen <= (int)sizeof(tmp));
 	// generate a1
 	s = x(label, nlabel, key, nkey, nil, nil);
 	x(seed, nseed, key, nkey, ai, s);
@@ -2678,7 +2679,7 @@ setSecrets(TlsConnection *c, int isclient)
 	char *secrets;
 	int rv;
 
-	assert(c->nsecret <= sizeof(kd));
+	assert(c->nsecret <= (int)sizeof(kd));
 	secrets = emalloc(2*c->nsecret);
 
 	memmove(seed, c->sec->srandom, RandomSize);
@@ -2740,7 +2741,7 @@ setMasterSecret(TlsSec *sec, Bytes *pm)
 static int
 digestDHparams(TlsSec *sec, Bytes *par, uchar digest[MAXdlen], int sigalg)
 {
-	int hashalg = (sigalg>>8) & 0xFF;
+	uint hashalg = (sigalg>>8) & 0xFF;
 	int digestlen;
 	Bytes *blob;
 
@@ -2852,7 +2853,7 @@ pkcs1_decrypt(TlsSec *sec, Bytes *data)
 static Bytes*
 pkcs1_sign(TlsSec *sec, uchar *digest, int digestlen, int sigalg)
 {
-	int hashalg = (sigalg>>8)&0xFF;
+	uint hashalg = (sigalg>>8)&0xFF;
 	mpint *signedMP;
 	Bytes *signature;
 	uchar buf[128];
@@ -2906,6 +2907,7 @@ erealloc(void *ReallocP, int ReallocN)
 	return(ReallocP);
 }
 
+/*
 static void
 put32(uchar *p, u32int x)
 {
@@ -2914,6 +2916,7 @@ put32(uchar *p, u32int x)
 	p[2] = x>>8;
 	p[3] = x;
 }
+*/
 
 static void
 put24(uchar *p, int x)
@@ -2999,7 +3002,7 @@ newints(int len)
 {
 	Ints* ans;
 
-	if(len < 0 || len > ((uint)-1>>1)/sizeof(int))
+	if(len < 0 || (uint)len > ((uint)-1>>1)/sizeof(int))
 		abort();
 	ans = emalloc(sizeof(Ints) + len*sizeof(int));
 	ans->len = len;

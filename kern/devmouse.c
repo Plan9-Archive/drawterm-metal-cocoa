@@ -53,9 +53,9 @@ enum {
 
 Dirtab mousedir[]={
 	".",		{Qdir, 0, QTDIR},	0,	DMDIR|0555,	
-	"cursor",	{Qcursor},		0,	0666,
-	"mouse",	{Qmouse},		0,	0666,
-	"mousectl",	{Qmousectl},		0,	0222,
+	"cursor",	{Qcursor, 0, 0},		0,	0666,
+	"mouse",	{Qmouse, 0, 0},		0,	0666,
+	"mousectl",	{Qmousectl, 0, 0},		0,	0222,
 };
 
 #define	NMOUSE	(sizeof(mousedir)/sizeof(Dirtab))
@@ -260,7 +260,7 @@ mousewrite(Chan *c, void *va, long n, vlong offset)
 		return n;
 
 	case Qmouse:
-		if(n > sizeof buf-1)
+		if(n > (long)sizeof buf-1)
 			n = sizeof buf -1;
 		memmove(buf, va, n);
 		buf[n] = 0;
@@ -386,6 +386,8 @@ Dev mousedevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };
 
 

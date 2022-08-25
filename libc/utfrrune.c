@@ -13,7 +13,7 @@ utfrrune(char *s, long c)
 
 	s1 = 0;
 	for(;;) {
-		c1 = *(uchar*)s;
+		c1 = (uchar)*s;
 		if(c1 < Runeself) {	/* one byte rune */
 			if(c1 == 0)
 				return s1;
@@ -23,7 +23,7 @@ utfrrune(char *s, long c)
 			continue;
 		}
 		c1 = chartorune(&r, s);
-		if(r == c)
+		if(r == (Rune)c)
 			s1 = s;
 		s += c1;
 	}

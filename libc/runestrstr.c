@@ -8,8 +8,7 @@
 Rune*
 runestrstr(Rune *s1, Rune *s2)
 {
-	Rune *p, *pa, *pb;
-	int c0, c;
+	Rune *p, *pa, *pb, c0, c;
 
 	c0 = *s2;
 	if(c0 == 0)

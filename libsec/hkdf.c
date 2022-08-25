@@ -12,7 +12,7 @@ hkdf_x(salt, nsalt, info, ninfo, key, nkey, d, dlen, x, xlen)
 	uchar prk[256], tmp[256], cnt;
 	DigestState *ds;
 
-	assert(xlen <= sizeof(tmp));
+	assert(xlen <= (int)sizeof(tmp));
 
 	memset(tmp, 0, xlen);
 	if(nsalt == 0){
@@ -26,7 +26,7 @@ hkdf_x(salt, nsalt, info, ninfo, key, nkey, d, dlen, x, xlen)
 		if(ninfo > 0)
 			ds = (*x)(info, ninfo, prk, xlen, nil, ds);
 		(*x)(&cnt, 1, prk, xlen, tmp, ds);
-		if(dlen <= xlen){
+		if(dlen <= (ulong)xlen){
 			memmove(d, tmp, dlen);
 			break;
 		}

@@ -525,6 +525,7 @@ p9authtls(int fd)
 int
 authdial(char *net, char *dom)
 {
+	USED(net); USED(dom);
 	return dial(netmkaddr(authserver, "tcp", "ticket"), 0, 0, 0);
 }
 
@@ -692,6 +693,7 @@ askuser(char *params)
 AuthInfo*
 p9anyfactotum(int fd, int afd)
 {
+	USED(afd);
 	return auth_proxy(fd, askuser, "proto=p9any role=client %s", keyspec);
 }
 
@@ -741,7 +743,7 @@ p9any(int fd)
 		sysfatal("server did not offer p9sk1 or dp9ik");
 	proto = estrdup(proto);
 	sprint(buf2, "%s %s", proto, dom);
-	if(write(fd, buf2, strlen(buf2)+1) != strlen(buf2)+1)
+	if(write(fd, buf2, strlen(buf2)+1) != (long)strlen(buf2)+1)
 		sysfatal("cannot write user/domain choice in p9any");
 	if(v2){
 		if(readstr(fd, buf, sizeof buf) < 0)
@@ -868,7 +870,7 @@ findkey(Authkey *key, char *user, char *dom, char *proto)
 		}else{
 			ep = nextp++;
 		}
-		if(ep-p >= sizeof buf){
+		if(ep-p >= (long)sizeof buf){
 			print("warning: skipping long line in secstore factotum file\n");
 			continue;
 		}

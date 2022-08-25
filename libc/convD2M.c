@@ -26,7 +26,8 @@ convD2M(Dir *d, uchar *buf, uint nbuf)
 {
 	uchar *p, *ebuf;
 	char *sv[4];
-	int i, ns, nsv[4], ss;
+	int i, ns, nsv[4];
+	uint ss;
 
 	if(nbuf < BIT16SZ)
 		return 0;

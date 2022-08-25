@@ -36,7 +36,7 @@ md5(uchar *p, ulong len, uchar *digest, MD5state *s)
 {
 	u32int x[16];
 	uchar buf[128];
-	int i;
+	uint i;
 	uchar *e;
 
 	if(s == nil){

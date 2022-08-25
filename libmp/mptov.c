@@ -11,7 +11,7 @@
 mpint*
 vtomp(vlong v, mpint *b)
 {
-	int s;
+	uint s;
 	uvlong uv;
 
 	if(b == nil){
@@ -38,7 +38,7 @@ mptov(mpint *b)
 	if(b->top == 0)
 		return 0LL;
 
-	if(b->top > VLDIGITS){
+	if(b->top > (int)VLDIGITS){
 		if(b->sign > 0)
 			return (vlong)MAXVLONG;
 		else

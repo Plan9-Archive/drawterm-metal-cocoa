@@ -148,7 +148,7 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 			errstr(oerr, sizeof oerr);
 			return a;
 		case ARok:
-			if(write(fd, rpc->arg, rpc->narg) != rpc->narg){
+			if(write(fd, rpc->arg, rpc->narg) != (int)rpc->narg){
 				werrstr("auth_proxy write fd: %r");
 				goto Error;
 			}

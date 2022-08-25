@@ -157,12 +157,12 @@ latin1(Rune *k, int n)
 	}
 	
 	for(l=latintab; l->ld!=0; l++)
-		if(k[0] == l->ld[0]){
+		if(k[0] == (Rune)l->ld[0]){
 			if(n == 1)
 				return -2;
 			if(l->ld[1] == 0)
 				c = k[1];
-			else if(l->ld[1] != k[1])
+			else if((Rune)l->ld[1] != k[1])
 				continue;
 			else if(n == 2)
 				return -3;

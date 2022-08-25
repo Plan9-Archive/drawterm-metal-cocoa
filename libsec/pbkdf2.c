@@ -13,7 +13,7 @@ pbkdf2_x(p, plen, s, slen, rounds, d, dlen, x, xlen)
 	ulong i, j, k, n;
 	DigestState *ds;
 
-	assert(xlen <= sizeof(tmp));
+	assert(xlen <= (int)sizeof(tmp));
 
 	for(i = 1; dlen > 0; i++, d += n, dlen -= n){
 		tmp[3] = i;
@@ -25,10 +25,10 @@ pbkdf2_x(p, plen, s, slen, rounds, d, dlen, x, xlen)
 		memmove(tmp, block, xlen);
 		for(j = 1; j < rounds; j++){
 			(*x)(tmp, xlen, p, plen, tmp, nil);
-			for(k=0; k<xlen; k++)
+			for(k=0; k<(ulong)xlen; k++)
 				block[k] ^= tmp[k];
 		}
-		n = dlen > xlen ? xlen : dlen;
+		n = dlen > (ulong)xlen ? xlen : dlen;
 		memmove(d, block, n); 
 	}
 }

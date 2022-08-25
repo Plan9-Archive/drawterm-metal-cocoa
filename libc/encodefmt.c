@@ -7,8 +7,8 @@ encodefmt(Fmt *f)
 {
 	char *out;
 	char *buf;
-	int len;
-	int ilen;
+	uint len;
+	uint ilen;
 	int rv;
 	uchar *b;
 	char *p;

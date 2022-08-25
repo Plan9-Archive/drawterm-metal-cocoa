@@ -8,7 +8,7 @@
 int
 mptole(mpint *b, uchar *p, uint n, uchar **pp)
 {
-	int m;
+	uint m;
 
 	m = (mpsignif(b)+7)/8;
 	if(m == 0)

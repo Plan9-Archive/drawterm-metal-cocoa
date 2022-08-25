@@ -442,7 +442,8 @@ Cmdtab cmdtab[] = {
 static long
 cmdwrite(Chan *ch, void *a, long n, vlong offset)
 {
-	int i, r;
+	unsigned i;
+	int r;
 	Conv *c;
 	Cmdbuf *cb;
 	Cmdtab *ct;
@@ -583,7 +584,7 @@ static Conv*
 cmdclone(char *user)
 {
 	Conv *c, **pp, **ep;
-	int i;
+	unsigned i;
 
 	c = nil;
 	ep = &cmd.conv[cmd.maxconv];
@@ -695,5 +696,7 @@ Dev cmddevtab = {
 	cmdwrite,
 	devbwrite,
 	devremove,
-	cmdwstat
+	cmdwstat,
+	0,
+	0,
 };

@@ -130,7 +130,7 @@ Digout:			i -= 3;
 			else if(x != 0)
 				return -1;
 			*out = '0' + (x & 7);
-			x = y >> Dbits-i;
+			x = y >> (Dbits-i);
 		}
 	}
 	if(i > 0)

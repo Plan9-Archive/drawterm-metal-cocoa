@@ -5,7 +5,8 @@
 int
 read9pmsg(int fd, void *abuf, uint n)
 {
-	int m, len;
+	int m;
+	uint len;
 	uchar *buf;
 
 	buf = abuf;
@@ -25,7 +26,7 @@ read9pmsg(int fd, void *abuf, uint n)
 	}
 	len -= BIT32SZ;
 	m = readn(fd, buf+BIT32SZ, len);
-	if(m < len)
+	if((uint)m < len)
 		return 0;
 	return BIT32SZ+m;
 }

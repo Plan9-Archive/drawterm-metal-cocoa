@@ -72,7 +72,7 @@ kbdsc(int k)
 			case 0xe052:	k = Kins;	break;
 			case 0xe053:	k = Kdel;	break;
 			default:
-				if(k < nelem(code2key)){
+				if(k < (int)nelem(code2key)){
 					if(shift)
 						k = code2key_shift[k];
 					else
@@ -105,8 +105,8 @@ enum{
 
 static Dirtab kbddir[]={
 	".",	{Qdir, 0, QTDIR},	0,		DMDIR|0555,
-	"kbd",		{Qkbd},		0,		0444,
-	"scancode",	{Qscancode},		0,		0444,
+	"kbd",		{Qkbd, 0, 0},		0,		0444,
+	"scancode",	{Qscancode, 0, 0},		0,		0444,
 };
 
 static void
@@ -221,4 +221,6 @@ Dev kbddevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };

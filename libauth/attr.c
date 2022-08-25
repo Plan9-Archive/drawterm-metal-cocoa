@@ -15,11 +15,11 @@ _attrfmt(Fmt *fmt)
 		default:
 			continue;
 		case AttrQuery:
-			fmtprint(fmt, first+" %q?", a->name);
+			fmtprint(fmt, first+(char*)" %q?", a->name);
 			break;
 		case AttrNameval:
 		case AttrDefault:
-			fmtprint(fmt, first+" %q=%q", a->name, a->val);
+			fmtprint(fmt, first+(char*)" %q=%q", a->name, a->val);
 			break;
 		}
 		first = 0;
