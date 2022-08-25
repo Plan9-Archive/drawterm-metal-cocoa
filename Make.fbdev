@@ -5,11 +5,11 @@ AR=ar
 AS=as
 RANLIB=ranlib
 CC=gcc
-CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -DKBDSCANCODE -O2 -march=native -flto
+CFLAGS=-Wall -Wextra -Wno-implicit-fallthrough -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE $(PTHREAD) -DKBDSCANCODE -O2 -march=native -flto=auto
 O=o
 OS=posix
 GUI=fbdev
-LDADD=-ggdb -lm -lasound -O2 -march=native -flto
+LDADD=-ggdb -lm -lasound -O2 -march=native -flto=auto
 LDFLAGS=$(PTHREAD)
 TARG=drawterm
 # AUDIO=none

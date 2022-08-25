@@ -165,7 +165,7 @@ mptrunc(mpint *b, int n, mpint *r)
 			for(i = 0; i < d; i++)
 				r->p[i] = b->p[i];
 		if(m != 0)
-			r->p[d] = b->p[d] & (1<<m)-1;
+			r->p[d] = b->p[d] & ((1<<m)-1);
 	}
 	r->sign = 1;
 	mpnorm(r);

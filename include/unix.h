@@ -5,8 +5,12 @@
 #define _SVID_SOURCE 1
 #define _DEFAULT_SOURCE 1
 #if !defined(__APPLE__) && !defined(__OpenBSD__)
+#	ifndef _XOPEN_SOURCE
 #	define _XOPEN_SOURCE 1000
+#	endif
+#	ifndef _XOPEN_SOURCE_EXTENDED
 #	define _XOPEN_SOURCE_EXTENDED 1
+#	endif
 #endif
 #define _LARGEFILE64_SOURCE 1
 #define _FILE_OFFSET_BITS 64

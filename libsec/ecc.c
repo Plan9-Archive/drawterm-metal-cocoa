@@ -318,7 +318,8 @@ mpsqrt(mpint *n, mpint *p, mpint *r)
 ECpoint*
 strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *ret)
 {
-	int allocd, o;
+	int allocd;
+	uint o;
 	mpint *r;
 
 	allocd = 0;

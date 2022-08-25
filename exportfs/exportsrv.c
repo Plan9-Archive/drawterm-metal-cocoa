@@ -665,8 +665,9 @@ flushaction(void *a, char *cause)
 		fprint(2, "exportsrv: note: %s\n", cause);
 		exits("noted");
 	}
-	if(strncmp(cause, "kill", 4) == 0)
+	if(strncmp(cause, "kill", 4) == 0){
 		noted(NDFLT);
+	}
 
 	noted(NCONT);
 }

@@ -65,6 +65,7 @@ static void unblank(void *);
 static int
 needflush(void *v)
 {
+	USED(v);
 	return atomic_load(&dirty);
 }
 
@@ -124,7 +125,7 @@ fbattach(int fbdevidx)
 	linelength = finfo.line_length;
 
 	size = vinfo.yres_virtual * linelength;
-	if ((fbp = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)0)) < 0)
+	if ((fbp = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)0)) == MAP_FAILED)
 		goto err;
 	/*
 	 * Figure out underlying screen format.
@@ -180,7 +181,7 @@ eventattach(struct pollfd **pfd, int *nstart)
 				pbuf += 5;	// event
 				m = strcspn(pbuf, " \n");
 				pbuf[m] = '\0';
-				if(m < sizeof(eventfile)-17)	// skip "/dev/input/event"
+				if((uint)m < sizeof(eventfile)-17)	// skip "/dev/input/event"
 					strcpy(eventfile+16, pbuf);
 				++n;
 				p = realloc(p, n * sizeof(struct pollfd));
@@ -231,6 +232,7 @@ flushmemscreen(Rectangle r)
 static void
 fbflush(void *v)
 {
+	USED(v);
 	Rectangle r;
 	int x, y, i;
 	Point p;
@@ -370,6 +372,7 @@ consfinalsig(int sig)
 static void
 fbproc(void *v)
 {
+	USED(v);
 	struct input_event data;
 	struct stat ts;
 	struct pollfd *pfd;
@@ -447,6 +450,7 @@ TOP:
 void
 screensize(Rectangle r, ulong chan)
 {
+	USED(r); USED(chan);
 	gscreen = backbuf;
 	gscreen->clipr = ZR;
 }
@@ -505,6 +509,7 @@ getcolor(ulong i, ulong *r, ulong *g, ulong *b)
 void
 setcolor(ulong i, ulong r, ulong g, ulong b)
 {
+	USED(i); USED(r); USED(g); USED(b);
 	/* no-op */
 	return;
 }
@@ -548,6 +553,7 @@ termctl(uint32_t o, int or)
 static void
 ttyswitch(int sig)
 {
+	USED(sig);
 	atomic_store(&switchaway, 1);
 }
 
@@ -753,5 +759,6 @@ setcursor(void)
 void
 titlewrite(char* buf)
 {
+	USED(buf);
 }
 

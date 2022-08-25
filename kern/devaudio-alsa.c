@@ -56,6 +56,7 @@ audiodevclose(void)
 void
 audiodevsetvol(int what, int left, int right)
 {
+	USED(right);
 	if(what == Vspeed){
 		speed = left;
 		return;
