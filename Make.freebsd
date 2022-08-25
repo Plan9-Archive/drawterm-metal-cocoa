@@ -1,16 +1,16 @@
 # OpenBSD
 PTHREAD=-pthread -DPTHREAD
-AR=ar
+AR=llvm-ar
 AS=as
-RANLIB=ranlib
+RANLIB=llvm-ranlib
 X11=/usr/local
 CC=clang
-CFLAGS=-Wall -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -I$(X11)/include -D_THREAD_SAFE $(PTHREAD) -O2 -march=native
+CFLAGS=-Wall -Wextra -Werror -Wno-missing-braces -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -I$(X11)/include -D_THREAD_SAFE $(PTHREAD) -O2 -march=native -flto
 O=o
 OS=posix
 GUI=x11
 LDADD=-L$(X11)/lib64 -L$(X11)/lib -lX11 -ggdb
-LDFLAGS=$(PTHREAD)
+LDFLAGS=$(PTHREAD) -O2 -march=native -flto
 TARG=drawterm
 AUDIO=unix
 
