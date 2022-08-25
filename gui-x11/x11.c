@@ -57,6 +57,7 @@ extern char		*geometry;	/* defined in main.c */
 Memimage*
 xallocmemimage(Rectangle r, ulong chan, int pmid, XImage **X)
 {
+	USED(pmid);
 	Memimage *m;
 	XImage *xi;
 	int offset;
@@ -75,7 +76,7 @@ xallocmemimage(Rectangle r, ulong chan, int pmid, XImage **X)
 		offset = r.min.x&(31/d);
 	r.min.x -= offset;
 	
-	assert(wordsperline(r, m->depth) <= m->width);
+	assert(wordsperline(r, m->depth) <= (int)m->width);
 
 	xi = XCreateImage(xdisplay, xvis, m->depth==32?24:m->depth, ZPixmap, 0,
 		(char*)m->data->bdata, Dx(r), Dy(r), 32, m->width*sizeof(ulong));
@@ -158,6 +159,7 @@ shutup(XDisplay *d, XErrorEvent *e)
 static int
 panicshutup(XDisplay *d)
 {
+	USED(d);
 	screenputs = 0;
 	panic("x error");
 	return -1;
@@ -311,7 +313,7 @@ screeninit(void)
 	x = y = 0;
 	r = ZR;
 	if(geometry != nil)
-		XParseGeometry(geometry, &x, &y, &r.max.x, &r.max.y);
+		XParseGeometry(geometry, &x, &y, (uint*)&r.max.x, (uint*)&r.max.y);
 	if(r.max.x == 0)
 		r.max.x = WidthOfScreen(screen)*3/4;
 	if(r.max.y == 0)
@@ -332,7 +334,7 @@ screeninit(void)
 	/*
 	 * set up property as required by ICCCM
 	 */
-	if((name.value = getenv("WM_NAME")) == nil)
+	if((name.value = (uchar*)getenv("WM_NAME")) == nil)
 		name.value = (uchar*)"drawterm";
 	name.encoding = XA_STRING;
 	name.format = 8;
@@ -524,6 +526,7 @@ cursorarrow(void)
 static void
 xproc(void *arg)
 {
+	USED(arg);
 	ulong mask;
 	XEvent event;
 
@@ -704,7 +707,7 @@ xdestroy(XEvent *e)
 	case ClientMessage:
 		/* Handle WM_DELETE_WINDOW */
 		ce = (XClientMessageEvent*)e;
-		if(ce->window == xdrawable && ce->data.l[0] == wmdelete)
+		if(ce->window == xdrawable && (Atom)ce->data.l[0] == wmdelete)
 			exit(0);
 	case DestroyNotify:
 		xe = (XDestroyWindowEvent*)e;
@@ -921,7 +924,7 @@ xkeyboard(XEvent *e)
 		default:		/* not ISO-1 or tty control */
   			if(k>0xff){
 				k = keysym2ucs(k); /* supplied by X */
-				if(k == -1)
+				if(k == (KeySym)-1)
 					return;
 			}
 			break;
@@ -1057,6 +1060,7 @@ getcolor(ulong i, ulong *r, ulong *g, ulong *b)
 void
 setcolor(ulong i, ulong r, ulong g, ulong b)
 {
+	USED(i); USED(r); USED(g); USED(b);
 	/* no-op */
 }
 

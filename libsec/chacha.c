@@ -155,7 +155,7 @@ static void
 encryptblock(Chachastate *s, uchar *src, uchar *dst)
 {
 	u32int x[16];
-	int i;
+	uint i;
 
 	x[0] = s->input[0];
 	x[1] = s->input[1];

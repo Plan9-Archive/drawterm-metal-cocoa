@@ -77,7 +77,7 @@ sha2_512(uchar *p, ulong len, uchar *digest, SHA2_512state *s)
 static DigestState*
 sha2_128(uchar *p, ulong len, uchar *digest, SHA2_512state *s, int dlen)
 {
-	int i;
+	uint i;
 	u64int x[16];
 	uchar buf[256];
 	uchar *e;

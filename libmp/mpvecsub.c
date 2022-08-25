@@ -6,7 +6,8 @@
 void
 mpvecsub(mpdigit *a, int alen, mpdigit *b, int blen, mpdigit *diff)
 {
-	int i, borrow;
+	int i;
+	uint borrow;
 	mpdigit x, y;
 
 	borrow = 0;

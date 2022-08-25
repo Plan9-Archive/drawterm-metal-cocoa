@@ -247,7 +247,7 @@ trimblock(Block *bp, int offset, int len)
 		return nil;
 	}
 
-	while((l = BLEN(bp)) < offset) {
+	while((l = BLEN(bp)) < (ulong)offset) {
 		offset -= l;
 		nb = bp->next;
 		bp->next = nil;
@@ -258,7 +258,7 @@ trimblock(Block *bp, int offset, int len)
 	startb = bp;
 	bp->rp += offset;
 
-	while((l = BLEN(bp)) < len) {
+	while((l = BLEN(bp)) < (ulong)len) {
 		len -= l;
 		bp = bp->next;
 	}
@@ -826,7 +826,7 @@ readblist(Block *b, uchar *p, long n, ulong o)
 			o -= m;
 		else {
 			m -= o;
-			if(n < m)
+			if((ulong)n < m)
 				m = n;
 			memmove(p, b->rp + o, m);
 			p += m;

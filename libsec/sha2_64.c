@@ -77,7 +77,7 @@ sha2_256(uchar *p, ulong len, uchar *digest, SHA2_256state *s)
 static DigestState*
 sha2_64(uchar *p, ulong len, uchar *digest, SHA2_256state *s, int dlen)
 {
-	int i;
+	uint i;
 	u32int x[16];
 	uchar buf[128];
 	uchar *e;

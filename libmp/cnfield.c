@@ -80,13 +80,13 @@ cnfield(mpint *N)
 	mpint *M, *C;
 	CNfield *f;
 	mpdigit d;
-	int s;
+	uint s;
 
 	if(N->top <= 2 || N->top >= MAXDIG)
 		return nil;
 	f = nil;
 	d = N->p[N->top-1];
-	for(s = 0; (d & (mpdigit)1<<Dbits-1) == 0; s++)
+	for(s = 0; (d & (mpdigit)1<<(Dbits-1)) == 0; s++)
 		d <<= 1;
 	C = mpnew(0);
 	M = mpcopy(N);

@@ -429,7 +429,7 @@ drawflush(void)
 int
 drawcmp(char *a, char *b, int n)
 {
-	if(strlen(a) != n)
+	if(n < 0 || strlen(a) != (unsigned)n)
 		return 1;
 	return memcmp(a, b, n);
 }
@@ -624,7 +624,7 @@ drawfreedscreen(DScreen *this)
 		dscreen = this->next;
 		goto Found;
 	}
-	while(next = ds->next){	/* assign = */
+	while((next = ds->next)){	/* assign = */
 		if(next == this){
 			ds->next = this->next;
 			goto Found;
@@ -697,7 +697,7 @@ drawuninstallscreen(Client *client, CScreen *this)
 		free(this);
 		return;
 	}
-	while(next = cs->next){	/* assign = */
+	while((next = cs->next)){	/* assign = */
 		if(next == this){
 			cs->next = this->next;
 			drawfreedscreen(this->dscreen);
@@ -721,7 +721,7 @@ drawuninstall(Client *client, int id)
 		drawfreedimage(d);
 		return;
 	}
-	while(next = d->next){	/* assign = */
+	while((next = d->next)){	/* assign = */
 		if(next->id == id){
 			d->next = next->next;
 			drawfreedimage(next);
@@ -1101,7 +1101,7 @@ drawclose(Chan *c)
 	if(QID(c->qid) == Qctl)
 		cl->busy = 0;
 	if((c->flag&COPEN) && (decref(&cl->r)==0)){
-		while(r = cl->refresh){	/* assign = */
+		while((r = cl->refresh)){	/* assign = */
 			cl->refresh = r->next;
 			free(r);
 		}
@@ -1264,7 +1264,8 @@ drawwrite(Chan *c, void *a, long n, vlong off)
 {
 	char buf[128], *fields[4], *q;
 	Client *cl;
-	int i, m, red, green, blue, x;
+	int i, m, red, green, blue;
+	unsigned x;
 
 	USED(off);
 
@@ -1335,7 +1336,7 @@ drawwrite(Chan *c, void *a, long n, vlong off)
 uchar*
 drawcoord(uchar *p, uchar *maxp, int oldx, int *newx)
 {
-	int b, x;
+	unsigned b, x;
 
 	if(p >= maxp)
 		error(Eshortdraw);
@@ -1347,10 +1348,10 @@ drawcoord(uchar *p, uchar *maxp, int oldx, int *newx)
 		x |= *p++ << 7;
 		x |= *p++ << 15;
 		if(x & (1<<22))
-			x |= ~0<<23;
+			x |= ~0u<<23;
 	}else{
 		if(b & 0x40)
-			x |= ~0<<7;
+			x |= ~0u<<7;
 		x += oldx;
 	}
 	*newx = x;
@@ -1362,10 +1363,8 @@ printmesg(char *fmt, uchar *a, int plsprnt)
 {
 	char buf[256];
 	char *p, *q;
-	int s;
 
 	if(1|| plsprnt==0){
-		USED(s);
 		return;
 	}
 	q = buf;
@@ -2004,7 +2003,7 @@ drawmesg(Client *client, void *av, int n)
 			dscrn = drawlookupdscreen(dstid);
 			if(dscrn==0 || (dscrn->public==0 && dscrn->owner!=client))
 				error(Enodrawscreen);
-			if(dscrn->screen->image->chan != BGLONG(a+5))
+			if(dscrn->screen->image->chan != (ulong)BGLONG(a+5))
 				error("inconsistent chan");
 			if(drawinstallscreen(client, dscrn, 0, 0, 0, 0) == 0)
 				error(Edrawmem);
@@ -2102,6 +2101,8 @@ Dev drawdevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };
 
 /*

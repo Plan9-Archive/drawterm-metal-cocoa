@@ -251,7 +251,7 @@ rootread(Chan *c, void *buf, long n, vlong off)
 	t &= 0xFFF;
 	t--;
 
-	if(t >= l->ndir)
+	if(t >= (ulong)l->ndir)
 		error(Egreg);
 
 	d = &l->dir[t];
@@ -295,5 +295,7 @@ Dev rootdevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };
 

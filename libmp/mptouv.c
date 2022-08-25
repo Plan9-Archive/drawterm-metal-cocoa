@@ -11,7 +11,7 @@
 mpint*
 uvtomp(uvlong v, mpint *b)
 {
-	int s;
+	uint s;
 
 	if(b == nil){
 		b = mpnew(VLDIGITS*Dbits);
@@ -36,7 +36,7 @@ mptouv(mpint *b)
 	if(b->top == 0 || b->sign < 0)
 		return 0LL;
 
-	if(b->top > VLDIGITS)
+	if(b->top > (int)VLDIGITS)
 		return -1LL;
 
 	v = 0ULL;

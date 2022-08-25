@@ -154,6 +154,7 @@ ip1gen(Chan *c, int i, Dir *dp)
 static int
 ipgen(Chan *c, char *nname, Dirtab *d, int nd, int s, Dir *dp)
 {
+	USED(nname); USED(d); USED(nd);
 	Qid q;
 	Conv *cv;
 
@@ -516,7 +517,7 @@ ipwrite(Chan *ch, void *a, long n, vlong offset)
 	case Qctl:
 		x = &proto[PROTO(ch->qid)];
 		c = x->conv[CONV(ch->qid)];
-		if(n > sizeof(buf)-1)
+		if(n > (long)sizeof(buf)-1)
 			n = sizeof(buf)-1;
 		memmove(buf, a, n);
 		buf[n] = '\0';
@@ -771,7 +772,7 @@ static struct
 	"venti", 17034,
 	"wiki", 17035,
 	"vica", 17036,
-	0
+	0, 0,
 };
 
 static int
@@ -796,6 +797,7 @@ lookupport(char *s)
 long
 cswrite(Chan *c, void *a, long n, vlong offset)
 {
+	USED(offset);
 	char *f[4], *ips[8];
 	char *s, *ns;
 	uchar ip[IPaddrlen];
@@ -866,5 +868,7 @@ Dev ipdevtab =
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };
 

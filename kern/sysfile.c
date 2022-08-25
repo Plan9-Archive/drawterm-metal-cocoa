@@ -431,7 +431,7 @@ _sys_read(int fd, void *buf, long n)
 long
 _syspread(int fd, void *buf, long n, vlong off)
 {
-	if(off == ((uvlong) ~0))
+	if(off == (~0ll))
 		return kread(fd, buf, n, nil);
 	return kread(fd, buf, n, &off);
 }
@@ -494,7 +494,7 @@ sys_write(int fd, void *buf, long n)
 long
 _syspwrite(int fd, void *buf, long n, vlong off)
 {
-	if(off == ((uvlong) ~0))
+	if(off == (~0ll))
 		return kwrite(fd, buf, n, nil);
 	return kwrite(fd, buf, n, &off);
 }
@@ -572,7 +572,7 @@ validstat(uchar *s, int n)
 	 */
 	m = GBIT16(s);
 	s += BIT16SZ;
-	if(m+1 > sizeof buf)
+	if((unsigned long)m+1 > sizeof buf)
 		return;
 	memmove(buf, s, m);
 	buf[m] = '\0';

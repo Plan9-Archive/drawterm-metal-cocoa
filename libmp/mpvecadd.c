@@ -6,7 +6,8 @@
 void
 mpvecadd(mpdigit *a, int alen, mpdigit *b, int blen, mpdigit *sum)
 {
-	int i, carry;
+	int i;
+	uint carry;
 	mpdigit x, y;
 
 	carry = 0;

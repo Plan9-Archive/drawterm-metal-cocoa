@@ -406,7 +406,7 @@ fswstat(Chan *c, uchar *buf, int n)
 	 * one works, we're screwed.  in such cases we leave things
 	 * half broken and return an error.  it's hardly perfect.
 	 */
-	if(convM2D(buf, n, &d, strs) != n)
+	if(convM2D(buf, n, &d, strs) != (uint)n)
 		error(Ebadstat);
 	
 	uif = c->aux;
@@ -635,4 +635,6 @@ Dev fsdevtab = {
 	devbwrite,
 	fsremove,
 	fswstat,
+	0,
+	0,
 };

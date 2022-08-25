@@ -31,7 +31,7 @@ form1check(char *ap, int n)
 	if(n < 8)
 		return -1;
 
-	for(n=0; n<nelem(form1sig); n++)
+	for(n=0; n<(int)nelem(form1sig); n++)
 		if(memcmp(form1sig[n].sig, ap, 8) == 0)
 			return form1sig[n].num;
 

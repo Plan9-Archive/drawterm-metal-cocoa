@@ -5,7 +5,7 @@ static void
 init(Chachastate *cs)
 {
 	ulong seed[11];
-	int i;
+	uint i;
 
 	for(i=0; i<nelem(seed); i++)
 		seed[i] = truerand();

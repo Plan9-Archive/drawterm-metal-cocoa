@@ -185,7 +185,7 @@ static mpint*
 halfpt(ECdomain *dom, char *s, char **rptr, mpint *out)
 {
 	char *buf, *r;
-	int n;
+	uint n;
 	mpint *ret;
 	
 	n = ((mpsignif(dom->p)+7)/8)*2;

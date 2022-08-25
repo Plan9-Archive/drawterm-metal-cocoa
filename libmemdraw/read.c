@@ -9,12 +9,13 @@ readmemimage(int fd)
 	char hdr[5*12+1];
 	int dy;
 	ulong chan;
-	uint l, n;
-	int m, j;
+	uint l, n, j;
+	int m;
 	int new, miny, maxy;
 	Rectangle r;
 	uchar *tmp;
-	int ldepth, chunk;
+	int ldepth;
+	uint chunk;
 	Memimage *i;
 
 	if(readn(fd, hdr, 11) != 11){
@@ -87,7 +88,7 @@ readmemimage(int fd)
 			dy = chunk/l;
 		n = dy*l;
 		m = readn(fd, tmp, n);
-		if(m != n){
+		if(m != (int)n){
 			werrstr("readmemimage: read count %d not %d: %r", m, n);
    Err:
  			freememimage(i);

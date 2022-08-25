@@ -15,7 +15,7 @@ sha1(uchar *p, ulong len, uchar *digest, SHA1state *s)
 {
 	uchar buf[128];
 	u32int x[16];
-	int i;
+	uint i;
 	uchar *e;
 
 	if(s == nil){

@@ -10,7 +10,7 @@ statcheck(uchar *buf, uint nbuf)
 
 	ebuf = buf + nbuf;
 
-	if(nbuf < STATFIXLEN || nbuf != BIT16SZ + GBIT16(buf))
+	if(nbuf < STATFIXLEN || nbuf != (uint)BIT16SZ + GBIT16(buf))
 		return -1;
 
 	buf += STATFIXLEN - 4 * BIT16SZ;

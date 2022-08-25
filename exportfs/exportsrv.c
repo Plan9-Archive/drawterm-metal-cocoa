@@ -284,7 +284,7 @@ Xstat(Fsrpc *t)
 static int
 getiounit(int fd)
 {
-	int n;
+	uint n;
 
 	n = iounit(fd);
 	if(n > messagesize-IOHDRSZ)
@@ -516,6 +516,7 @@ flushme:
 int
 openmount(int sfd)
 {
+	USED(sfd);
 	werrstr("openmount not implemented");
 	return -1;
 }

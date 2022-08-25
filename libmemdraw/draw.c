@@ -131,7 +131,7 @@ memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point p0, Memimage *mask
 			if(par.mval == 0 && (op&DoutS))
 				return;	/* no-op successfully handled */
 			par.state |= Simplemask;
-			if(par.mval == ~0)
+			if(par.mval == ~0u)
 				par.state |= Fullmask;
 			par.mrgba = imgtorgba(mask, par.mval);
 		}
@@ -480,7 +480,7 @@ static Dbuf dbuf[10];
 static Dbuf*
 allocdbuf(void)
 {
-	int i;
+	uint i;
 
 	for(i=0; i<nelem(dbuf); i++){
 		if(dbuf[i].inuse)
@@ -732,6 +732,7 @@ alphacalc0(Buffer bdst, Buffer b1, Buffer b2, int dx, int grey, int op)
 {
 	USED(grey);
 	USED(op);
+	USED(b1); USED(b2); USED(dx);
 	memset(bdst.rgba, 0, dx*bdst.delta);
 	return bdst;
 }
@@ -951,6 +952,7 @@ alphacalc3679(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 static Buffer
 alphacalc5(Buffer bdst, Buffer b1, Buffer b2, int dx, int grey, int op)
 {
+	USED(b1); USED(b2);
 	USED(dx);
 	USED(grey);
 	USED(op);
@@ -1091,6 +1093,7 @@ alphacalcS(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 static Buffer
 boolcalc14(Buffer bdst, Buffer b1, Buffer bmask, int dx, int grey, int op)
 {
+	USED(b1);
 	Buffer obdst;
 	int i, ma, zero;
 
@@ -1282,7 +1285,7 @@ readnbit(Param *p, uchar *buf, int y)
 	r = p->bytermin + y*p->bwidth;
 	bits = *r++;
 	nbits = 8;
-	if(i=x&(npack-1)){
+	if((i=x&(npack-1))){
 		bits <<= depth*i;
 		nbits -= depth*i;
 	}
@@ -1310,7 +1313,7 @@ readnbit(Param *p, uchar *buf, int y)
 	r = p->bytey0s + y*p->bwidth;
 	bits = *r++;
 	nbits = 8;
-	if(i=x&(npack-1)){
+	if((i=x&(npack-1))){
 		bits <<= depth*i;
 		nbits -= depth*i;
 	}
@@ -1690,6 +1693,7 @@ nullwrite(Param *p, uchar *s, Buffer b)
 {
 	USED(p);
 	USED(s);
+	USED(b);
 }
 
 static Buffer
@@ -1711,6 +1715,8 @@ readptr(Param *p, uchar *s, int y)
 static Buffer
 boolmemmove(Buffer bdst, Buffer bsrc, Buffer b1, int dx, int i, int o)
 {
+	USED(b1);
+	USED(dx);
 	USED(i);
 	USED(o);
 	memmove(bdst.red, bsrc.red, dx*bdst.delta);
@@ -1894,7 +1900,7 @@ pixelbits(Memimage *i, Point pt)
 static Calcfn*
 boolcopyfn(Memimage *img, Memimage *mask)
 {
-	if(mask->flags&Frepl && Dx(mask->r)==1 && Dy(mask->r)==1 && pixelbits(mask, mask->r.min)==~0)
+	if(mask->flags&Frepl && Dx(mask->r)==1 && Dy(mask->r)==1 && pixelbits(mask, mask->r.min)==~0u)
 		return boolmemmove;
 
 	switch(img->depth){
@@ -2066,7 +2072,8 @@ rgbatoimg(Memimage *img, ulong rgba)
 static int
 memoptdraw(Memdrawparam *par)
 {
-	int m, y, dy, dx, op;
+	uint m;
+	int y, dy, dx, op;
 	ulong v;
 	Memimage *src;
 	Memimage *dst;

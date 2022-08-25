@@ -20,7 +20,7 @@ _asgetresp(int fd, Ticket *t, Authenticator *a, Authkey *k)
 
 	for(n = 0; (m = convM2T(buf, n, t, k)) <= 0; n += m){
 		m = -m;
-		if(m <= n || m > sizeof(buf))
+		if(m <= n || m > (int)sizeof(buf))
 			return -1;
 		m -= n;
 		if(readn(fd, buf+n, m) != m)
@@ -30,7 +30,7 @@ _asgetresp(int fd, Ticket *t, Authenticator *a, Authkey *k)
 	if(a != nil){
 		for(n = 0; (m = convM2A(buf, n, a, t)) <= 0; n += m){
 			m = -m;
-			if(m <= n || m > sizeof(buf))
+			if(m <= n || m > (int)sizeof(buf))
 				return -1;
 			m -= n;
 			if(readn(fd, buf+n, m) != m)

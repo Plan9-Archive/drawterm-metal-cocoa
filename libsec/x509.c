@@ -1356,7 +1356,7 @@ newints(int len)
 {
 	Ints* ans;
 
-	if(len < 0 || len > ((uint)-1>>1)/sizeof(int))
+	if(len < 0 || (uint)len > ((uint)-1>>1)/sizeof(int))
 		abort();
 	ans = emalloc(sizeof(Ints) + len*sizeof(int));
 	ans->len = len;
@@ -2515,7 +2515,8 @@ mkname(Ints7pref *oid, char *subj)
 static Elem
 mkDN(char *dn)
 {
-	int i, j, nf;
+	int i, nf;
+	uint j;
 	char *f[20], *prefix, *d2 = estrdup(dn);
 	Elist* el = nil;
 
@@ -2588,7 +2589,7 @@ static Elem
 mkaltname(char *s)
 {
 	Elem e;
-	int i;
+	uint i;
 
 	for(i=0; i<nelem(DN_oid); i++){
 		if(strstr(s, DN_oid[i].prefix) != nil)

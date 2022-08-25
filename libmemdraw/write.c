@@ -28,7 +28,7 @@ writememimage(int fd, Memimage *i)
 	uchar *data, *edata;			/* input buffer, end pointer */
 	ulong n;				/* length of input buffer */
 	int bpl;				/* input line length */
-	int offs, runlen;			/* offset, length of consumed data */
+	uint offs, runlen;			/* offset, length of consumed data */
 	uchar dumpbuf[NDUMP];			/* dump accumulator */
 	int ndump;				/* length of dump accumulator */
 	int ncblock;				/* size of compressed blocks */
@@ -58,7 +58,7 @@ writememimage(int fd, Memimage *i)
 		free(data);
 		return -1;
 	}
-	if(unloadmemimage(i, r, data, n) != n)
+	if(unloadmemimage(i, r, data, n) != (long)n)
 		goto ErrOut0;
 	outbuf = malloc(ncblock);
 	hash = malloc(NHASH*sizeof(Hlist));

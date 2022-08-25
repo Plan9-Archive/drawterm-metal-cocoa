@@ -23,8 +23,8 @@ Dirtab
 audiodir[] =
 {
 	".",	{Qdir, 0, QTDIR},		0,	DMDIR|0555,
-	"audio",	{Qaudio},		0,	0666,
-	"volume",	{Qvolume},		0,	0666,
+	"audio",	{Qaudio, 0, 0},		0,	0666,
+	"volume",	{Qvolume, 0, 0},	0,	0666,
 };
 
 static	struct
@@ -58,7 +58,7 @@ static	struct
 	"speed",	Fin|Fout|Fmono,	Speed,	Speed,
 
 	"pcm",		Fout, 		50,	50,
-	0
+	0,		0,		0,	0,
 };
 
 static	char	Emode[]		= "illegal open mode";
@@ -374,4 +374,6 @@ Dev audiodevtab = {
 	devbwrite,
 	devremove,
 	devwstat,
+	0,
+	0,
 };

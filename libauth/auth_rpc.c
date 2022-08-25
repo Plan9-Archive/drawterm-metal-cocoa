@@ -20,7 +20,7 @@ static struct {
 static int
 classify(char *buf, uint n, AuthRpc *rpc)
 {
-	int i, len;
+	uint i, len;
 
 	for(i=0; i<nelem(tab); i++){
 		len = strlen(tab[i].verb);

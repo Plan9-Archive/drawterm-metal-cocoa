@@ -32,6 +32,7 @@ envlookup(Egrp *eg, char *name, ulong qidpath)
 static int
 envgen(Chan *c, char *name, Dirtab *_1, int _2, int s, Dir *dp)
 {
+	USED(_1); USED(_2);
 	Egrp *eg;
 	Evalue *e;
 
@@ -136,6 +137,7 @@ envopen(Chan *c, int omode)
 static Chan*
 envcreate(Chan *c, char *name, int omode, ulong _)
 {
+	USED(_);
 	Egrp *eg;
 	Evalue *e;
 	Evalue **ent;
@@ -245,9 +247,9 @@ envread(Chan *c, void *a, long n, vlong off)
 		error(Enonexist);
 	}
 
-	if(offset > e->len)	/* protects against overflow converting vlong to ulong */
+	if(offset > (ulong)e->len)	/* protects against overflow converting vlong to ulong */
 		n = 0;
-	else if(offset + n > e->len)
+	else if(offset + n > (ulong)e->len)
 		n = e->len - offset;
 	if(n <= 0)
 		n = 0;
@@ -268,7 +270,7 @@ envwrite(Chan *c, void *a, long n, vlong off)
 
 	if(n <= 0)
 		return 0;
-	if(offset > Maxenvsize || n > (Maxenvsize - offset))
+	if(offset > Maxenvsize || (ulong)n > (Maxenvsize - offset))
 		error(Etoobig);
 
 	eg = envgrp(c);
@@ -280,7 +282,7 @@ envwrite(Chan *c, void *a, long n, vlong off)
 	}
 
 	len = offset+n;
-	if(len > e->len) {
+	if(len > (ulong)e->len) {
 		s = smalloc(len);
 		if(e->value){
 			memmove(s, e->value, e->len);
@@ -315,6 +317,8 @@ Dev envdevtab = {
 	devbwrite,
 	envremove,
 	devwstat,
+	0,
+	0,
 };
 
 extern char **environ;

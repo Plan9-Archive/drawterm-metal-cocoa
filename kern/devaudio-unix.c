@@ -105,7 +105,7 @@ static struct {
 static int
 lookname(int id9)
 {
-	int i;
+	unsigned i;
 	
 	for(i=0; i<nelem(names); i++)
 		if(names[i].id9 == id9)
@@ -178,6 +178,7 @@ audiodevwrite(void *v, int n)
 int
 audiodevread(void *v, int n)
 {
+	USED(v); USED(n);
 	error("no reading");
 	return -1;
 }

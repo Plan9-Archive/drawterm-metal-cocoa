@@ -111,13 +111,13 @@ static void	dsnew(Chan *c, Dstate **);
 static long	sslput(Dstate *s, Block * volatile b);
 
 char *sslnames[] = {
-[Qclonus]	"clone",
-[Qdata]		"data",
-[Qctl]		"ctl",
-[Qsecretin]	"secretin",
-[Qsecretout]	"secretout",
-[Qencalgs]	"encalgs",
-[Qhashalgs]	"hashalgs",
+[Qclonus]=	"clone",
+[Qdata]=	"data",
+[Qctl]=		"ctl",
+[Qsecretin]=	"secretin",
+[Qsecretout]=	"secretout",
+[Qencalgs]=	"encalgs",
+[Qhashalgs]=	"hashalgs",
 };
 
 static int
@@ -332,7 +332,7 @@ sslwstat(Chan *c, uchar *db, int n)
 
 	if(!emptystr(dir->uid))
 		kstrdup(&s->user, dir->uid);
-	if(dir->mode != -1)
+	if(dir->mode != (ulong)-1)
 		s->perm = dir->mode;
 
 	free(dir);
@@ -1205,6 +1205,8 @@ Dev ssldevtab = {
 	sslbwrite,
 	devremove,
 	sslwstat,
+	0,
+	0,
 };
 
 static Block*

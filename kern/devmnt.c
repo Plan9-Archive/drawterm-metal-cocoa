@@ -104,7 +104,7 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	/* defaults */
 	if(msize == 0)
 		msize = MAXRPC;
-	if(msize > c->iounit && c->iounit != 0)
+	if((ulong)msize > c->iounit && c->iounit != 0)
 		msize = c->iounit;
 	v = version;
 	if(v == nil || v[0] == '\0')
@@ -182,7 +182,7 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 			error(f.ename);
 		error("unexpected reply type in fversion");
 	}
-	if(f.msize > msize)
+	if(f.msize > (uint)msize)
 		error("server tries to increase msize in fversion");
 	if(f.msize<256 || f.msize>1024*1024)
 		error("nonsense value of msize in fversion");
@@ -513,7 +513,7 @@ mntopencreate(int type, Chan *c, char *name, int omode, ulong perm)
 	c->offset = 0;
 	c->mode = openmode(omode);
 	c->iounit = r->reply.iounit;
-	if(c->iounit == 0 || c->iounit > m->msize-IOHDRSZ)
+	if(c->iounit == 0 || c->iounit > (ulong)m->msize-IOHDRSZ)
 		c->iounit = m->msize-IOHDRSZ;
 	c->flag |= COPEN;
 	poperror();
@@ -982,7 +982,7 @@ alloctag(void)
 
 	for(i = 0; i < NMASK; i++){
 		v = mntalloc.tagmask[i];
-		if(v == -1)
+		if(v == (u32int)-1)
 			continue;
 		for(j = 0; (v & 1) != 0; j++)
 			v >>= 1;
@@ -1134,4 +1134,6 @@ Dev mntdevtab = {
 	devbwrite,
 	mntremove,
 	mntwstat,
+	0,
+	0,
 };

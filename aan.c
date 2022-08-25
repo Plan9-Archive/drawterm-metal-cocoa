@@ -171,7 +171,7 @@ Restart:
 		if((long)(a - lastacked) > 0){
 			qlock(&c->lk);
 			while((x = c->unackedhead) != nil){
-				assert(GBIT32(x->hdr.msg) == lastacked);
+				assert((ulong)GBIT32(x->hdr.msg) == lastacked);
 				c->unackedhead = x->next;
 				free(x);
 				if(++lastacked == a)

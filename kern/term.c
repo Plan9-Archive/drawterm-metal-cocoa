@@ -89,6 +89,7 @@ static struct {
 static int
 isresized(void *arg)
 {
+	USED(arg);
 	return resize.f != 0;
 }
 
