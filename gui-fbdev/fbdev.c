@@ -12,6 +12,7 @@
 
 #undef long
 #undef ulong
+#undef atexit
 
 #include <fcntl.h>
 #include <limits.h>
@@ -36,6 +37,7 @@ Memimage *gscreen;
 
 static Rectangle	update_rect;
 static Rectangle	screenr;
+static struct termios	tcmode;
 static int	startmode;
 static int	altdown;
 static uchar	*fbp;
@@ -53,7 +55,6 @@ static char	*snarfbuf;
 
 static Memimage* fbattach(int fbdevidx);
 static int onevent(struct input_event*);
-static void termctl(uint32_t o, int or);
 static void ttyswitch(int sig);
 static void consinit(void);
 static void consfinal(void);
@@ -332,14 +333,25 @@ static void
 consinit(void)
 {
 	struct vt_mode vm;
+	struct termios t;
 
+	if(tcgetattr(0, &tcmode))
+		panic("tcgetattr: %r");
+	t = tcmode;
+	t.c_lflag &= ~(ICANON|ISIG|ECHO);
+	if(tcsetattr(0, TCSAFLUSH, &t))
+		panic("tcsetattr: %r");
 	if(ioctl(0, KDGETMODE, &startmode) < 0)
 		panic("ioctl KDGETMODE: %r");
 	write(0, "\e[9;30]", 7);	// blank time 30 min
 	write(0, "\e[?25l", 6);		// hide cursor
-	termctl(~(ICANON|ECHO), 0);
 	signal(SIGUSR1, ttyswitch);
+	signal(SIGHUP, consfinalsig);
+	signal(SIGINT, consfinalsig);
+	signal(SIGQUIT, consfinalsig);
+	signal(SIGABRT, consfinalsig);
 	signal(SIGTERM, consfinalsig);
+	atexit(consfinal);
 
 	vm.mode = VT_PROCESS;
 	vm.waitv = 0;
@@ -359,13 +371,12 @@ consfinal(void)
 	else
 		ioctl(0, KDSETMODE, KD_TEXT);
 	ioctl(0, KDSETMODE, startmode);
-	termctl(ECHO, 1);
+	tcsetattr(0, TCSAFLUSH, &tcmode);
 }
 
 static void
 consfinalsig(int sig)
 {
-	consfinal();
 	exit(128+sig);
 }
 
@@ -442,7 +453,6 @@ TOP:
 			}
 	}
 
-	consfinal();
 	eventdetach(pfd, npfd);
 	free(pfd);
 }
@@ -458,9 +468,6 @@ screensize(Rectangle r, ulong chan)
 void
 screeninit(void)
 {
-	signal(SIGINT, SIG_IGN);
-	signal(SIGTSTP, SIG_IGN);
-
 	memimageinit();
 
 	if(fbattach(0) == nil) {
@@ -535,19 +542,6 @@ void
 guimain(void)
 {
 	cpubody();
-}
-
-static void
-termctl(uint32_t o, int or)
-{
-	struct termios t;
-
-	tcgetattr(0, &t);
-	if (or)
-		t.c_lflag |= o;
-	else
-		t.c_lflag &= o;
-	tcsetattr(0, TCSANOW, &t);
 }
 
 static void
