@@ -255,6 +255,24 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_F12:
 		utf32 = KF|(keysym - XKB_KEY_F1 + 1);
 		break;
+	case XKB_KEY_XF86AudioPrev:
+		utf32 = Ksbwd;
+		break;
+	case XKB_KEY_XF86AudioNext:
+		utf32 = Ksfwd;
+		break;
+	case XKB_KEY_XF86AudioPlay:
+		utf32 = Kpause;
+		break;
+	case XKB_KEY_XF86AudioLowerVolume:
+		utf32 = Kvoldn;
+		break;
+	case XKB_KEY_XF86AudioRaiseVolume:
+		utf32 = Kvolup;
+		break;
+	case XKB_KEY_XF86AudioMute:
+		utf32 = Kmute;
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
