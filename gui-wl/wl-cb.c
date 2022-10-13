@@ -282,16 +282,16 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 
 	/* Japanese layout; see /sys/lib/kbmap/jp */
 	case XKB_KEY_Muhenkan:
-		utf32 = 0x0c; // ^l
+		utf32 = 0x0c; /* ^l */
 		break;
 	case XKB_KEY_Henkan:
-		utf32 = 0x1c; // ^\\
+		utf32 = 0x1c; /* ^\ */
 		break;
 	case XKB_KEY_Hiragana:
-		utf32 = 0x0e; // ^n
+		utf32 = 0x0e; /* ^n */
 		break;
 	case XKB_KEY_Katakana:
-		utf32 = 0x0b; // ^k
+		utf32 = 0x0b; /* ^k */
 		break;
 	case XKB_KEY_Hiragana_Katakana:
 		/* board may not maintain kana state */
