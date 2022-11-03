@@ -220,8 +220,14 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_Page_Down:
 		utf32 = Kpgdown;
 		break;
-	case XKB_KEY_Alt_L:
+	case XKB_KEY_Control_L:
+	case XKB_KEY_Control_R:
+		utf32 = Kctl;
+		break;
 	case XKB_KEY_Alt_R:
+		utf32 = Kaltgr;
+		break;
+	case XKB_KEY_Alt_L:
 		utf32 = Kalt;
 		break;
 	case XKB_KEY_Shift_L:
@@ -257,6 +263,45 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 	case XKB_KEY_F12:
 		utf32 = KF|(keysym - XKB_KEY_F1 + 1);
 		break;
+	case XKB_KEY_XF86AudioPrev:
+		utf32 = Ksbwd;
+		break;
+	case XKB_KEY_XF86AudioNext:
+		utf32 = Ksfwd;
+		break;
+	case XKB_KEY_XF86AudioPlay:
+		utf32 = Kpause;
+		break;
+	case XKB_KEY_XF86AudioLowerVolume:
+		utf32 = Kvoldn;
+		break;
+	case XKB_KEY_XF86AudioRaiseVolume:
+		utf32 = Kvolup;
+		break;
+	case XKB_KEY_XF86AudioMute:
+		utf32 = Kmute;
+		break;
+
+	/* Japanese layout; see /sys/lib/kbmap/jp */
+	case XKB_KEY_Muhenkan:
+		utf32 = 0x0c; /* ^l */
+		break;
+	case XKB_KEY_Henkan:
+		utf32 = 0x1c; /* ^\ */
+		break;
+	case XKB_KEY_Hiragana:
+		utf32 = 0x0e; /* ^n */
+		break;
+	case XKB_KEY_Katakana:
+		utf32 = 0x0b; /* ^k */
+		break;
+	case XKB_KEY_Hiragana_Katakana:
+		/* board may not maintain kana state */
+		if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
+			utf32 = 0x0b;
+		else
+			utf32 = 0x0e;
+		break;
 	default:
 		utf32 = xkb_keysym_to_utf32(keysym);
 		break;
@@ -282,13 +327,6 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 		}
 	}
 	repeat = state && utf32 != Kctl && utf32 != Kshift && utf32 != Kalt && utf32 != Kmod4;
-	if(xkb_state_mod_name_is_active(wl->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0){
-		if(utf32 == '\\')
-			utf32 = 0x1c;
-		else if(utf32 >= 'a' && utf32 <= '~')
-			utf32 -= ('a' - 1);
-	}
-
 	kbdkey(utf32, state);
 	qlock(&repeatstate.lk);
 	repeatstate.active = repeat;

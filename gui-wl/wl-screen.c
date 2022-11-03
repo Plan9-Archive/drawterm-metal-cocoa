@@ -75,7 +75,11 @@ wlresize(Wlwin *wl, int x, int y)
 	r = Rect(0, 0, wl->dx, wl->dy);
 	gscreen = allocmemimage(r, XRGB32);
 	gscreen->clipr = ZR;
-	_screenresize(r);
+	qunlock(&drawlock);
+
+	screenresize(r);
+
+	qlock(&drawlock);
 	wl->dirty = 1;
 	wl->r = r;
 	wlflush(wl);
