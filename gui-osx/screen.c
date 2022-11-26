@@ -36,7 +36,6 @@ Boolean   gDone;
 RgnHandle gCursorRegionHdl;
 
 Memimage	*gscreen;
-Screeninfo	screen;
 
 static int readybit;
 static Rendez	rend;

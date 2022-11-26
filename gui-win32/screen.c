@@ -16,7 +16,6 @@
 #include "keyboard.h"
 
 Memimage	*gscreen;
-Screeninfo	screen;
 
 static int depth;
 

@@ -29,17 +29,10 @@ struct Cursorinfo {
 	uchar	set[2*16];
 };
 
-struct Screeninfo {
-	Lock	lk;
-	int	depth;
-	int	dibtype;
-};
-
 extern	Memimage *gscreen;
 extern	Mouseinfo mouse;
 extern	Cursorinfo cursor;
 extern	Cursorinfo arrow;
-extern	Screeninfo screen;
 
 void	screeninit(void);
 void	screenload(Rectangle, int, uchar *, Point, int);
