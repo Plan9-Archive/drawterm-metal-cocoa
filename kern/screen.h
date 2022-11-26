@@ -1,7 +1,6 @@
 typedef struct Mouseinfo Mouseinfo;
 typedef struct Mousestate Mousestate;
 typedef struct Cursorinfo Cursorinfo;
-typedef struct Screeninfo Screeninfo;
 
 struct Mousestate {
 	Point	xy;
