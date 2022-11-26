@@ -18,6 +18,7 @@
 Memimage	*gscreen;
 
 static int depth;
+static int dibtype;
 
 static	HINSTANCE	inst;
 static	HWND		window;
@@ -54,24 +55,24 @@ screeninit(void)
 		depth = GetDeviceCaps(GetDC(NULL), BITSPIXEL);
 	switch(depth){
 	case 32:
-		screen.dibtype = DIB_RGB_COLORS;
-		screen.depth = 32;
+		dibtype = DIB_RGB_COLORS;
+		depth = 32;
 		chan = XRGB32;
 		break;
 	case 24:
-		screen.dibtype = DIB_RGB_COLORS;
-		screen.depth = 24;
+		dibtype = DIB_RGB_COLORS;
+		depth = 24;
 		chan = RGB24;
 		break;
 	case 16:
-		screen.dibtype = DIB_RGB_COLORS;
-		screen.depth = 16;
+		dibtype = DIB_RGB_COLORS;
+		depth = 16;
 		chan = RGB15;	/* [sic] */
 		break;
 	case 8:
 	default:
-		screen.dibtype = DIB_PAL_COLORS;
-		screen.depth = 8;
+		dibtype = DIB_PAL_COLORS;
+		depth = 8;
 		depth = 8;
 		chan = CMAP8;
 		break;
@@ -141,7 +142,7 @@ flushmemscreen(Rectangle r)
 		r.min.x, 0,
 		0, dy,
 		byteaddr(gscreen, Pt(0, r.min.y)), bmi,
-		screen.dibtype);
+		dibtype);
 
 	ReleaseDC(window, hdc);
 
