@@ -74,12 +74,12 @@ xallocmemimage(Rectangle r, ulong chan, int pmid, XImage **X)
 	else
 		offset = r.min.x&(31/d);
 	r.min.x -= offset;
-
+	
 	assert(wordsperline(r, m->depth) <= m->width);
 
 	xi = XCreateImage(xdisplay, xvis, m->depth==32?24:m->depth, ZPixmap, 0,
 		(char*)m->data->bdata, Dx(r), Dy(r), 32, m->width*sizeof(ulong));
-
+	
 	if(xi == nil){
 		freememimage(m);
 		return nil;
@@ -114,7 +114,7 @@ static uchar			map7to8[128][2];
 static Colormap			xcmap;		/* Default shared colormap  */
 
 /* for copy/paste, lifted from plan9ports */
-static Atom clipboard;
+static Atom clipboard; 
 static Atom utf8string;
 static Atom targets;
 static Atom text;
@@ -131,7 +131,7 @@ static	void		xmapping(XEvent*);
 static	void		xdestroy(XEvent*);
 static	void		xselect(XEvent*, XDisplay*);
 static	void		xproc(void*);
-static	void		initmap(XDisplay*, int, Visual*);
+static	void		initmap(Window);
 static	GC		creategc(Drawable);
 static	void		graphicscmap(XColor*);
 static	int		xscreendepth;
@@ -141,6 +141,7 @@ static	XDisplay*	xsnarfcon;	/* used holding clip.lk */
 static	int	putsnarf, assertsnarf;
 
 Memimage *gscreen;
+Screeninfo screen;
 
 static int
 shutup(XDisplay *d, XErrorEvent *e)
@@ -177,7 +178,7 @@ flushmemscreen(Rectangle r)
 		for(y=r.min.y; y<r.max.y; y++)
 			for(x=r.min.x, p=byteaddr(gscreen, Pt(x,y)); x<r.max.x; x++, p++)
 				*p = plan9tox11[*p];
-
+	
 	XPutImage(xdisplay, xscreenid, xgccopy, xscreenimage, r.min.x, r.min.y, r.min.x, r.min.y, Dx(r), Dy(r));
 
 	if(xtblbit && gscreen->chan == CMAP8)
@@ -194,10 +195,12 @@ screeninit(void)
 {
 	int i, n, x, y;
 	char *argv[2];
+	Window rootwin;
 	Rectangle r;
 	XWMHints hints;
+	XScreen *screen;
 	XVisualInfo xvi;
-	int screen;
+	int rootscreennum;
 	XTextProperty name;
 	XClassHint classhints;
 	XSizeHints normalhints;
@@ -231,22 +234,24 @@ screeninit(void)
 	if(xsnarfcon == 0)
 		panic("XOpenDisplay: %r [DISPLAY=%s]", getenv("DISPLAY"));
 
-	screen = DefaultScreen(xdisplay);
-	xscreendepth = DefaultDepth(xdisplay, screen);
-	if(XMatchVisualInfo(xdisplay, screen, 16, TrueColor, &xvi)
-	|| XMatchVisualInfo(xdisplay, screen, 16, DirectColor, &xvi)){
+	rootscreennum = DefaultScreen(xdisplay);
+	rootwin = DefaultRootWindow(xdisplay);
+	
+	xscreendepth = DefaultDepth(xdisplay, rootscreennum);
+	if(XMatchVisualInfo(xdisplay, rootscreennum, 16, TrueColor, &xvi)
+	|| XMatchVisualInfo(xdisplay, rootscreennum, 16, DirectColor, &xvi)){
 		xvis = xvi.visual;
 		xscreendepth = 16;
 		xtblbit = 1;
 	}
-	else if(XMatchVisualInfo(xdisplay, screen, 24, TrueColor, &xvi)
-	|| XMatchVisualInfo(xdisplay, screen, 24, DirectColor, &xvi)){
+	else if(XMatchVisualInfo(xdisplay, rootscreennum, 24, TrueColor, &xvi)
+	|| XMatchVisualInfo(xdisplay, rootscreennum, 24, DirectColor, &xvi)){
 		xvis = xvi.visual;
 		xscreendepth = 24;
 		xtblbit = 1;
 	}
-	else if(XMatchVisualInfo(xdisplay, screen, 8, PseudoColor, &xvi)
-	|| XMatchVisualInfo(xdisplay, screen, 8, StaticColor, &xvi)){
+	else if(XMatchVisualInfo(xdisplay, rootscreennum, 8, PseudoColor, &xvi)
+	|| XMatchVisualInfo(xdisplay, rootscreennum, 8, StaticColor, &xvi)){
 		if(xscreendepth > 8)
 			panic("can't deal with colormapped depth %d screens", xscreendepth);
 		xvis = xvi.visual;
@@ -255,7 +260,7 @@ screeninit(void)
 	else{
 		if(xscreendepth != 8)
 			panic("can't deal with depth %d screens", xscreendepth);
-		xvis = DefaultVisual(xdisplay, screen);
+		xvis = DefaultVisual(xdisplay, rootscreennum);
 	}
 
 	/*
@@ -294,34 +299,40 @@ screeninit(void)
 	}
 	if(xscreenchan == 0)
 		panic("unknown screen pixel format");
+		
+	screen = DefaultScreenOfDisplay(xdisplay);
+	xcmap = DefaultColormapOfScreen(screen);
 
-	initmap(xdisplay, screen, xvis);
+	if(xvis->class != StaticColor){
+		graphicscmap(map);
+		initmap(rootwin);
+	}
 
 	x = y = 0;
 	r = ZR;
 	if(geometry != nil)
-		XParseGeometry(geometry, &x, &y, (unsigned int*)&r.max.x, (unsigned int*)&r.max.y);
-
+		XParseGeometry(geometry, &x, &y, &r.max.x, &r.max.y);
 	if(r.max.x == 0)
-		r.max.x = WidthOfScreen(ScreenOfDisplay(xdisplay, screen))*3/4;
+		r.max.x = WidthOfScreen(screen)*3/4;
 	if(r.max.y == 0)
-		r.max.y = HeightOfScreen(ScreenOfDisplay(xdisplay, screen))*3/4;
-
+		r.max.y = HeightOfScreen(screen)*3/4;
+	
 	attrs.colormap = xcmap;
 	attrs.background_pixel = 0;
 	attrs.border_pixel = 0;
 	/* attrs.override_redirect = 1;*/ /* WM leave me alone! |CWOverrideRedirect */
-	xdrawable = XCreateWindow(xkmcon, RootWindow(xdisplay, screen), x, y, Dx(r), Dy(r), 0,
+	xdrawable = XCreateWindow(xkmcon, rootwin, x, y, Dx(r), Dy(r), 0,
 		xscreendepth, InputOutput, xvis, CWBackPixel|CWBorderPixel|CWColormap, &attrs);
 
 	/* load the given bitmap data and create an X pixmap containing it. */
-	icon_pixmap = XCreateBitmapFromData(xkmcon, RootWindow(xdisplay, screen),
-		(char *)glenda_t_bits, glenda_t_width, glenda_t_height);
+	icon_pixmap = XCreateBitmapFromData(xkmcon,
+		rootwin, (char *)glenda_t_bits,
+		glenda_t_width, glenda_t_height);
 
 	/*
 	 * set up property as required by ICCCM
 	 */
-	if((name.value = (uchar*)getenv("WM_NAME")) == nil)
+	if((name.value = getenv("WM_NAME")) == nil)
 		name.value = (uchar*)"drawterm";
 	name.encoding = XA_STRING;
 	name.format = 8;
@@ -359,7 +370,7 @@ screeninit(void)
 			1); /* int nelements */
 		XFlush(xkmcon);
 	}
-
+	
 	/*
 	 * put the window on the screen
 	 */
@@ -607,20 +618,15 @@ graphicscmap(XColor *map)
 /*
  * Initialize and install the drawterm colormap as a private colormap for this
  * application.  Drawterm gets the best colors here when it has the cursor focus.
- */
-static void
-initmap(XDisplay *xdisplay, int screen, Visual *xvis)
+ */  
+static void 
+initmap(Window w)
 {
 	XColor c;
 	int i;
 	ulong p, pp;
 	char buf[30];
 
-	xcmap = DefaultColormap(xdisplay, screen);
-	if(xvis->class == StaticColor)
-		return;
-
-	graphicscmap(map);
 	if(xscreendepth <= 1)
 		return;
 
@@ -628,15 +634,16 @@ initmap(XDisplay *xdisplay, int screen, Visual *xvis)
 		/* The pixel value returned from XGetPixel needs to
 		 * be converted to RGB so we can call rgb2cmap()
 		 * to translate between 24 bit X and our color. Unfortunately,
-		 * the return value appears to be display server endian
+		 * the return value appears to be display server endian 
 		 * dependant. Therefore, we run some heuristics to later
 		 * determine how to mask the int value correctly.
-		 * Yeah, I know we can look at xvis->byte_order but
+		 * Yeah, I know we can look at xvis->byte_order but 
 		 * some displays say MSB even though they run on LSB.
 		 * Besides, this is more anal.
 		 */
-		if(xvis != DefaultVisual(xdisplay, screen))
-			xcmap = XCreateColormap(xdisplay, RootWindow(xdisplay, screen), xvis, AllocNone);
+		if(xscreendepth != DefaultDepth(xdisplay, DefaultScreen(xdisplay)))
+			xcmap = XCreateColormap(xdisplay, w, xvis, AllocNone);
+
 		c = map[19];
 		/* find out index into colormap for our RGB */
 		if(!XAllocColor(xdisplay, xcmap, &c))
@@ -657,7 +664,7 @@ initmap(XDisplay *xdisplay, int screen, Visual *xvis)
 				xscreenchan = XBGR32;
 				break;
 			default:
-				panic("don't know how to byteswap channel %s",
+				panic("don't know how to byteswap channel %s", 
 					chantostr(buf, xscreenchan));
 				break;
 			}
@@ -665,7 +672,7 @@ initmap(XDisplay *xdisplay, int screen, Visual *xvis)
 	} else if(xvis->class == TrueColor || xvis->class == DirectColor) {
 	} else if(xvis->class == PseudoColor) {
 		if(xtblbit == 0){
-			xcmap = XCreateColormap(xdisplay, RootWindow(xdisplay, screen), xvis, AllocAll);
+			xcmap = XCreateColormap(xdisplay, w, xvis, AllocAll); 
 			XStoreColors(xdisplay, xcmap, map, 256);
 			for(i = 0; i < 256; i++) {
 				plan9tox11[i] = i;
@@ -852,7 +859,7 @@ xkeyboard(XEvent *e)
 		case XK_KP_End:
 			k = Kend;
 			break;
-		case XK_Page_Up:
+		case XK_Page_Up:	
 		case XK_KP_Page_Up:
 			k = Kpgup;
 			break;
@@ -952,7 +959,7 @@ xmouse(XEvent *e)
 	switch(e->type){
 	case ButtonPress:
 		be = (XButtonEvent *)e;
-		/*
+		/* 
 		 * Fake message, just sent to make us announce snarf.
 		 * Apparently state and button are 16 and 8 bits on
 		 * the wire, since they are truncated by the time they
@@ -1038,7 +1045,7 @@ void
 getcolor(ulong i, ulong *r, ulong *g, ulong *b)
 {
 	ulong v;
-
+	
 	v = cmap2rgb(i);
 	*r = (v>>16)&0xFF;
 	*g = (v>>8)&0xFF;
@@ -1111,7 +1118,7 @@ _xgetsnarf(XDisplay *xd)
 		data = nil;
 		goto out;
 	}
-
+		
 	/*
 	 * We should be waiting for SelectionNotify here, but it might never
 	 * come, and we have no way to time out.  Instead, we will clear
@@ -1137,7 +1144,7 @@ _xgetsnarf(XDisplay *xd)
 	}
 	/* get the property */
 	data = nil;
-	XGetWindowProperty(xd, xdrawable, prop, 0, SnarfSize/sizeof(unsigned long), 0,
+	XGetWindowProperty(xd, xdrawable, prop, 0, SnarfSize/sizeof(unsigned long), 0, 
 		AnyPropertyType, &type, &fmt, &len, &dummy, &xdata);
 	if((type != XA_STRING && type != utf8string) || len == 0){
 		if(xdata)
