@@ -170,51 +170,29 @@ fsstat(Chan *c, uchar *buf, int n)
 static Chan*
 fsopen(Chan *c, int mode)
 {
-	int m, isdir;
 	Ufsinfo *uif;
+	int omode;
 
-/*print("fsopen %s\n", chanpath(c));*/
-	m = mode & (OTRUNC|3);
-	switch(m) {
-	case 0:
-		break;
-	case 1:
-	case 1|16:
-		break;
-	case 2:	
-	case 0|16:
-	case 2|16:
-		break;
-	case 3:
-		break;
-	default:
-		error(Ebadarg);
-	}
-
-	isdir = c->qid.type & QTDIR;
-
-	if(isdir && mode != OREAD)
-		error(Eperm);
-
-	m = fsomode(m & 3);
-	c->mode = openmode(mode);
+	omode = openmode(mode);
 
 	uif = c->aux;
-	if(isdir) {
-		uif->dir = opendir(uif->path);
-		if(uif->dir == 0)
+	if(c->qid.type & QTDIR) {
+		if(omode != OREAD)
+			error(Eperm);
+		if((uif->dir = opendir(uif->path)) == NULL)
 			error(strerror(errno));
 	}	
 	else {
+		int m = fsomode(omode & 3);
 		if(mode & OTRUNC)
 			m |= O_TRUNC;
-		uif->fd = open(uif->path, m, 0666);
-		if(uif->fd < 0)
+		if((uif->fd = open(uif->path, m, 0666)) < 0)
 			error(strerror(errno));
 	}
 	uif->offset = 0;
 
 	c->offset = 0;
+	c->mode = omode;
 	c->flag |= COPEN;
 	return c;
 }
@@ -222,12 +200,13 @@ fsopen(Chan *c, int mode)
 static Chan*
 fscreate(Chan *c, char *name, int mode, ulong perm)
 {
-	int fd, m;
-	char *path;
 	struct stat stbuf;
 	Ufsinfo *uif;
+	char *path;
+	DIR *dir;
+	int fd, omode;
 
-	m = fsomode(mode&3);
+	omode = openmode(mode & ~OEXCL);
 
 	uif = c->aux;
 	path = catpath(uif->path, name);
@@ -235,49 +214,48 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 		free(path);
 		nexterror();
 	}
+	fd = -1;
+	dir = NULL;
 	if(perm & DMDIR) {
-		if(m)
+		if(omode != OREAD)
 			error(Eperm);
-
-		if(mkdir(path, perm & 0777) < 0)
-			error(strerror(errno));
-
-		fd = open(path, 0);
-		if(fd >= 0) {
-			chmod(path, perm & 0777);
-			chown(path, uif->uid, uif->uid);
+		if(mkdir(path, uif->mode & perm & 0777) < 0){
+			if(errno != EEXIST || mode & OEXCL)
+				error(strerror(errno));
 		}
-		close(fd);
-
-		uif->dir = opendir(path);
-		if(uif->dir == 0)
+		if((dir = opendir(path)) == NULL)
 			error(strerror(errno));
+		if(waserror()){
+			closedir(dir);
+			nexterror();
+		}
 	}
 	else {
-		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-		if(fd >= 0) {
-			if(m != 1) {
-				close(fd);
-				fd = open(path, m);
-			}
-			chmod(path, perm & 0777);
-			chown(path, uif->uid, uif->gid);
-		}
-		if(fd < 0)
+		int m = fsomode(omode & 3) | O_CREAT | O_TRUNC;
+		if(mode & OEXCL)
+			m |= O_EXCL;
+		if((fd = open(path, m, uif->mode & perm & 0666)) < 0)
 			error(strerror(errno));
-		uif->fd = fd;
+		if(waserror()){
+			close(fd);
+			nexterror();
+		}
 	}
 	if(stat(path, &stbuf) < 0)
 		error(strerror(errno));
+	c->qid = fsqid(&stbuf);
+	uif->fd = fd;
+	uif->dir = dir;
+	poperror();
 
 	free(uif->path);
 	uif->path = path;
+	uif->offset = 0;
 	poperror();
 
-	c->qid = fsqid(&stbuf);
 	c->offset = 0;
+	c->mode = omode;
 	c->flag |= COPEN;
-	c->mode = openmode(mode);
 	return c;
 }
 
@@ -604,13 +582,13 @@ static int
 fsomode(int m)
 {
 	switch(m) {
-	case 0:			/* OREAD */
-	case 3:			/* OEXEC */
-		return 0;
-	case 1:			/* OWRITE */
-		return 1;
-	case 2:			/* ORDWR */
-		return 2;
+	case OREAD:
+	case OEXEC:
+		return O_RDONLY;
+	case OWRITE:
+		return O_WRONLY;
+	case ORDWR:
+		return O_RDWR;
 	}
 	error(Ebadarg);
 	return 0;

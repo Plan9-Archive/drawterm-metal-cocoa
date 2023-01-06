@@ -8,7 +8,7 @@ char*
 readcons(char *prompt, char *def, int raw)
 {
 	int fdin, fdout, ctl, n;
-	signed char *s, *p;
+	char *s, *p;
 
 	s = p = nil;
 	fdout = ctl = -1;
@@ -43,7 +43,7 @@ readcons(char *prompt, char *def, int raw)
 		if(*p == '\n' || *p == '\r'){
 			if(p == s && def != nil){
 				free(s);
-				s = (signed char *)strdup(def);
+				s = strdup(def);
 			} else
 				*p = 0;
 			if(raw)
@@ -61,7 +61,7 @@ readcons(char *prompt, char *def, int raw)
 				fprint(fdout, "\n%s: ", prompt);
 			while(p > s)
 				*p-- = 0;
-		} else if(*p >= ' ')
+		} else if((*p & 0xff) >= ' ')
 			p++;
 	}
 	free(s);
