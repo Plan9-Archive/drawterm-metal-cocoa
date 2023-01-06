@@ -47,7 +47,6 @@ struct Ufsinfo
 
 static	wchar_t *catpath(wchar_t *, char *, wchar_t *);
 static	ulong	fsdirread(Chan*, uchar*, int, vlong);
-static	int	fsomode(int);
 static	ulong	fsaccess(int);
 static	ulong	pathtype(wchar_t *);
 static	int	checkvolume(wchar_t *);
@@ -331,40 +330,24 @@ fsstat(Chan *c, uchar *buf, int n)
 static Chan*
 fsopen(Chan *c, int mode)
 {
-	ulong t;
-	int m, isdir;
 	wchar_t *p;
 	Ufsinfo *uif;
+	int omode;
 
-	m = mode & (OTRUNC|3);
-	switch(m) {
-	case 0:
-		break;
-	case 1:
-	case 1|16:
-		break;
-	case 2:	
-	case 0|16:
-	case 2|16:
-		break;
-	case 3:
-		break;
-	default:
-		error(Ebadarg);
-	}
+	omode = openmode(mode);
 
-	isdir = c->qid.type & QTDIR;
-	if(isdir && mode != OREAD)
-		error(Eperm);
-	m = fsomode(m & 3);
-	c->mode = openmode(mode);
 	uif = c->aux;
-	uif->offset = 0;
-	t = pathtype(uif->path);
-	if(isdir){
+	if(c->qid.type & QTDIR){
 		DIR *d;
+
+		if(omode != OREAD)
+			error(Eperm);
 		d = malloc(sizeof(*d));
-		switch(t){
+		if(waserror()){
+			free(d);
+			nexterror();
+		}
+		switch(pathtype(uif->path)){
 		case TPATH_ROOT:
 			d->drivebuf = malloc(sizeof(wchar_t)*MAX_PATH);
 			if(GetLogicalDriveStrings(MAX_PATH-1, d->drivebuf) == 0){
@@ -377,21 +360,21 @@ fsopen(Chan *c, int mode)
 		case TPATH_VOLUME:
 		case TPATH_FILE:
 			p = catpath(uif->path, "*.*", nil);
-			d->handle = FindFirstFile(p, &d->wfd);
-			free(p);
-			if(d->handle == INVALID_HANDLE_VALUE){
-				free(d);
+			if((d->handle = FindFirstFile(p, &d->wfd)) == INVALID_HANDLE_VALUE){
+				free(p);
 				oserror();
 			}
+			free(p);
 			break;
 		}
 		d->keep = 1;
 		uif->dir = d;
+		poperror();
 	} else {
-		uif->dir = nil;
+		uif->dir = NULL;
 		if((uif->fh = CreateFile(
 			uif->path,
-			fsaccess(mode),
+			fsaccess(omode & 3),
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
 			NULL,
 			(mode & OTRUNC) ? TRUNCATE_EXISTING : OPEN_EXISTING,
@@ -399,7 +382,10 @@ fsopen(Chan *c, int mode)
 			0)) == INVALID_HANDLE_VALUE)
 			oserror();
 	}
+	uif->offset = 0;
+
 	c->offset = 0;
+	c->mode = omode;
 	c->flag |= COPEN;
 	return c;
 }
@@ -407,55 +393,72 @@ fsopen(Chan *c, int mode)
 static Chan*
 fscreate(Chan *c, char *name, int mode, ulong perm)
 {
-	int m;
-	ulong t;
 	wchar_t *newpath;
 	Ufsinfo *uif;
+	DIR *d;
+	HANDLE h;
+	int omode;
 
-	m = fsomode(mode&3);
+	omode = openmode(mode & ~OEXCL);
+
 	uif = c->aux;
-	t = pathtype(uif->path);
 	newpath = catpath(uif->path, name, nil);
 	if(waserror()){
 		free(newpath);
 		nexterror();
 	}
+	d = NULL;
+	h = INVALID_HANDLE_VALUE;
 	if(perm & DMDIR) {
 		wchar_t *p;
-		DIR *d;
-		if(m || t==TPATH_ROOT)
+
+		if(omode != OREAD || pathtype(uif->path) == TPATH_ROOT)
 			error(Eperm);
-		if(!CreateDirectory(newpath, NULL))
-			oserror();
+		if(!CreateDirectory(newpath, NULL)){
+			if(GetLastError() != ERROR_ALREADY_EXISTS || mode & OEXCL)
+				oserror();
+		}
 		d = malloc(sizeof(*d));
 		p = catpath(newpath, "*.*", nil);
-		d->handle = FindFirstFile(p, &d->wfd);
-		free(p);
-		if(d->handle == INVALID_HANDLE_VALUE){
+		if((d->handle = FindFirstFile(p, &d->wfd)) == INVALID_HANDLE_VALUE){
+			free(p);
 			free(d);
 			oserror();
 		}
+		free(p);
+		if(waserror()){
+			FindClose(d->handle);
+			free(d);
+			nexterror();
+		}
 		d->keep = 1;
-		uif->dir = d;
 	} else {
-		uif->dir = nil;
-		if((uif->fh = CreateFile(
+		if((h = CreateFile(
 			newpath,
-			fsaccess(mode),
+			fsaccess(omode & 3),
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
 			NULL,
-			CREATE_NEW,
+			(mode & OEXCL) ? CREATE_NEW : CREATE_ALWAYS,
 			FILE_ATTRIBUTE_NORMAL,
 			0)) == INVALID_HANDLE_VALUE)
 			oserror();
+		if(waserror()){
+			CloseHandle(h);
+			nexterror();
+		}
 	}
+	c->qid = wfdtoqid(newpath, nil);
+	uif->dir = d;
+	uif->fh = h;
+	poperror();
 	free(uif->path);
 	uif->path = newpath;
+	uif->offset = 0;
 	poperror();
-	c->qid = wfdtoqid(newpath, nil);
+
 	c->offset = 0;
+	c->mode = omode;
 	c->flag |= COPEN;
-	c->mode = openmode(mode);
 	return c;
 }
 
@@ -770,22 +773,6 @@ fsdirread(Chan *c, uchar *va, int count, vlong offset)
 out:
 	uif->offset += i;
 	return i;
-}
-
-static int
-fsomode(int m)
-{
-	switch(m) {
-	case 0:			/* OREAD */
-	case 3:			/* OEXEC */
-		return 0;
-	case 1:			/* OWRITE */
-		return 1;
-	case 2:			/* ORDWR */
-		return 2;
-	}
-	error(Ebadarg);
-	return 0;
 }
 
 static ulong
