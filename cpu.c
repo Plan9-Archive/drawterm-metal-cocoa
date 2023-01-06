@@ -42,6 +42,7 @@ char *geometry;
 
 extern void	guimain(void);
 extern char secstorebuf[65536];
+extern vlong *secstorelen;
 
 char*
 estrdup(char *s)
@@ -169,8 +170,10 @@ rcpu(char *host, char *cmd)
 		fd = p9authtls(fd);
 	}
 
-	if(! keepSecstore)
+	if(! keepSecstore){
+		*secstorelen = 0;
 		memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
+	}
 	if(cmd == nil)
 		cmd = smprint(script, "rc -li");
 	else {
@@ -355,6 +358,7 @@ void
 cpubody(void)
 {
 	char *s;
+	vlong slen;
 
 	if(!nogfx){
 		if(bind("#i", "/dev", MBEFORE) < 0)
@@ -385,11 +389,13 @@ cpubody(void)
 	 	if(havesecstore(secstore, user)){
 			s = secstorefetch(secstore, user, pass);
 			if(s){
-				if(strlen(s) >= sizeof secstorebuf)
+				slen = strlen(s);
+				if(slen >= sizeof secstorebuf)
 					sysfatal("secstore data too big");
 				mlock(secstorebuf, sizeof secstorebuf);
-				strcpy(secstorebuf, s);
-				memset(s, 0, strlen(s));
+				memcpy(secstorebuf, s, slen+1);
+				memset(s, 0, slen);
+				*secstorelen = slen;
 				free(s);
 			}
 		}
@@ -455,8 +461,10 @@ p9authssl(int fd)
 	AuthInfo *ai;
 
 	ai = p9any(fd);
-	if(! keepSecstore)
+	if(! keepSecstore){
+		*secstorelen = 0;
 		memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
+	}
 	if(ai == nil)
 		sysfatal("can't authenticate: %r");
 
@@ -928,6 +936,7 @@ static int
 getkey(Authkey *key, char *user, char *dom, char *proto, char *pass)
 {
 	char buf[1024];
+	int n;
 
 	if(pass != nil && *pass)
 		pass = estrdup(pass);
@@ -937,10 +946,13 @@ getkey(Authkey *key, char *user, char *dom, char *proto, char *pass)
 		memset(buf, 0, sizeof buf);
 	}
 	if(pass != nil){
-		snprint(secstorebuf, sizeof(secstorebuf), "key proto=%q dom=%q user=%q !password=%q\n",
+		n = snprint(secstorebuf, sizeof(secstorebuf), "key proto=%q dom=%q user=%q !password=%q\n",
 			proto, dom, user, pass);
 		memset(pass, 0, strlen(pass));
 		free(pass);
+		if(n <= 0)
+			sysfatal("save password");
+		*secstorelen = n;
 		return findkey(key, user, dom, proto);
 	}
 	return 0;

@@ -381,6 +381,7 @@ static Dirtab consdir[]={
 
 char secstorebuf[65536];
 Dirtab *secstoretab = &consdir[Qsecstore];
+vlong *secstorelen = &consdir[Qsecstore].length;
 Dirtab *snarftab = &consdir[Qsnarf];
 
 int
@@ -468,8 +469,11 @@ consopen(Chan *c, int omode)
 	case Qsecstore:
 		if(omode == ORDWR)
 			error(Eperm);
-		if(omode != OREAD)
+		if(omode != OREAD){
+			/* wipe it clean */
 			memset(secstorebuf, 0, sizeof secstorebuf);
+			*secstorelen = 0;
+		}
 		break;
 
 	case Qsnarf:
@@ -635,7 +639,12 @@ consread(Chan *c, void *buf, long n, vlong off)
 		return readstr(offset, buf, n, c->aux);
 
 	case Qsecstore:
-		return readstr(offset, buf, n, secstorebuf);
+		if(offset >= secstoretab->length)
+			return 0;
+		if(offset+n > secstoretab->length)
+			n = secstoretab->length-offset;
+		memmove(buf, secstorebuf+offset, n);
+		return n;
 
 	case Qsysstat:
 		return 0;
@@ -784,6 +793,8 @@ conswrite(Chan *c, void *va, long n_, vlong off)
 			error(Etoobig);
 		secstoretab->qid.vers++;
 		memmove(secstorebuf+offset, va, n);
+		if(secstoretab->length < offset+n)
+			secstoretab->length = offset+n;
 		return n;
 
 	case Qshowfile:
