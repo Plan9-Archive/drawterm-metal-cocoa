@@ -1282,7 +1282,7 @@ readnbit(Param *p, uchar *buf, int y)
 	r = p->bytermin + y*p->bwidth;
 	bits = *r++;
 	nbits = 8;
-	if(i=x&(npack-1)){
+	if((i=x&(npack-1)) != 0){
 		bits <<= depth*i;
 		nbits -= depth*i;
 	}
@@ -1310,7 +1310,7 @@ readnbit(Param *p, uchar *buf, int y)
 	r = p->bytey0s + y*p->bwidth;
 	bits = *r++;
 	nbits = 8;
-	if(i=x&(npack-1)){
+	if((i=x&(npack-1)) != 0){
 		bits <<= depth*i;
 		nbits -= depth*i;
 	}
