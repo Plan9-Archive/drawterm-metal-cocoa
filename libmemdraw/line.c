@@ -11,7 +11,6 @@ enum
 	Arrow3 = 3,
 };
 
-/*
 static
 int
 lmax(int a, int b)
