@@ -301,16 +301,27 @@ kbdputc(Queue *q, int c)
 	static int collecting, nk;
 	static Rune kc[5];
 
-	 if(c == Kalt){
-		 collecting = 1;
-		 nk = 0;
-		 return 0;
-	 }
+	switch(c){
+	case 0:
+	case Kcaps:
+	case Knum:
+	case Kshift:
+	case Kaltgr:
+	case Kmod4:
+	case Kctl:
+		/* ignore modifiers */
+		return 0;
 
-	 if(!collecting){
-		 _kbdputc(c);
-		 return 0;
-	 }
+	case Kalt:
+		collecting = 1;
+		nk = 0;
+		return 0;
+	}
+
+	if(!collecting){
+		_kbdputc(c);
+		return 0;
+	}
 
 	kc[nk++] = c;
 	c = latin1(kc, nk);
