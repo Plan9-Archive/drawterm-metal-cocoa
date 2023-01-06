@@ -34,7 +34,7 @@ mplogic(mpint *b1, mpint *b2, mpint *sum, int fl)
 		t = b1;
 		b1 = b2;
 		b2 = t;
-		fl = (fl >> 2 & 0x03) | (fl << 2 & 0x0c) | (fl & 0x30);
+		fl = ((fl >> 2) & 0x03) | ((fl << 2) & 0x0c) | (fl & 0x30);
 	}
 	mpbits(sum, b1->top*Dbits+1);
 	dp1 = b1->p;
