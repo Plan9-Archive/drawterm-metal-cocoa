@@ -78,5 +78,5 @@ Out:
 	if(fdout >= 0)
 		close(fdout);
 
-	return (char *)s;
+	return s;
 }
