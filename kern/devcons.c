@@ -241,8 +241,8 @@ pprint(char *fmt, ...)
 static void
 echoscreen(char *buf, int n)
 {
-	char *e, *p;
 	char ebuf[128];
+	char *e, *p;
 	int x;
 
 	p = ebuf;
@@ -267,7 +267,6 @@ echoscreen(char *buf, int n)
 static void
 echo(char *buf, int n)
 {
-	qproduce(kbdq, buf, n);
 	if(kbd.raw)
 		return;
 	if(screenputs != 0)
@@ -276,28 +275,27 @@ echo(char *buf, int n)
 		write(1, buf, n);
 }
 
-static
-void
-_kbdputc(int c)
+static int
+_kbdputc(Queue *q, int c)
 {
-	Rune r;
 	char buf[UTFmax];
+	Rune r = c;
 	int n;
 
-	r = c;
-	n = runetochar(buf, &r);
-	if(n == 0)
-		return;
-	echo(buf, n);
+	if((n = runetochar(buf, &r)) > 0){
+		echo(buf, n);
+		qproduce(q, buf, n);
+	}
+	return 0;
 }
 
 /* _kbdputc, but with compose translation */
 int
 kbdputc(Queue *q, int c)
 {
-	int	i;
 	static int collecting, nk;
 	static Rune kc[5];
+	int i;
 
 	switch(c){
 	case 0:
@@ -307,7 +305,7 @@ kbdputc(Queue *q, int c)
 	case Kaltgr:
 	case Kmod4:
 	case Kctl:
-		/* ignore modifiers */
+		/* ignore modifiers; see nextrune() of kbdfs */
 		return 0;
 
 	case Kalt:
@@ -316,23 +314,20 @@ kbdputc(Queue *q, int c)
 		return 0;
 	}
 
-	if(!collecting){
-		_kbdputc(c);
-		return 0;
-	}
+	if(!collecting)
+		return _kbdputc(q, c);
 
 	kc[nk++] = c;
 	c = latin1(kc, nk);
 	if(c < -1)  /* need more keystrokes */
 		return 0;
 	if(c != -1) /* valid sequence */
-		_kbdputc(c);
+		_kbdputc(q, c);
 	else
 		for(i=0; i<nk; i++)
-		 	_kbdputc(kc[i]);
+			_kbdputc(q, kc[i]);
 	nk = 0;
 	collecting = 0;
-
 	return 0;
 }
 
