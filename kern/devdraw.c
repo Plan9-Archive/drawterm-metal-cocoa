@@ -940,7 +940,7 @@ makescreenimage(void)
 	return di;
 }
 
-int
+static int
 initscreenimage(void)
 {
 	if(screenimage != nil)
@@ -956,8 +956,9 @@ initscreenimage(void)
 }
 
 void
-_deletescreenimage(void)
+deletescreenimage(void)
 {
+	dlock();
 	if(screenimage){
 		/* will be freed via screendimage; disable */
 		screenimage->clipr = ZR;
@@ -967,13 +968,6 @@ _deletescreenimage(void)
 		drawfreedimage(screendimage);
 		screendimage = nil;
 	}
-}
-
-void
-deletescreenimage(void)
-{
-	dlock();
-	_deletescreenimage();
 	dunlock();
 }
 
@@ -1002,6 +996,8 @@ drawattach(char *spec)
 static Walkqid*
 drawwalk(Chan *c, Chan *nc, char **name, int nname)
 {
+	if(screenimage == nil)
+		error("no frame buffer");
 	return devwalk(c, nc, name, nname, 0, 0, drawgen);
 }
 
