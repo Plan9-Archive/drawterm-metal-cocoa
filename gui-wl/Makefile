@@ -10,15 +10,26 @@ HFILES=\
 	xdg-shell-protocol.h\
 	xdg-decoration-protocol.h\
 	xdg-primary-selection-protocol.h\
+	wlr-virtual-pointer.h\
 	wl-inc.h\
 
 OFILES=\
 	xdg-shell-protocol.$O\
 	xdg-decoration-protocol.$O\
 	xdg-primary-selection-protocol.$O\
+	wlr-virtual-pointer.$O\
 	wl-cb.$O\
 	wl-screen.$O\
 	wl-util.$O\
+
+wlr-virtual-pointer-unstable-v1.xml:
+	curl https://gitlab.freedesktop.org/wlroots/wlr-protocols/-/raw/master/unstable/wlr-virtual-pointer-unstable-v1.xml > $@
+
+wlr-virtual-pointer.c: wlr-virtual-pointer-unstable-v1.xml
+	wayland-scanner private-code < wlr-virtual-pointer-unstable-v1.xml > $@ || { rm -f $@; exit 1; }
+
+wlr-virtual-pointer.h: wlr-virtual-pointer-unstable-v1.xml
+	wayland-scanner client-header < wlr-virtual-pointer-unstable-v1.xml > $@ || { rm -f $@; exit 1; }
 
 xdg-shell-protocol.c:
 	wayland-scanner private-code < $(XDG_SHELL) > $@ || { rm -f $@; exit 1; }

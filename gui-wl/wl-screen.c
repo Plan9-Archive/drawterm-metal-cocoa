@@ -177,6 +177,7 @@ setcursor(void)
 void
 mouseset(Point p)
 {
+	wlsetmouse(gwin, p);
 }
 
 char*

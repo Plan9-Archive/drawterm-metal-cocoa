@@ -80,6 +80,9 @@ struct Wlwin {
 
 	struct zwp_primary_selection_device_manager_v1 *primsel;
 	struct zwp_primary_selection_device_v1 *primsel_device;
+
+	struct zwlr_virtual_pointer_manager_v1 *vpmgr;
+	struct zwlr_virtual_pointer_v1 *vpointer;
 };
 
 void wlallocbuffer(Wlwin*);
@@ -87,6 +90,7 @@ void wlsetcb(Wlwin*);
 void wlsettitle(Wlwin*, char*);
 char* wlgetsnarf(Wlwin*);
 void wlsetsnarf(Wlwin*, char*);
+void wlsetmouse(Wlwin*, Point);
 void wldrawcursor(Wlwin*, Cursorinfo*);
 void wlresize(Wlwin*, int, int);
 void wlflush(Wlwin*);
