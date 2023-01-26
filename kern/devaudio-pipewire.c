@@ -84,17 +84,14 @@ audiodevopen(void)
 
 	lock(&pwstate.lk);
 	pwstate.written = 0;
-	if(pwstate.init > 0){
-		kproc("pipewire main loop", pwproc, pwstate.loop);
-		unlock(&pwstate.lk);
-		return;
+	if(pwstate.init == 0){
+		pw_init(&argc, (char***)&argv);
+		pwstate.init++;
+		pwstate.loop = pw_main_loop_new(NULL);
+		if(pwstate.loop == NULL)
+			sysfatal("could not create loop");
 	}
 
-	pwstate.init++;
-	pw_init(&argc, (char***)&argv);
-	pwstate.loop = pw_main_loop_new(NULL);
-	if(pwstate.loop == NULL)
-		sysfatal("could not create loop");
 	pwstate.output = pw_stream_new_simple(
 		pw_main_loop_get_loop(pwstate.loop),
 		"drawterm",
@@ -139,6 +136,7 @@ void
 audiodevclose(void)
 {
 	pw_main_loop_quit(pwstate.loop);
+	pw_stream_destroy(pwstate.output);
 }
 
 int
