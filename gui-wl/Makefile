@@ -49,6 +49,8 @@ xdg-primary-selection-protocol.c:
 xdg-primary-selection-protocol.h:
 	wayland-scanner client-header < $(XDG_PRIMSEL) > $@ || { rm -f $@; exit 1; }
 
+wl-cb.$O: $(HFILES)
+
 default: $(LIB)
 $(LIB): $(HFILES) $(OFILES)
 	$(AR) r $(LIB) $(OFILES)
