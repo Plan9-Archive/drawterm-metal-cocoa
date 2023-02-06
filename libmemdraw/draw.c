@@ -380,7 +380,7 @@ struct Buffer {
 typedef struct	Param	Param;
 typedef Buffer	Readfn(Param*, uchar*, int);
 typedef void	Writefn(Param*, uchar*, Buffer);
-typedef Buffer	Calcfn(Buffer, Buffer, Buffer, int, int, int);
+typedef void	Calcfn(Buffer, Buffer, Buffer, int, int, int);
 
 enum {
 	MAXBCACHE = 16
@@ -719,7 +719,7 @@ alphadraw(Memdrawparam *par)
 		bsrc = rdsrc(&z->spar, z->spar.bufbase, srcy);
 		bmask = rdmask(&z->mpar, z->mpar.bufbase, masky);
 		bdst = rddst(&z->dpar, z->dpar.bufbase, dsty);
-		bdst = calc(bdst, bsrc, bmask, dx, isgrey, op);
+		calc(bdst, bsrc, bmask, dx, isgrey, op);
 		wrdst(&z->dpar, z->dpar.bytermin+dsty*z->dpar.bwidth, bdst);
 	}
 
@@ -727,13 +727,14 @@ alphadraw(Memdrawparam *par)
 	return 1;
 }
 
-static Buffer
+static void
 alphacalc0(Buffer bdst, Buffer b1, Buffer b2, int dx, int grey, int op)
 {
+	USED(b1);
+	USED(b2);
 	USED(grey);
 	USED(op);
 	memset(bdst.rgba, 0, dx*bdst.delta);
-	return bdst;
 }
 
 /*
@@ -780,15 +781,13 @@ chanmatch(Buffer *bdst, Buffer *bsrc)
 	return 1;
 }
 
-static Buffer
+static void
 alphacalc14(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int fd, sadelta;
 	int i, sa, ma, q;
 	ulong t, t1;
 
-	obdst = bdst;
 	sadelta = bsrc.alpha == &ones ? 0 : bsrc.delta;
 	q = bsrc.delta == 4 && bdst.delta == 4 && chanmatch(&bdst, &bsrc);
 
@@ -829,18 +828,15 @@ alphacalc14(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 		bmask.alpha += bmask.delta;
 		bsrc.alpha += sadelta;
 	}
-	return obdst;
 }
 
-static Buffer
+static void
 alphacalc2810(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int fs, sadelta;
 	int i, ma, da, q;
 	ulong t, t1;
 
-	obdst = bdst;
 	sadelta = bsrc.alpha == &ones ? 0 : bsrc.delta;
 	q = bsrc.delta == 4 && bdst.delta == 4 && chanmatch(&bdst, &bsrc);
 
@@ -883,18 +879,15 @@ alphacalc2810(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 		bmask.alpha += bmask.delta;
 		bsrc.alpha += sadelta;
 	}
-	return obdst;
 }
 
-static Buffer
+static void
 alphacalc3679(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int fs, fd, sadelta;
 	int i, sa, ma, da, q;
 	ulong t, t1;
 
-	obdst = bdst;
 	sadelta = bsrc.alpha == &ones ? 0 : bsrc.delta;
 	q = bsrc.delta == 4 && bdst.delta == 4 && chanmatch(&bdst, &bsrc);
 
@@ -945,28 +938,27 @@ alphacalc3679(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 		bmask.alpha += bmask.delta;
 		bsrc.alpha += sadelta;
 	}
-	return obdst;
 }
 
-static Buffer
+static void
 alphacalc5(Buffer bdst, Buffer b1, Buffer b2, int dx, int grey, int op)
 {
+	USED(bdst);
+	USED(b1);
+	USED(b2);
 	USED(dx);
 	USED(grey);
 	USED(op);
-	return bdst;
 }
 
-static Buffer
+static void
 alphacalc11(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int fd, sadelta;
 	int i, sa, ma, q;
 	ulong t, t1;
 
 	USED(op);
-	obdst = bdst;
 	sadelta = bsrc.alpha == &ones ? 0 : bsrc.delta;
 	q = bsrc.delta == 4 && bdst.delta == 4 && chanmatch(&bdst, &bsrc);
 
@@ -1005,23 +997,20 @@ alphacalc11(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 		bmask.alpha += bmask.delta;
 		bsrc.alpha += sadelta;
 	}
-	return obdst;
 }
 
 /*
 not used yet
 source and mask alpha 1
-static Buffer
+static void
 alphacalcS0(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int i;
 
 	USED(op);
-	obdst = bdst;
 	if(bsrc.delta == bdst.delta){
 		memmove(bdst.rgba, bsrc.rgba, dx*bdst.delta);
-		return obdst;
+		return;
 	}
 	for(i=0; i<dx; i++){
 		if(grey){
@@ -1044,22 +1033,18 @@ alphacalcS0(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 			bdst.alpha += bdst.delta;
 		}
 	}
-	return obdst;
 }
 */
 
 /* source alpha 1 */
-static Buffer
+static void
 alphacalcS(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int fd;
 	int i, ma;
 	ulong t;
 
 	USED(op);
-	obdst = bdst;
-
 	for(i=0; i<dx; i++){
 		ma = *bmask.alpha;
 		fd = 255-ma;
@@ -1085,16 +1070,14 @@ alphacalcS(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 		}
 		bmask.alpha += bmask.delta;
 	}
-	return obdst;
 }
 
-static Buffer
+static void
 boolcalc14(Buffer bdst, Buffer b1, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int i, ma, zero;
 
-	obdst = bdst;
+	USED(b1);
 
 	for(i=0; i<dx; i++){
 		ma = *bmask.alpha;
@@ -1118,18 +1101,15 @@ boolcalc14(Buffer bdst, Buffer b1, Buffer bmask, int dx, int grey, int op)
 			bdst.alpha += bdst.delta;
 		}
 	}
-	return obdst;
 }
 
-static Buffer
+static void
 boolcalc236789(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int fs, fd;
 	int i, ma, da, zero;
 	ulong t;
 
-	obdst = bdst;
 	zero = !(op&1);
 
 	for(i=0; i<dx; i++){
@@ -1173,16 +1153,13 @@ boolcalc236789(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 			bdst.alpha += bdst.delta;
 		}
 	}
-	return obdst;
 }
 
-static Buffer
+static void
 boolcalc1011(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
-	Buffer obdst;
 	int i, ma, zero;
 
-	obdst = bdst;
 	zero = !(op&1);
 
 	for(i=0; i<dx; i++){
@@ -1219,7 +1196,6 @@ boolcalc1011(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 			bdst.alpha += bdst.delta;
 		}
 	}
-	return obdst;
 }
 /*
  * Replicated cached scan line read.  Call the function listed in the Param,
@@ -1297,7 +1273,7 @@ readnbit(Param *p, uchar *buf, int y)
 	}
 	dx -= n;
 	if(dx == 0)
-		return b;
+		goto done;
 
 	assert(x+i == p->img->r.max.x);
 
@@ -1324,15 +1300,13 @@ readnbit(Param *p, uchar *buf, int y)
 		nbits -= depth;
 	}
 	dx -= n;
-	if(dx == 0)
-		return b;
-
-	assert(dx > 0);
-	/* now we have exactly one full scan line: just replicate the buffer itself until we are done */
-	ow = buf;
-	while(dx--)
-		*w++ = *ow++;
-
+	if(dx > 0){
+		/* now we have exactly one full scan line: just replicate the buffer itself until we are done */
+		ow = buf;
+		while(dx--)
+			*w++ = *ow++;
+	}
+done:
 	return b;
 }
 
@@ -1690,6 +1664,7 @@ nullwrite(Param *p, uchar *s, Buffer b)
 {
 	USED(p);
 	USED(s);
+	USED(b);
 }
 
 static Buffer
@@ -1708,16 +1683,16 @@ readptr(Param *p, uchar *s, int y)
 	return b;
 }
 
-static Buffer
+static void
 boolmemmove(Buffer bdst, Buffer bsrc, Buffer b1, int dx, int i, int o)
 {
 	USED(i);
 	USED(o);
+	USED(b1);
 	memmove(bdst.red, bsrc.red, dx*bdst.delta);
-	return bdst;
 }
 
-static Buffer
+static void
 boolcopy8(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 {
 	uchar *m, *r, *w, *ew;
@@ -1731,10 +1706,9 @@ boolcopy8(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 	for(; w < ew; w++,r++)
 		if(*m++)
 			*w = *r;
-	return bdst;	/* not used */
 }
 
-static Buffer
+static void
 boolcopy16(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 {
 	uchar *m;
@@ -1749,10 +1723,9 @@ boolcopy16(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 	for(; w < ew; w++,r++)
 		if(*m++)
 			*w = *r;
-	return bdst;	/* not used */
 }
 
-static Buffer
+static void
 boolcopy24(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 {
 	uchar *m;
@@ -1774,10 +1747,9 @@ boolcopy24(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 			r += 3;
 		}
 	}
-	return bdst;	/* not used */
 }
 
-static Buffer
+static void
 boolcopy32(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 {
 	uchar *m;
@@ -1792,7 +1764,6 @@ boolcopy32(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int i, int o)
 	for(; w < ew; w++,r++)
 		if(*m++)
 			*w = *r;
-	return bdst;	/* not used */
 }
 
 static Buffer
