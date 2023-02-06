@@ -7,10 +7,12 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>
 #include <xkbcommon/xkbcommon.h>
 #include "xdg-shell-protocol.h"
 #include "xdg-decoration-protocol.h"
 #include "xdg-primary-selection-protocol.h"
+#include "wlr-virtual-pointer.h"
 
 #include "u.h"
 #include "lib.h"
@@ -29,6 +31,7 @@
 #undef pipe
 #undef write
 #undef read
+#undef time
 
 static void
 xdg_surface_handle_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
@@ -662,6 +665,8 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		wl->decoman = wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
 	} else if(strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
 		wl->primsel = wl_registry_bind(registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
+	} else if(strcmp(interface, zwlr_virtual_pointer_manager_v1_interface.name) == 0) {
+		wl->vpmgr = wl_registry_bind(registry, name, &zwlr_virtual_pointer_manager_v1_interface, 1);
 	}
 }
 
@@ -697,6 +702,9 @@ wlsetcb(Wlwin *wl)
 
 	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil || wl->primsel == nil)
 		sysfatal("registration fell short");
+
+	if(wl->vpmgr != nil)
+		wl->vpointer = zwlr_virtual_pointer_manager_v1_create_virtual_pointer(wl->vpmgr, wl->seat);
 
 	wlallocbuffer(wl);
 	wl->surface = wl_compositor_create_surface(wl->compositor);
@@ -762,4 +770,18 @@ wlgetsnarf(Wlwin *wl)
 	s = strdup(wl->clip.content != nil ? wl->clip.content : "");
 	qunlock(&wl->clip.lk);
 	return s;
+}
+
+void
+wlsetmouse(Wlwin *wl, Point p)
+{
+	Point delta;
+	if (wl->vpointer == nil)
+		return;
+
+	delta.x = p.x - wl->mouse.xy.x;
+	delta.y = p.y - wl->mouse.xy.y;
+	wl->mouse.xy = p;
+	zwlr_virtual_pointer_v1_motion(wl->vpointer,  time(nil) * 1000, delta.x * 256, delta.y * 256);
+	zwlr_virtual_pointer_v1_frame(wl->vpointer);
 }
