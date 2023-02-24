@@ -698,7 +698,7 @@ wlsetcb(Wlwin *wl)
 	wl_display_roundtrip(wl->display);
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
-	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil || wl->primsel == nil)
+	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->primsel == nil)
 		sysfatal("registration fell short");
 
 	if(wl->vpmgr != nil)
@@ -709,8 +709,10 @@ wlsetcb(Wlwin *wl)
 
 	xdg_surface = xdg_wm_base_get_xdg_surface(wl->xdg_wm_base, wl->surface);
 	wl->xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
-	deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
-	zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+	if(wl->decoman != nil){
+		deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
+		zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+	}
 	xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, wl);
 	xdg_toplevel_add_listener(wl->xdg_toplevel, &xdg_toplevel_listener, wl);
 
