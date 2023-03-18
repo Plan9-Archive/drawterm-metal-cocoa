@@ -553,7 +553,30 @@ static const struct zwp_primary_selection_source_v1_listener primsel_source_list
 };
 
 static void
+data_device_drop_enter(void* data, struct wl_data_device* wl_data_device, uint serial, struct wl_surface* surface, wl_fixed_t x, wl_fixed_t y, struct wl_data_offer* id)
+{
+
+}
+
+static void
+data_device_drop_motion(void* data, struct wl_data_device* wl_data_device, uint time, wl_fixed_t x, wl_fixed_t y)
+{
+
+}
+
+static void
+data_device_drop_leave(void* data, struct wl_data_device* wl_data_device)
+{
+
+}
+
+static void
 data_device_handle_data_offer(void *data, struct wl_data_device *data_device, struct wl_data_offer *offer)
+{
+}
+
+static void
+data_device_drop_drop(void* data, struct wl_data_device* wl_data_device)
 {
 }
 
@@ -597,6 +620,10 @@ data_device_handle_selection(void *data, struct wl_data_device *data_device, str
 static const struct wl_data_device_listener data_device_listener = {
 	.data_offer = data_device_handle_data_offer,
 	.selection = data_device_handle_selection,
+	.leave = data_device_drop_leave,
+	.motion = data_device_drop_motion,
+	.enter = data_device_drop_enter,
+	.drop = data_device_drop_drop,
 };
 
 static void
