@@ -676,9 +676,6 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 			return;
 		wl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 4);
 		wl_seat_add_listener(wl->seat, &seat_listener, wl);
-		wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
-		wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
-		wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
 	} else if(strcmp(interface, wl_compositor_interface.name) == 0) {
 		wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
 	} else if(strcmp(interface, xdg_wm_base_interface.name) == 0) {
@@ -750,6 +747,12 @@ wlsetcb(Wlwin *wl)
 
 	cb = wl_surface_frame(wl->surface);
 	wl_callback_add_listener(cb, &wl_surface_frame_listener, wl);
+
+	if(wl->data_device_manager != nil && wl->seat != nil){
+		wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
+		wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
+		wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
+	}
 }
 
 void
