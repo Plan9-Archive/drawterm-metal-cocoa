@@ -45,6 +45,84 @@ newwlwin(void)
 }
 
 void
+wlclose(Wlwin *wl)
+{
+	wl->runing = 0;
+	exits(nil);
+}
+
+void
+wltogglemaximize(Wlwin *wl)
+{
+	if(wl->maximized)
+		xdg_toplevel_unset_maximized(wl->xdg_toplevel);
+	else
+		xdg_toplevel_set_maximized(wl->xdg_toplevel);
+}
+
+void
+wlminimize(Wlwin *wl)
+{
+	xdg_toplevel_set_minimized(wl->xdg_toplevel);
+}
+
+void
+wlmove(Wlwin *wl, uint32_t serial)
+{
+	xdg_toplevel_move(wl->xdg_toplevel, wl->seat, serial);
+}
+
+void
+wlmenu(Wlwin *wl, uint32_t serial)
+{
+	xdg_toplevel_show_window_menu(wl->xdg_toplevel, wl->seat, serial, wl->mouse.xy.x, wl->mouse.xy.y);
+}
+
+static void
+wlupdatecsdrects(Wlwin *wl)
+{
+	Point offset;
+	Rectangle button;
+
+	if(!wl->client_side_deco) {
+		memset(&wl->csd_rects, 0, sizeof wl->csd_rects);
+		return;
+	}
+
+	wl->csd_rects.bar = Rect(0, 0, wl->dx, csd_bar_height);
+
+	offset = Pt(csd_button_width + 4, 0);
+	button = Rect(0, 4, csd_button_width, csd_button_width + 4);
+	button = rectsubpt(button, offset);
+
+	wl->csd_rects.button_close = button = rectaddpt(button, Pt(wl->dx, 0));
+	wl->csd_rects.button_maximize = button = rectsubpt(button, offset);
+	wl->csd_rects.button_minimize = rectsubpt(button, offset);
+}
+
+static void
+wlfillrect(Wlwin *wl, Rectangle rect, uint32_t color)
+{
+	Point p;
+	uint32_t *data = wl->shm_data;
+
+	for(p.y = rect.min.y; p.y < rect.max.y; p.y++)
+		for(p.x = rect.min.x; p.x < rect.max.x; p.x++)
+			data[p.y * wl->dx + p.x] = color;
+}
+
+static void
+wldrawcsd(Wlwin *wl)
+{
+	if(!wl->client_side_deco)
+		return;
+	wlfillrect(wl, wl->csd_rects.bar, 0xAAAAAA);
+	wlfillrect(wl, wl->csd_rects.button_close, DRed >> 8);
+	wlfillrect(wl, wl->csd_rects.button_maximize, DGreen >> 8);
+	wlfillrect(wl, wl->csd_rects.button_minimize, DYellow >> 8);
+}
+
+void
 wlflush(Wlwin *wl)
 {
 	Point p;
@@ -69,10 +147,11 @@ wlresize(Wlwin *wl, int x, int y)
 
 	wl->dx = x;
 	wl->dy = y;
+	wlupdatecsdrects(wl);
 
 	qlock(&drawlock);
 	wlallocbuffer(wl);
-	r = Rect(0, 0, wl->dx, wl->dy);
+	r = Rect(0, wl->csd_rects.bar.max.y, wl->dx, wl->dy);
 	gscreen = allocmemimage(r, XRGB32);
 	gscreen->clipr = ZR;
 	qunlock(&drawlock);
@@ -83,6 +162,7 @@ wlresize(Wlwin *wl, int x, int y)
 	wl->dirty = 1;
 	wl->r = r;
 	wlflush(wl);
+	wldrawcsd(wl);
 	qunlock(&drawlock);
 }
 
@@ -109,10 +189,11 @@ wlattach(char *label)
 
 	memimageinit();
 	wlsetcb(wl);
+	wlupdatecsdrects(wl);
 	wlflush(wl);
 	wlsettitle(wl, label);
 
-	r = Rect(0, 0, wl->dx, wl->dy);
+	r = Rect(0, wl->csd_rects.bar.max.y, wl->dx, wl->dy);
 	gscreen = allocmemimage(r, XRGB32);
 	gscreen->clipr = r;
 	gscreen->r = r;
@@ -123,6 +204,7 @@ wlattach(char *label)
 	terminit();
 	qlock(&drawlock);
 	wlflush(wl);
+	wldrawcsd(wl);
 	qunlock(&drawlock);
 	return wl;
 }

@@ -1,5 +1,6 @@
 typedef struct Wlwin Wlwin;
 typedef struct Clipboard Clipboard;
+typedef struct Csd Csd;
 
 /* The contents of the clipboard
  * are not stored in the compositor.
@@ -41,6 +42,18 @@ enum{
 	Aenter2,
 };
 
+enum CsdSizes {
+	csd_bar_height = 24,
+	csd_button_width = 16,
+};
+
+struct Csd {
+	Rectangle bar;
+	Rectangle button_close;
+	Rectangle button_maximize;
+	Rectangle button_minimize;
+};
+
 struct Wlwin {
 	int dx;
 	int dy;
@@ -51,6 +64,7 @@ struct Wlwin {
 	Rectangle r;
 	int dirty;
 	int alt; /* Kalt state */
+	int maximized;
 
 	/* Wayland State */
 	int runing;
@@ -77,6 +91,8 @@ struct Wlwin {
 	struct xkb_context *xkb_context;
 
 	struct zxdg_decoration_manager_v1 *decoman;
+	int client_side_deco;
+	Csd csd_rects;
 
 	struct zwp_primary_selection_device_manager_v1 *primsel;
 	struct zwp_primary_selection_device_v1 *primsel_device;
@@ -94,3 +110,8 @@ void wlsetmouse(Wlwin*, Point);
 void wldrawcursor(Wlwin*, Cursorinfo*);
 void wlresize(Wlwin*, int, int);
 void wlflush(Wlwin*);
+void wlclose(Wlwin*);
+void wltogglemaximize(Wlwin*);
+void wlminimize(Wlwin*);
+void wlmove(Wlwin*, uint32_t);
+void wlmenu(Wlwin*, uint32_t);
