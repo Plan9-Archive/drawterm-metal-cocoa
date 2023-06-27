@@ -2,9 +2,12 @@ ROOT=..
 include ../Make.config
 LIB=libgui.a
 
-XDG_SHELL=/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml
-XDG_DECO=/usr/share/wayland-protocols/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
-XDG_PRIMSEL=/usr/share/wayland-protocols/unstable/primary-selection/primary-selection-unstable-v1.xml
+PROTO_DIR=`pkg-config --variable=pkgdatadir wayland-protocols`
+WLR_DIR=`pkg-config --variable=pkgdatadir wlr-protocols`
+XDG_SHELL=$(PROTO_DIR)/stable/xdg-shell/xdg-shell.xml
+XDG_DECO=$(PROTO_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
+XDG_PRIMSEL=$(PROTO_DIR)/unstable/primary-selection/primary-selection-unstable-v1.xml
+WLR_VIRTUAL_POINTER=$(WLR_DIR)/unstable/wlr-virtual-pointer-unstable-v1.xml
 
 HFILES=\
 	xdg-shell-protocol.h\
@@ -22,14 +25,11 @@ OFILES=\
 	wl-screen.$O\
 	wl-util.$O\
 
-wlr-virtual-pointer-unstable-v1.xml:
-	curl https://gitlab.freedesktop.org/wlroots/wlr-protocols/-/raw/master/unstable/wlr-virtual-pointer-unstable-v1.xml > $@
+wlr-virtual-pointer.c: 
+	wayland-scanner private-code < $(WLR_VIRTUAL_POINTER) > $@ || { rm -f $@; exit 1; }
 
-wlr-virtual-pointer.c: wlr-virtual-pointer-unstable-v1.xml
-	wayland-scanner private-code < wlr-virtual-pointer-unstable-v1.xml > $@ || { rm -f $@; exit 1; }
-
-wlr-virtual-pointer.h: wlr-virtual-pointer-unstable-v1.xml
-	wayland-scanner client-header < wlr-virtual-pointer-unstable-v1.xml > $@ || { rm -f $@; exit 1; }
+wlr-virtual-pointer.h: 
+	wayland-scanner client-header < $(WLR_VIRTUAL_POINTER) > $@ || { rm -f $@; exit 1; }
 
 xdg-shell-protocol.c:
 	wayland-scanner private-code < $(XDG_SHELL) > $@ || { rm -f $@; exit 1; }
