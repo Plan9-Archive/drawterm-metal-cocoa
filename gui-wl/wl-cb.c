@@ -377,9 +377,6 @@ enum{
 static int
 csd_handle_mouse(Wlwin *wl, uint32_t button, uint32_t serial)
 {
-	if(!wl->client_side_deco){
-		return 0;
-	}
 	if(ptinrect(wl->mouse.xy, wl->csd_rects.button_close)){
 		wlclose(wl);
 		return 1;
@@ -422,8 +419,10 @@ pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial, u
 		wl->mouse.buttons &= ~m;
 
 	wl->mouse.msec = time;
-	if(state && !csd_handle_mouse(wl, button, serial))
-		absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, wl->mouse.buttons, wl->mouse.msec);
+	if(state && wl->client_side_deco && csd_handle_mouse(wl, button, serial))
+		return;
+
+	absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, wl->mouse.buttons, wl->mouse.msec);
 }
 
 static void
