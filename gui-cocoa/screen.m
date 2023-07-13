@@ -68,7 +68,9 @@ screeninit(void)
 	memimageinit();
 	screensize(Rect(0, 0, winsize.width, winsize.height), ABGR32);
 	gscreen->clipr = Rect(0, 0, winsize.width, winsize.height);
+	qlock(&drawlock);
 	terminit();
+	qunlock(&drawlock);
 }
 
 void

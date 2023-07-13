@@ -174,8 +174,8 @@ screeninit(void)
 	if (gscreen == nil)
 		panic("screensize failed");
 	gscreen->clipr = r;
-	terminit();
 	qlock(&drawlock);
+	terminit();
 	flushmemscreen(r);
 	qunlock(&drawlock);
 	return;

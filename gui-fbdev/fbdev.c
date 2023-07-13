@@ -388,9 +388,8 @@ screeninit(void)
 	gscreen->clipr = screenr;
 	kproc("fbdev", fbproc, nil);
 
-	terminit();
-
 	qlock(&drawlock);
+	terminit();
 	flushmemscreen(gscreen->clipr);
 	qunlock(&drawlock);
 }

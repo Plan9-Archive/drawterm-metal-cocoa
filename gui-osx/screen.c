@@ -211,7 +211,9 @@ void winproc(void *a)
 	ShowMenuBar();
 	window_resized();
 	SelectWindow(theWindow);
+	qlock(&drawlock);
 	terminit();
+	qunlock(&drawlock);
 	// Run the event loop
 	readybit = 1;
 	wakeup(&rend);
