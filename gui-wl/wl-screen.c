@@ -201,8 +201,8 @@ wlattach(char *label)
 
 	wl->runing = 1;
 	kproc("wldispatch", dispatchproc, wl);
-	terminit();
 	qlock(&drawlock);
+	terminit();
 	wlflush(wl);
 	wldrawcsd(wl);
 	qunlock(&drawlock);
