@@ -1,6 +1,7 @@
 #define Rect RectC
 #import <Cocoa/Cocoa.h>
-#include <OpenGL/GL.h>
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
 #undef Rect
 
 #undef nil
@@ -16,61 +17,68 @@
 #include "screen.h"
 #include "keyboard.h"
 
-@interface AppDelegate : NSObject <NSApplicationDelegate>
-@end
-
-@interface AppDelegate ()
-@property (assign) IBOutlet NSWindow *window;
-@property (assign) IBOutlet NSOpenGLView *view;
-@end
-
-@interface DrawtermView : NSOpenGLView
-@property (nonatomic, retain) NSCursor *currentCursor;
-@property (nonatomic, assign) GLuint tex;
-
-- (void) drawRect:(NSRect)rect;
-- (void) keyDown:(NSEvent*)event;
-- (void) flagsChanged:(NSEvent*)event;
-- (void) keyUp:(NSEvent*)event;
-- (void) mouseDown:(NSEvent*)event;
-- (void) mouseDragged:(NSEvent*)event;
-- (void) mouseUp:(NSEvent*)event;
-- (void) mouseMoved:(NSEvent*)event;
-- (void) rightMouseDown:(NSEvent*)event;
-- (void) rightMouseDragged:(NSEvent*)event;
-- (void) rightMouseUp:(NSEvent*)event;
-- (void) otherMouseDown:(NSEvent*)event;
-- (void) otherMouseDragged:(NSEvent*)event;
-- (void) otherMouseUp:(NSEvent*)event;
-- (void) scrollWheel:(NSEvent*)event;
-- (BOOL) acceptsFirstResponder;
-- (void) reshape;
-- (BOOL) acceptsMouseMovedEvents;
-- (void) prepareOpenGL;
-- (void) resetCursorRects;
-@end
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+#define LOG(fmt, ...) if(DEBUG)NSLog((@"%s:%d %s " fmt), __FILE__, __LINE__, __PRETTY_FUNCTION__, ##__VA_ARGS__)
 
 Memimage *gscreen;
+
+@interface DrawLayer : CAMetalLayer
+@property id<MTLTexture> texture;
+@end
+
+@interface DrawtermView : NSView<NSTextInputClient>
+- (void)reshape;
+- (void)clearMods;
+- (void)clearInput;
+- (void)mouseevent:(NSEvent *)e;
+- (void)resetLastInputRect;
+- (void)enlargeLastInputRect:(NSRect)r;
+@end
+
+@interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
+@end
+
+static AppDelegate *myApp;
 static DrawtermView *myview;
-static NSSize winsize;
+static NSCursor *currentCursor;
+
+static ulong pal[256];
+
+static int readybit;
+static Rendez rend;
+
+static int
+isready(void*a)
+{
+	return readybit;
+}
 
 void
 guimain(void)
 {
-	static const char *args[] = {"drawterm", NULL};
-
-	NSApplicationMain(1, args);
+	LOG();
+	@autoreleasepool{
+		[NSApplication sharedApplication];
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+		myApp = [AppDelegate new];
+		[NSApp setDelegate:myApp];
+		[NSApp run];
+	}
 }
 
 void
 screeninit(void)
 {
 	memimageinit();
-	screensize(Rect(0, 0, winsize.width, winsize.height), ABGR32);
-	gscreen->clipr = Rect(0, 0, winsize.width, winsize.height);
-	qlock(&drawlock);
+	NSSize s = [myview convertSizeToBacking:myview.frame.size];
+	screensize(Rect(0, 0, s.width, s.height), ARGB32);
+	gscreen->clipr = Rect(0, 0, s.width, s.height);
+	LOG(@"%g %g", s.width, s.height);
 	terminit();
-	qunlock(&drawlock);
+	readybit = 1;
+	wakeup(&rend);
 }
 
 void
@@ -82,6 +90,22 @@ screensize(Rectangle r, ulong chan)
 		return;
 	if(gscreen != nil)
 		freememimage(gscreen);
+@autoreleasepool{
+	DrawLayer *layer = (DrawLayer *)myview.layer;
+	MTLTextureDescriptor *textureDesc = [MTLTextureDescriptor
+		texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+		width:Dx(r)
+		height:Dy(r)
+		mipmapped:NO];
+	textureDesc.allowGPUOptimizedContents = YES;
+	textureDesc.usage = MTLTextureUsageShaderRead;
+	textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
+	layer.texture = [layer.device newTextureWithDescriptor:textureDesc];
+
+	CGFloat scale = myview.window.backingScaleFactor;
+	[layer setDrawableSize:NSMakeSize(Dx(r), Dy(r))];
+	[layer setContentsScale:scale];
+}
 	gscreen = i;
 	gscreen->clipr = ZR;
 }
@@ -89,6 +113,7 @@ screensize(Rectangle r, ulong chan)
 Memdata*
 attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 {
+	LOG();
 	*r = gscreen->clipr;
 	*chan = gscreen->chan;
 	*depth = gscreen->depth;
@@ -102,66 +127,122 @@ attachscreen(Rectangle *r, ulong *chan, int *depth, int *width, int *softscreen)
 char *
 clipread(void)
 {
-	NSPasteboard *pb = [NSPasteboard generalPasteboard];
-	NSArray *classes = [NSArray arrayWithObjects:[NSString class], nil];
-	NSDictionary *options = [NSDictionary dictionary];
-	NSArray *it = [pb readObjectsForClasses:classes options:options];
-	if(it != nil && [it count] > 0)
-		return strdup([it[0] UTF8String]);
+	@autoreleasepool{
+		NSPasteboard *pb = [NSPasteboard generalPasteboard];
+		NSString *s = [pb stringForType:NSPasteboardTypeString];
+		if(s)
+			return strdup([s UTF8String]);
+	}
 	return nil;
 }
 
 int
 clipwrite(char *buf)
 {
-	NSString *s = [[NSString alloc] initWithUTF8String:buf];
-	NSPasteboard *pb = [NSPasteboard generalPasteboard];
-	[pb clearContents];
-	[pb writeObjects:@[s]];
+	@autoreleasepool{
+		NSString *s = [[NSString alloc] initWithUTF8String:buf];
+		NSPasteboard *pb = [NSPasteboard generalPasteboard];
+		[pb clearContents];
+		[pb writeObjects:@[s]];
+	}
 	return strlen(buf);
 }
 
 void
 flushmemscreen(Rectangle r)
 {
-	uchar *buf;
-	ulong sz;
-
+	LOG(@"<- %d %d %d %d", r.min.x, r.min.y, Dx(r), Dy(r));
 	if(rectclip(&r, gscreen->clipr) == 0)
 		return;
-	sz = Dx(r) * Dy(r) * 4;
-	buf = malloc(sz);
-	unloadmemimage(gscreen, r, buf, sz);
-	dispatch_async(dispatch_get_main_queue(), ^(void){
-		[[myview openGLContext] makeCurrentContext];
-		glBindTexture(GL_TEXTURE_2D, myview.tex);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, r.min.x, r.min.y, Dx(r), Dy(r), GL_RGBA, GL_UNSIGNED_BYTE, buf);
-		free(buf);
-		[NSOpenGLContext clearCurrentContext];
-		[myview setNeedsDisplay:YES];
-	});
+	LOG(@"-> %d %d %d %d", r.min.x, r.min.y, Dx(r), Dy(r));
+	@autoreleasepool{
+		[((DrawLayer *)myview.layer).texture
+			replaceRegion:MTLRegionMake2D(r.min.x, r.min.y, Dx(r), Dy(r))
+			mipmapLevel:0
+			withBytes:byteaddr(gscreen, Pt(r.min.x, r.min.y))
+			bytesPerRow:gscreen->width * 4];
+		NSRect sr = [[myview window] convertRectFromBacking:NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r))];
+		dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
+			LOG(@"setNeedsDisplayInRect %g %g %g %g", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			[myview setNeedsDisplayInRect:sr];
+			[myview enlargeLastInputRect:sr];
+		}});
+		// ReplaceRegion is somehow asynchronous since 10.14.5.  We wait sometime to request a update again.
+		dispatch_time_t time = dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_MSEC);
+		dispatch_after(time, dispatch_get_main_queue(), ^(void){@autoreleasepool{
+			LOG(@"setNeedsDisplayInRect %g %g %g %g again", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			[myview setNeedsDisplayInRect:sr];
+		}});
+		time = dispatch_time(DISPATCH_TIME_NOW, 16 * NSEC_PER_MSEC);
+		dispatch_after(time, dispatch_get_main_queue(), ^(void){@autoreleasepool{
+			LOG(@"setNeedsDisplayInRect %g %g %g %g again", sr.origin.x, sr.origin.y, sr.size.width, sr.size.height);
+			[myview setNeedsDisplayInRect:sr];
+		}});
+	}
 }
 
 void
-getcolor(ulong a, ulong *b, ulong *c, ulong *d)
+getcolor(ulong i, ulong *r, ulong *g, ulong *b)
 {
+	ulong v;
+
+	v = pal[i];
+	*r = (v>>16)&0xFF;
+	*g = (v>>8)&0xFF;
+	*b = v&0xFF;
 }
 
 void
-setcolor(ulong a, ulong b, ulong c, ulong d)
+setcolor(ulong i, ulong r, ulong g, ulong b)
 {
+	pal[i] = ((r&0xFF)<<16) & ((g&0xFF)<<8) & (b&0xFF);
 }
 
 void
 setcursor(void)
 {
-	NSPoint p;
-	NSBitmapImageRep *r;
-	unsigned char *plane[5];
-	int b;
+	static unsigned char data[64], data2[256];
+	unsigned char *planes[2] = {&data[0], &data[32]};
+	unsigned char *planes2[2] = {&data2[0], &data2[128]};
+	unsigned int i, x, y, a;
+	unsigned char pu, pb, pl, pr, pc;  // upper, bottom, left, right, center
+	unsigned char pul, pur, pbl, pbr;
+	unsigned char ful, fur, fbl, fbr;
 
-	r = [[NSBitmapImageRep alloc]
-		initWithBitmapDataPlanes:nil
+	lock(&cursor.lk);
+	for(i = 0; i < 32; i++){
+		data[i] = ~cursor.set[i] & cursor.clr[i];
+		data[i+32] = cursor.set[i] | cursor.clr[i];
+	}
+	for(a=0; a<2; a++){
+		for(y=0; y<16; y++){
+			for(x=0; x<2; x++){
+				pc = planes[a][x+2*y];
+				pu = y==0 ? pc : planes[a][x+2*(y-1)];
+				pb = y==15 ? pc : planes[a][x+2*(y+1)];
+				pl = (pc>>1) | (x==0 ? pc&0x80 : (planes[a][x-1+2*y]&1)<<7);
+				pr = (pc<<1) | (x==1 ? pc&1 : (planes[a][x+1+2*y]&0x80)>>7);
+				ful = ~(pl^pu) & (pl^pb) & (pu^pr);
+				pul = (ful & pu) | (~ful & pc);
+				fur = ~(pu^pr) & (pu^pl) & (pr^pb);
+				pur = (fur & pr) | (~fur & pc);
+				fbl = ~(pb^pl) & (pb^pr) & (pl^pu);
+				pbl = (fbl & pl) | (~fbl & pc);
+				fbr = ~(pr^pb) & (pr^pu) & (pb^pl);
+				pbr = (fbr & pb) | (~fbr & pc);
+				planes2[a][2*x+4*2*y] = (pul&0x80) | ((pul&0x40)>>1)  | ((pul&0x20)>>2) | ((pul&0x10)>>3)
+					| ((pur&0x80)>>1) | ((pur&0x40)>>2)  | ((pur&0x20)>>3) | ((pur&0x10)>>4);
+				planes2[a][2*x+1+4*2*y] = ((pul&0x8)<<4) | ((pul&0x4)<<3)  | ((pul&0x2)<<2) | ((pul&0x1)<<1)
+					| ((pur&0x8)<<3) | ((pur&0x4)<<2)  | ((pur&0x2)<<1) | (pur&0x1);
+				planes2[a][2*x+4*(2*y+1)] =  (pbl&0x80) | ((pbl&0x40)>>1)  | ((pbl&0x20)>>2) | ((pbl&0x10)>>3)
+					| ((pbr&0x80)>>1) | ((pbr&0x40)>>2)  | ((pbr&0x20)>>3) | ((pbr&0x10)>>4);
+				planes2[a][2*x+1+4*(2*y+1)] = ((pbl&0x8)<<4) | ((pbl&0x4)<<3)  | ((pbl&0x2)<<2) | ((pbl&0x1)<<1)
+					| ((pbr&0x8)<<3) | ((pbr&0x4)<<2)  | ((pbr&0x2)<<1) | (pbr&0x1);
+			}
+		}
+	}
+	NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
+		initWithBitmapDataPlanes:planes
 		pixelsWide:16
 		pixelsHigh:16
 		bitsPerSample:1
@@ -172,21 +253,23 @@ setcursor(void)
 		bitmapFormat:0
 		bytesPerRow:2
 		bitsPerPixel:0];
-	[r getBitmapDataPlanes:plane];
-	assert(plane[0]!=nil && plane[1]!=nil);
-
-	lock(&cursor.lk);
-	for(b=0; b < nelem(cursor.set); b++){
-		plane[0][b] = ~cursor.set[b] & cursor.clr[b];
-		plane[1][b] =  cursor.set[b] | cursor.clr[b];
-	}
-	p = NSMakePoint(-cursor.offset.x, -cursor.offset.y);
+	NSBitmapImageRep *rep2 = [[NSBitmapImageRep alloc]
+		initWithBitmapDataPlanes:planes2
+		pixelsWide:32
+		pixelsHigh:32
+		bitsPerSample:1
+		samplesPerPixel:2
+		hasAlpha:YES
+		isPlanar:YES
+		colorSpaceName:NSDeviceWhiteColorSpace
+		bitmapFormat:0
+		bytesPerRow:4
+		bitsPerPixel:0];
+	NSImage *img = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
+	[img addRepresentation:rep2];
+	[img addRepresentation:rep];
+	currentCursor = [[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(-cursor.offset.x, -cursor.offset.y)];
 	unlock(&cursor.lk);
-
-	NSImage *i = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
-	[i addRepresentation:r];
-
-	myview.currentCursor = [[NSCursor alloc] initWithImage:i hotSpot:p];
 
 	dispatch_async(dispatch_get_main_queue(), ^(void){
 		[[myview window] invalidateCursorRectsForView:myview];
@@ -196,87 +279,169 @@ setcursor(void)
 void
 mouseset(Point p)
 {
-	dispatch_async(dispatch_get_main_queue(), ^(void){
-		NSRect r;
+	dispatch_async(dispatch_get_main_queue(), ^(void){@autoreleasepool{
+		NSPoint s;
 
-		r.origin.x = p.x;
-		r.origin.y = p.y;
-		r.size.width = 1;
-		r.size.height = 1;
-		r = [myview.window convertRectToScreen:r];
-		CGWarpMouseCursorPosition(r.origin);
-	});
+		if([[myview window] isKeyWindow]){
+			s = NSMakePoint(p.x, p.y);
+			LOG(@"-> pixel  %g %g", s.x, s.y);
+			s = [[myview window] convertPointFromBacking:s];
+			LOG(@"-> point  %g %g", s.x, s.y);
+			s = [myview convertPoint:s toView:nil];
+			LOG(@"-> window %g %g", s.x, s.y);
+			s = [[myview window] convertPointToScreen: s];
+			LOG(@"(%g, %g) <- toScreen", s.x, s.y);
+			s.y = NSScreen.screens[0].frame.size.height - s.y;
+			LOG(@"(%g, %g) <- setmouse", s.x, s.y);
+			CGWarpMouseCursorPosition(s);
+			CGAssociateMouseAndMouseCursorPosition(true);
+		}
+	}});
 }
 
-
 @implementation AppDelegate
+{
+	NSWindow *_window;
+}
 
-void
+static void
 mainproc(void *aux)
 {
 	cpubody();
 }
 
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
-	setcursor();
+- (void) applicationDidFinishLaunching:(NSNotification *)aNotification
+{
+	LOG(@"BEGIN");
+
+	NSMenu *sm = [NSMenu new];
+	[sm addItemWithTitle:@"Toggle Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
+	[sm addItemWithTitle:@"Hide" action:@selector(hide:) keyEquivalent:@"h"];
+	[sm addItemWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
+	NSMenu *m = [NSMenu new];
+	[m addItemWithTitle:@"DEVDRAW" action:NULL keyEquivalent:@""];
+	[m setSubmenu:sm forItem:[m itemWithTitle:@"DEVDRAW"]];
+	[NSApp setMainMenu:m];
+
+	const NSWindowStyleMask Winstyle = NSWindowStyleMaskTitled
+		| NSWindowStyleMaskClosable
+		| NSWindowStyleMaskMiniaturizable
+		| NSWindowStyleMaskResizable;
+
+	NSRect r = [[NSScreen mainScreen] visibleFrame];
+
+	r.size.width = r.size.width*3/4;
+	r.size.height = r.size.height*3/4;
+	r = [NSWindow contentRectForFrameRect:r styleMask:Winstyle];
+
+	_window = [[NSWindow alloc] initWithContentRect:r styleMask:Winstyle
+		backing:NSBackingStoreBuffered defer:NO];
+	[_window setTitle:@"drawterm"];
+	[_window center];
+	[_window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+	[_window setContentMinSize:NSMakeSize(64,64)];
+	[_window setOpaque:YES];
 	[_window setRestorable:NO];
-	[_window setAcceptsMouseMovedEvents:TRUE];
-	myview = _view;
-	winsize = _view.frame.size;
+	[_window setAcceptsMouseMovedEvents:YES];
+	[_window setDelegate:self];
+
+	myview = [DrawtermView new];
+	[_window setContentView:myview];
+
+	[NSEvent setMouseCoalescingEnabled:NO];
+	setcursor();
+
+	[_window makeKeyAndOrderFront:self];
+	[NSApp activateIgnoringOtherApps:YES];
+
+	LOG(@"launch mainproc");
 	kproc("mainproc", mainproc, 0);
+	ksleep(&rend, isready, 0);
 }
 
-
-- (void)applicationWillTerminate:(NSNotification *)aNotification {
+- (NSApplicationPresentationOptions) window:(NSWindow *)window
+		willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
+{
+	NSApplicationPresentationOptions o;
+	o = proposedOptions;
+	o &= ~(NSApplicationPresentationAutoHideDock | NSApplicationPresentationAutoHideMenuBar);
+	o |= NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+	return o;
 }
 
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication {
+- (BOOL) applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication
+{
 	return YES;
+}
+
+- (void) windowDidBecomeKey:(id)arg
+{
+	NSPoint p;
+	p = [_window convertPointToBacking:[_window mouseLocationOutsideOfEventStream]];
+	absmousetrack(p.x, [myview convertSizeToBacking:myview.frame.size].height - p.y, 0, ticks());
+}
+
+- (void) windowDidResignKey:(id)arg
+{
+	[myview clearMods];
 }
 
 @end
 
-
 @implementation DrawtermView
-
-- (void) prepareOpenGL {
-	glGenTextures(1, &_tex);
-	glBindTexture(GL_TEXTURE_2D, _tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glEnable(GL_TEXTURE_2D);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.frame.size.width, self.frame.size.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0, 1, 1, 0, -1, 1);
-	glMatrixMode(GL_MODELVIEW);
+{
+	NSMutableString *_tmpText;
+	NSRange _markedRange;
+	NSRange _selectedRange;
+	NSRect _lastInputRect;	// The view is flipped, this is not.
+	BOOL _tapping;
+	NSUInteger _tapFingers;
+	NSUInteger _tapTime;
+	BOOL _breakcompose;
+	NSEventModifierFlags _mods;
 }
 
-- (void) drawRect:(NSRect)rect
+- (id) initWithFrame:(NSRect)fr
 {
-	glBindTexture(GL_TEXTURE_2D, _tex);
-	glClearColor(0, 0, 0, 0);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glColor4f(1.0, 1.0, 1.0, 1.0);
-	glBegin(GL_TRIANGLES);
-	glTexCoord2f(0.0, 0.0); glVertex2f(0.0, 0.0);
-	glTexCoord2f(1.0, 0.0); glVertex2f(1.0, 0.0);
-	glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
-	glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
-	glTexCoord2f(1.0, 0.0); glVertex2f(1.0, 0.0);
-	glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-	glEnd();
-	glFlush();
+	LOG(@"BEGIN");
+	self = [super initWithFrame:fr];
+	[self setWantsLayer:YES];
+	[self setLayerContentsRedrawPolicy:NSViewLayerContentsRedrawOnSetNeedsDisplay];
+	[self setAllowedTouchTypes:NSTouchTypeMaskDirect|NSTouchTypeMaskIndirect];
+	_tmpText = [[NSMutableString alloc] initWithCapacity:2];
+	_markedRange = NSMakeRange(NSNotFound, 0);
+	_selectedRange = NSMakeRange(0, 0);
+	_breakcompose = NO;
+	_mods = 0;
+	LOG(@"END");
+	return self;
 }
 
-static int
-evkey(NSEvent *event)
+- (CALayer *) makeBackingLayer
 {
-	NSString *s = [event charactersIgnoringModifiers];
-	int v = [s characterAtIndex:0];
+	return [DrawLayer layer];
+}
+
+- (BOOL)wantsUpdateLayer
+{
+	return YES;
+}
+
+- (BOOL)isOpaque
+{
+	return YES;
+}
+
+- (BOOL)isFlipped
+{
+	return YES;
+}
+
+static uint
+evkey(uint v)
+{
 	switch(v){
 	case '\r': return '\n';
-	case '\b': return 127;
 	case 127: return '\b';
 	case NSUpArrowFunctionKey: return Kup;
 	case NSDownArrowFunctionKey: return Kdown;
@@ -294,156 +459,166 @@ evkey(NSEvent *event)
 	case NSF10FunctionKey: return KF|10;
 	case NSF11FunctionKey: return KF|11;
 	case NSF12FunctionKey: return KF|12;
-	case NSF13FunctionKey: return 0;
-	case NSF14FunctionKey: return 0;
-	case NSF15FunctionKey: return 0;
-	case NSF16FunctionKey: return 0;
-	case NSF17FunctionKey: return 0;
-	case NSF18FunctionKey: return 0;
-	case NSF19FunctionKey: return 0;
-	case NSF20FunctionKey: return 0;
-	case NSF21FunctionKey: return 0;
-	case NSF22FunctionKey: return 0;
-	case NSF23FunctionKey: return 0;
-	case NSF24FunctionKey: return 0;
-	case NSF25FunctionKey: return 0;
-	case NSF26FunctionKey: return 0;
-	case NSF27FunctionKey: return 0;
-	case NSF28FunctionKey: return 0;
-	case NSF29FunctionKey: return 0;
-	case NSF30FunctionKey: return 0;
-	case NSF31FunctionKey: return 0;
-	case NSF32FunctionKey: return 0;
-	case NSF33FunctionKey: return 0;
-	case NSF34FunctionKey: return 0;
-	case NSF35FunctionKey: return 0;
 	case NSInsertFunctionKey: return Kins;
 	case NSDeleteFunctionKey: return Kdel;
 	case NSHomeFunctionKey: return Khome;
-	case NSBeginFunctionKey: return 0;
 	case NSEndFunctionKey: return Kend;
 	case NSPageUpFunctionKey: return Kpgup;
 	case NSPageDownFunctionKey: return Kpgdown;
-	case NSPrintScreenFunctionKey: return 0;
 	case NSScrollLockFunctionKey: return Kscroll;
-	case NSPauseFunctionKey: return 0;
-	case NSSysReqFunctionKey: return 0;
-	case NSBreakFunctionKey: return 0;
-	case NSResetFunctionKey: return 0;
-	case NSStopFunctionKey: return 0;
-	case NSMenuFunctionKey: return 0;
-	case NSUserFunctionKey: return 0;
-	case NSSystemFunctionKey: return 0;
-	case NSPrintFunctionKey: return 0;
-	case NSClearLineFunctionKey: return 0;
-	case NSClearDisplayFunctionKey: return 0;
-	case NSInsertLineFunctionKey: return 0;
-	case NSDeleteLineFunctionKey: return 0;
-	case NSInsertCharFunctionKey: return 0;
-	case NSDeleteCharFunctionKey: return 0;
-	case NSPrevFunctionKey: return 0;
-	case NSNextFunctionKey: return 0;
-	case NSSelectFunctionKey: return 0;
-	case NSExecuteFunctionKey: return 0;
-	case NSUndoFunctionKey: return 0;
-	case NSRedoFunctionKey: return 0;
-	case NSFindFunctionKey: return 0;
-	case NSHelpFunctionKey: return 0;
+	case NSBeginFunctionKey:
+	case NSF13FunctionKey:
+	case NSF14FunctionKey:
+	case NSF15FunctionKey:
+	case NSF16FunctionKey:
+	case NSF17FunctionKey:
+	case NSF18FunctionKey:
+	case NSF19FunctionKey:
+	case NSF20FunctionKey:
+	case NSF21FunctionKey:
+	case NSF22FunctionKey:
+	case NSF23FunctionKey:
+	case NSF24FunctionKey:
+	case NSF25FunctionKey:
+	case NSF26FunctionKey:
+	case NSF27FunctionKey:
+	case NSF28FunctionKey:
+	case NSF29FunctionKey:
+	case NSF30FunctionKey:
+	case NSF31FunctionKey:
+	case NSF32FunctionKey:
+	case NSF33FunctionKey:
+	case NSF34FunctionKey:
+	case NSF35FunctionKey:
+	case NSPrintScreenFunctionKey:
+	case NSPauseFunctionKey:
+	case NSSysReqFunctionKey:
+	case NSBreakFunctionKey:
+	case NSResetFunctionKey:
+	case NSStopFunctionKey:
+	case NSMenuFunctionKey:
+	case NSUserFunctionKey:
+	case NSSystemFunctionKey:
+	case NSPrintFunctionKey:
+	case NSClearLineFunctionKey:
+	case NSClearDisplayFunctionKey:
+	case NSInsertLineFunctionKey:
+	case NSDeleteLineFunctionKey:
+	case NSInsertCharFunctionKey:
+	case NSDeleteCharFunctionKey:
+	case NSPrevFunctionKey:
+	case NSNextFunctionKey:
+	case NSSelectFunctionKey:
+	case NSExecuteFunctionKey:
+	case NSUndoFunctionKey:
+	case NSRedoFunctionKey:
+	case NSFindFunctionKey:
+	case NSHelpFunctionKey:
 	case NSModeSwitchFunctionKey: return 0;
 	default: return v;
 	}
 }
 
 - (void)keyDown:(NSEvent*)event {
-	int m;
-
-	m = evkey(event);
-	if((event.modifierFlags & NSEventModifierFlagControl) != 0)
-		m &= 0x9f;
-	if(m != 0)
-		kbdkey(m, 1);
-}
-
-- (void)keyUp:(NSEvent*)event {
-	int m;
-
-	m = evkey(event);
-	if((event.modifierFlags & NSEventModifierFlagControl) != 0)
-		m &= 0x9f;
-	if(m != 0)
-		kbdkey(m, 0);
-}
-
-- (void)sendmouse:(NSUInteger)b
-{
-	NSPoint p;
-	Point q;
-
-	p = [self.window mouseLocationOutsideOfEventStream];
-	q.x = p.x;
-	q.y = p.y;
-	if(!ptinrect(q, gscreen->clipr)) return;
-	absmousetrack(p.x, self.frame.size.height - p.y, b, ticks());
+	[self interpretKeyEvents:[NSArray arrayWithObject:event]];
+	[self resetLastInputRect];
 }
 
 - (void)flagsChanged:(NSEvent*)event {
-	static NSEventModifierFlags omod;
-	NSEventModifierFlags m;
-	NSUInteger b;
+	NSEventModifierFlags x;
+	NSUInteger u;
 
-	m = [event modifierFlags];
-	b = [NSEvent pressedMouseButtons];
-	b = b & ~6 | b << 1 & 4 | b >> 1 & 2;
-	if(b){
-		if(m & ~omod & NSEventModifierFlagControl)
-			b |= 1;
-		if(m & ~omod & NSEventModifierFlagOption)
-			b |= 2;
-		if(m & ~omod & NSEventModifierFlagCommand)
-			b |= 4;
-		[self sendmouse:b];
-	}else{
-		if((m & ~omod & NSEventModifierFlagShift) != 0)
-			kbdkey(Kshift, 1);
-		if((m & ~omod & NSEventModifierFlagControl) != 0)
+	x = [event modifierFlags];
+	u = [NSEvent pressedMouseButtons];
+	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
+	if((x & ~_mods & NSEventModifierFlagShift) != 0)
+		kbdkey(Kshift, 1);
+	if((x & ~_mods & NSEventModifierFlagControl) != 0){
+		if(u){
+			u |= 1;
+			[self sendmouse:u];
+			return;
+		}else
 			kbdkey(Kctl, 1);
-		if((m & ~omod & NSEventModifierFlagOption) != 0)
-			kbdkey(Kalt, 1);
-		if((m & ~omod & NSEventModifierFlagCapsLock) != 0)
-			kbdkey(Kcaps, 1);
-		if((~m & omod & NSEventModifierFlagShift) != 0)
-			kbdkey(Kshift, 0);
-		if((~m & omod & NSEventModifierFlagControl) != 0)
-			kbdkey(Kctl, 0);
-		if((~m & omod & NSEventModifierFlagOption) != 0)
-			kbdkey(Kalt, 0);
-		if((m & ~omod & NSEventModifierFlagCapsLock) != 0)
-			kbdkey(Kcaps, 0);
 	}
-	omod = m;
+	if((x & ~_mods & NSEventModifierFlagOption) != 0){
+		if(u){
+			u |= 2;
+			[self sendmouse:u];
+			return;
+		}else
+			kbdkey(Kalt, 1);
+	}
+	if((x & NSEventModifierFlagCommand) != 0)
+		if(u){
+			u |= 4;
+			[self sendmouse:u];
+		}
+	if((x & ~_mods & NSEventModifierFlagCapsLock) != 0)
+		kbdkey(Kcaps, 1);
+	if((~x & _mods & NSEventModifierFlagShift) != 0)
+		kbdkey(Kshift, 0);
+	if((~x & _mods & NSEventModifierFlagControl) != 0)
+		kbdkey(Kctl, 0);
+	if((~x & _mods & NSEventModifierFlagOption) != 0){
+		kbdkey(Kalt, 0);
+		if(_breakcompose){
+			kbdkey(Kalt, 1);
+			kbdkey(Kalt, 0);
+			_breakcompose = NO;
+		}
+	}
+	if((~x & _mods & NSEventModifierFlagCapsLock) != 0)
+		kbdkey(Kcaps, 0);
+	_mods = x;
 }
 
-- (void)mouseevent:(NSEvent*)event
+- (void) clearMods {
+	if((_mods & NSEventModifierFlagShift) != 0){
+		kbdkey(Kshift, 0);
+		_mods ^= NSEventModifierFlagShift;
+	}
+	if((_mods & NSEventModifierFlagControl) != 0){
+		kbdkey(Kctl, 0);
+		_mods ^= NSEventModifierFlagControl;
+	}
+	if((_mods & NSEventModifierFlagOption) != 0){
+		kbdkey(Kalt, 0);
+		_mods ^= NSEventModifierFlagOption;
+	}
+}
+
+- (void) mouseevent:(NSEvent*)event
 {
-	NSUInteger b;
+	NSPoint p;
+	Point q;
+	NSUInteger u;
 	NSEventModifierFlags m;
 
-	b = [NSEvent pressedMouseButtons];
-	b = b & ~6 | b << 1 & 4 | b >> 1 & 2;
-	if(b==1){
+	p = [self.window convertPointToBacking:[self.window mouseLocationOutsideOfEventStream]];
+	u = [NSEvent pressedMouseButtons];
+	q.x = p.x;
+	q.y = p.y;
+	if(!ptinrect(q, gscreen->clipr)) return;
+	u = (u&~6) | (u&4)>>1 | (u&2)<<1;
+	if(u == 1){
 		m = [event modifierFlags];
-		if(m & NSEventModifierFlagOption)
-			b=2;
-		else if(m & NSEventModifierFlagCommand)
-			b=4;
-		else if(m & NSEventModifierFlagControl)
-			b=8;
-	}else if(b==4){
-		m = [event modifierFlags];
-		if(m & NSEventModifierFlagCommand)
-			b=8;
+		if(m & NSEventModifierFlagOption){
+			_breakcompose = 1;
+			u = 2;
+		}else if(m & NSEventModifierFlagCommand)
+			u = 4;
 	}
-	[self sendmouse:b];
+	absmousetrack(p.x, [self convertSizeToBacking:self.frame.size].height - p.y, u, ticks());
+	if(u && _lastInputRect.size.width && _lastInputRect.size.height)
+		[self resetLastInputRect];
+}
+
+- (void) sendmouse:(NSUInteger)u
+{
+	mousetrack(0, 0, u, ticks());
+	if(u && _lastInputRect.size.width && _lastInputRect.size.height)
+		[self resetLastInputRect];
 }
 
 - (void) mouseDown:(NSEvent*)event { [self mouseevent:event]; }
@@ -457,38 +632,328 @@ evkey(NSEvent *event)
 - (void) otherMouseDragged:(NSEvent*)event { [self mouseevent:event]; }
 - (void) otherMouseUp:(NSEvent*)event { [self mouseevent:event]; }
 
-- (void) scrollWheel:(NSEvent*)event {
-	mousetrack(0, 0, [event deltaY]>0 ? 8 : 16, ticks());
+- (void) scrollWheel:(NSEvent*)event{
+	NSInteger s = [event scrollingDeltaY];
+	if(s > 0)
+		[self sendmouse:8];
+	else if(s < 0)
+		[self sendmouse:16];
 }
 
-- (BOOL) acceptsFirstResponder {
-	return TRUE;
+- (void)magnifyWithEvent:(NSEvent*)e{
+	if(fabs([e magnification]) > 0.02)
+		[[self window] toggleFullScreen:nil];
 }
 
-- (void) reshape {
-	[super reshape];
-	winsize = self.frame.size;
-	NSOpenGLContext *ctxt = [NSOpenGLContext currentContext];
-	[[myview openGLContext] makeCurrentContext];
-	glBindTexture(GL_TEXTURE_2D, _tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.frame.size.width, self.frame.size.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	if(ctxt == nil)
-		[NSOpenGLContext clearCurrentContext];
-	else
-		[ctxt makeCurrentContext];
-	if(gscreen != nil){
-		screenresize(Rect(0, 0, winsize.width, winsize.height));
-		flushmemscreen(gscreen->clipr);
+- (void)touchesBeganWithEvent:(NSEvent*)e
+{
+	_tapping = YES;
+	_tapFingers = [e touchesMatchingPhase:NSTouchPhaseTouching inView:nil].count;
+	_tapTime = ticks();
+}
+
+- (void)touchesMovedWithEvent:(NSEvent*)e
+{
+	_tapping = NO;
+}
+
+- (void)touchesEndedWithEvent:(NSEvent*)e
+{
+	if(_tapping
+		&& [e touchesMatchingPhase:NSTouchPhaseTouching inView:nil].count == 0
+		&& ticks() - _tapTime < 250){
+		switch(_tapFingers){
+		case 3:
+			[self sendmouse:2];
+			[self sendmouse:0];
+			break;
+		case 4:
+			[self sendmouse:2];
+			[self sendmouse:1];
+			[self sendmouse:0];
+			break;
+		}
+		_tapping = NO;
 	}
 }
 
-- (BOOL) acceptsMouseMovedEvents {
+- (void)touchesCancelledWithEvent:(NSEvent*)e
+{
+	_tapping = NO;
+}
+
+- (BOOL) acceptsFirstResponder
+{
 	return TRUE;
 }
 
-- (void)resetCursorRects {
+- (void) resetCursorRects
+{
 	[super resetCursorRects];
-	if (self.currentCursor != nil)
-		[self addCursorRect:self.bounds cursor:self.currentCursor];
+	lock(&cursor.lk);
+	[self addCursorRect:self.bounds cursor:currentCursor];
+	unlock(&cursor.lk);
 }
+
+- (void) reshape
+{
+	NSSize s = [self convertSizeToBacking:self.frame.size];
+	LOG(@"%g %g", s.width, s.height);
+	if(gscreen != nil){
+		screenresize(Rect(0, 0, s.width, s.height));
+	}
+}
+
+- (void)windowDidResize:(NSNotification *)notification
+{
+	if(![self inLiveResize])
+		[self reshape];
+}
+
+- (void)viewDidEndLiveResize
+{
+	LOG();
+	[super viewDidEndLiveResize];
+	[self reshape];
+}
+
+- (void)viewDidChangeBackingProperties
+{
+	LOG();
+	[super viewDidChangeBackingProperties];
+	[self reshape];
+}
+
+static void
+keystroke(Rune r)
+{
+	kbdkey(r, 1);
+	kbdkey(r, 0);
+}
+
+// conforms to protocol NSTextInputClient
+- (BOOL)hasMarkedText
+{
+	return _markedRange.location != NSNotFound;
+}
+- (NSRange)markedRange
+{
+	return _markedRange;
+}
+- (NSRange)selectedRange
+{
+	return _selectedRange;
+}
+- (void)setMarkedText:(id)string
+	selectedRange:(NSRange)sRange
+	replacementRange:(NSRange)rRange
+{
+	NSString *str;
+
+	[self clearInput];
+
+	if([string isKindOfClass:[NSAttributedString class]])
+		str = [string string];
+	else
+		str = string;
+
+	if(rRange.location == NSNotFound){
+		if(_markedRange.location != NSNotFound){
+			rRange = _markedRange;
+		}else{
+			rRange = _selectedRange;
+		}
+	}
+
+	if(str.length == 0){
+		[_tmpText deleteCharactersInRange:rRange];
+		[self unmarkText];
+	}else{
+		_markedRange = NSMakeRange(rRange.location, str.length);
+		[_tmpText replaceCharactersInRange:rRange withString:str];
+	}
+	_selectedRange.location = rRange.location + sRange.location;
+	_selectedRange.length = sRange.length;
+
+	if(_tmpText.length){
+		for(uint i = 0; i <= _tmpText.length; ++i){
+			if(i == _markedRange.location)
+				keystroke('[');
+			if(_selectedRange.length){
+				if(i == _selectedRange.location)
+					keystroke('{');
+				if(i == NSMaxRange(_selectedRange))
+					keystroke('}');
+				}
+			if(i == NSMaxRange(_markedRange))
+				keystroke(']');
+			if(i < _tmpText.length)
+				keystroke([_tmpText characterAtIndex:i]);
+		}
+		uint l = 1 + _tmpText.length - NSMaxRange(_selectedRange)
+			+ (_selectedRange.length > 0);
+		for(uint i = 0; i < l; ++i)
+			keystroke(Kleft);
+	}
+}
+- (void)unmarkText
+{
+	[_tmpText deleteCharactersInRange:NSMakeRange(0, [_tmpText length])];
+	_markedRange = NSMakeRange(NSNotFound, 0);
+	_selectedRange = NSMakeRange(0, 0);
+}
+- (NSArray<NSAttributedStringKey> *)validAttributesForMarkedText
+{
+	return @[];
+}
+- (NSAttributedString *)attributedSubstringForProposedRange:(NSRange)r
+	actualRange:(NSRangePointer)actualRange
+{
+	NSRange sr;
+	NSAttributedString *s;
+
+	sr = NSMakeRange(0, [_tmpText length]);
+	sr = NSIntersectionRange(sr, r);
+	if(actualRange)
+		*actualRange = sr;
+	if(sr.length)
+		s = [[NSAttributedString alloc]
+			initWithString:[_tmpText substringWithRange:sr]];
+	return s;
+}
+- (void)insertText:(id)s
+	replacementRange:(NSRange)r
+{
+	NSUInteger i;
+	NSUInteger len;
+
+	[self clearInput];
+
+	len = [s length];
+	for(i = 0; i < len; ++i)
+		keystroke([s characterAtIndex:i]);
+	[_tmpText deleteCharactersInRange:NSMakeRange(0, _tmpText.length)];
+	_markedRange = NSMakeRange(NSNotFound, 0);
+	_selectedRange = NSMakeRange(0, 0);
+}
+- (NSUInteger)characterIndexForPoint:(NSPoint)point
+{
+	return 0;
+}
+- (NSRect)firstRectForCharacterRange:(NSRange)r
+	actualRange:(NSRangePointer)actualRange
+{
+	if(actualRange)
+		*actualRange = r;
+	return [[self window] convertRectToScreen:_lastInputRect];
+}
+- (void)doCommandBySelector:(SEL)s
+{
+	NSEvent *e;
+	uint c, k;
+
+	e = [NSApp currentEvent];
+	c = [[e charactersIgnoringModifiers] characterAtIndex:0];
+	k = evkey(c);
+	if(k>0)
+		keystroke(k);
+}
+
+// Helper for managing input rect approximately
+- (void)resetLastInputRect
+{
+	_lastInputRect.origin.x = 0.0;
+	_lastInputRect.origin.y = 0.0;
+	_lastInputRect.size.width = 0.0;
+	_lastInputRect.size.height = 0.0;
+}
+
+- (void)enlargeLastInputRect:(NSRect)r
+{
+	r.origin.y = [self bounds].size.height - r.origin.y - r.size.height;
+	_lastInputRect = NSUnionRect(_lastInputRect, r);
+}
+
+- (void)clearInput
+{
+	if(_tmpText.length){
+		uint l = 1 + _tmpText.length - NSMaxRange(_selectedRange)
+			+ (_selectedRange.length > 0);
+		for(uint i = 0; i < l; ++i)
+			keystroke(Kright);
+		l = _tmpText.length+2+2*(_selectedRange.length > 0);
+		for(uint i = 0; i < l; ++i)
+			keystroke(Kbs);
+	}
+}
+@end
+
+@implementation DrawLayer
+{
+	id<MTLCommandQueue> _commandQueue;
+}
+
+- (id) init {
+	LOG();
+	self = [super init];
+	self.device = MTLCreateSystemDefaultDevice();
+	self.pixelFormat = MTLPixelFormatBGRA8Unorm;
+	self.framebufferOnly = YES;
+	self.opaque = YES;
+
+	// We use a default transparent layer on top of the CAMetalLayer.
+	// This seems to make fullscreen applications behave.
+	{
+		CALayer *stub = [CALayer layer];
+		stub.frame = CGRectMake(0, 0, 1, 1);
+		[stub setNeedsDisplay];
+		[self addSublayer:stub];
+	}
+
+	_commandQueue = [self.device newCommandQueue];
+
+	return self;
+}
+
+- (void) display
+{
+	id<MTLCommandBuffer> cbuf;
+	id<MTLBlitCommandEncoder> blit;
+
+	cbuf = [_commandQueue commandBuffer];
+
+@autoreleasepool{
+	id<CAMetalDrawable> drawable = [self nextDrawable];
+	if(!drawable){
+		LOG(@"display couldn't get drawable");
+		[self setNeedsDisplay];
+		return;
+	}
+
+	blit = [cbuf blitCommandEncoder];
+	[blit copyFromTexture:_texture
+		sourceSlice:0
+		sourceLevel:0
+		sourceOrigin:MTLOriginMake(0, 0, 0)
+		sourceSize:MTLSizeMake(_texture.width, _texture.height, _texture.depth)
+		toTexture:drawable.texture
+		destinationSlice:0
+		destinationLevel:0
+		destinationOrigin:MTLOriginMake(0, 0, 0)];
+	[blit endEncoding];
+
+	[cbuf presentDrawable:drawable];
+	drawable = nil;
+}
+	[cbuf addCompletedHandler:^(id<MTLCommandBuffer> cmdBuff){
+		if(cmdBuff.error){
+			NSLog(@"command buffer finished with error: %@",
+				cmdBuff.error.localizedDescription);
+		}else{
+			LOG(@"command buffer finished");
+		}
+	}];
+	[cbuf commit];
+}
+
 @end
