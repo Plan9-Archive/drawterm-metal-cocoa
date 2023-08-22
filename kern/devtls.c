@@ -483,7 +483,17 @@ tlsopen(Chan *c, int omode)
 	c->mode = openmode(omode);
 	c->flag |= COPEN;
 	c->offset = 0;
-	c->iounit = MaxRecLen;
+	switch(t){
+	case Qdata:
+		c->iounit = qiomaxatomic;
+		break;
+	case Qhand:
+		c->iounit = MaxRecLen;
+		break;
+	default:
+		c->iounit = 0;
+		break;
+	}
 	return c;
 }
 
@@ -1345,6 +1355,8 @@ if(tr->debug)pdump(BLEN(b), b->rp, "sent:");
 		if(waserror()){
 			if(strcmp(up->errstr, "interrupted") != 0)
 				tlsError(tr, "channel error");
+			else if(bb != nil)
+				continue;
 			nexterror();
 		}
 		devtab[tr->c->type]->bwrite(tr->c, nb, 0);
@@ -1596,6 +1608,7 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			b->wp += m;
 
 			tlsbwrite(c, b, offset);
+			offset += m;
 
 			p += m;
 		}while(p < e);

@@ -482,9 +482,8 @@ screeninit(void)
 	kproc("fbflush", fbflush, nil);
 	kproc("fbdev", fbproc, nil);
 
-	terminit();
-
 	qlock(&drawlock);
+	terminit();
 	flushmemscreen(gscreen->clipr);
 	qunlock(&drawlock);
 }

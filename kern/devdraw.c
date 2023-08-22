@@ -958,7 +958,6 @@ initscreenimage(void)
 void
 deletescreenimage(void)
 {
-	dlock();
 	if(screenimage){
 		/* will be freed via screendimage; disable */
 		screenimage->clipr = ZR;
@@ -968,15 +967,12 @@ deletescreenimage(void)
 		drawfreedimage(screendimage);
 		screendimage = nil;
 	}
-	dunlock();
 }
 
 void
 resetscreenimage(void)
 {
-	dlock();
 	initscreenimage();
-	dunlock();
 }
 
 static Chan*

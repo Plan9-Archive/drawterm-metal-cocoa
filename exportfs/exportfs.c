@@ -56,7 +56,7 @@ exportfs(int fd)
 
 	messagesize = iounit(netfd);
 	if(messagesize == 0)
-		messagesize = 8192+IOHDRSZ;
+		messagesize = IOUNIT+IOHDRSZ;
 
 	Workq = emallocz(sizeof(Fsrpc)*Nr_workbufs);
 //	for(i=0; i<Nr_workbufs; i++)

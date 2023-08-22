@@ -19,4 +19,5 @@ AUDIO=unix
 all: default
 
 libmachdep.a:
-	(cd posix-port &&  make)
+	arch=`uname -m|sed 's/i.86/386/;s/Power Macintosh/power/; s/x86_64/amd64/; s/armv[567].*/arm/; s/aarch64/arm64/'`; \
+	(cd posix-$$arch &&  make)

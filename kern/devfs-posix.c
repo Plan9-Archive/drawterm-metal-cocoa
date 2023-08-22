@@ -234,7 +234,7 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 		int m = fsomode(omode & 3) | O_CREAT | O_TRUNC;
 		if(mode & OEXCL)
 			m |= O_EXCL;
-		if((fd = open(path, m, uif->mode & perm & 0666)) < 0)
+		if((fd = open(path, m, uif->mode & perm & 0777)) < 0)
 			error(strerror(errno));
 		if(waserror()){
 			close(fd);

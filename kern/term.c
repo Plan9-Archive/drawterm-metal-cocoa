@@ -44,7 +44,6 @@ screenwin(void)
 	char *greet;
 	Memimage *grey;
 
-	qlock(&drawlock);
 	back = memwhite;
 	conscol = memblack;
 	memfillcolor(gscreen, 0x444488FF);
@@ -73,7 +72,6 @@ screenwin(void)
 	curpos = window.min;
 	window.max.y = window.min.y+((window.max.y-window.min.y)/h)*h;
 	flushmemscreen(gscreen->r);
-	qunlock(&drawlock);
 
 	termscreenputs(kmesg.buf, kmesg.n);
 }
@@ -113,11 +111,11 @@ resizeproc(void *arg)
 			continue;
 		}
 		gscreen->clipr = resize.r;
-		qunlock(&drawlock);
 
 		screenwin();
 		deletescreenimage();
 		resetscreenimage();
+		qunlock(&drawlock);
 		osmsleep(1000);
 	}
 }

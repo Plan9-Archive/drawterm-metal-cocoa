@@ -377,9 +377,8 @@ screeninit(void)
 	gscreen->clipr = r;
 	kproc("xscreen", xproc, nil);
 
-	terminit();
-
 	qlock(&drawlock);
+	terminit();
 	flushmemscreen(gscreen->clipr);
 	qunlock(&drawlock);
 }

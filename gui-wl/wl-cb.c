@@ -50,21 +50,30 @@ const struct xdg_surface_listener xdg_surface_listener = {
 static void
 xdg_toplevel_handle_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
-	Wlwin *wl;
-	wl = data;
-	wl->runing = 0;
-	exits(nil);
+	wlclose(data);
 }
 
 static void
 xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states)
 {
 	Wlwin *wl;
+	enum xdg_toplevel_state state;
+	int i;
 
 	wl = data;
 	if(width == 0 || height == 0 || (width == wl->dx && height == wl->dy))
 		return;
 	wlresize(wl, width, height);
+
+	wl->maximized = 0;
+	for(i = 0; i < states->size; i++){
+		state = ((enum xdg_toplevel_state *)states->data)[i];
+		switch (state){
+		case XDG_TOPLEVEL_STATE_MAXIMIZED:
+			wl->maximized = 1;
+			return;
+		}
+	}
 }
 
 const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -367,6 +376,31 @@ enum{
 	P9Mouse3 = 4,
 };
 
+static int
+csd_handle_mouse(Wlwin *wl, uint32_t button, uint32_t serial)
+{
+	if(ptinrect(wl->mouse.xy, wl->csd_rects.button_close)){
+		wlclose(wl);
+		return 1;
+	}
+	if(ptinrect(wl->mouse.xy, wl->csd_rects.button_maximize)){
+		wltogglemaximize(wl);
+		return 1;
+	}
+	if(ptinrect(wl->mouse.xy, wl->csd_rects.button_minimize)){
+		wlminimize(wl);
+		return 1;
+	}
+	if(ptinrect(wl->mouse.xy, wl->csd_rects.bar)){
+		switch (button) {
+		case BTN_LEFT: wlmove(wl, serial); break;
+		case BTN_RIGHT: wlmenu(wl, serial); break;
+		}
+		return 1;
+	}
+	return 0;
+}
+
 static void
 pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
@@ -387,6 +421,9 @@ pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial, u
 		wl->mouse.buttons &= ~m;
 
 	wl->mouse.msec = time;
+	if(state && wl->client_side_deco && csd_handle_mouse(wl, button, serial))
+		return;
+
 	absmousetrack(wl->mouse.xy.x, wl->mouse.xy.y, wl->mouse.buttons, wl->mouse.msec);
 }
 
@@ -555,7 +592,30 @@ static const struct zwp_primary_selection_source_v1_listener primsel_source_list
 };
 
 static void
+data_device_drop_enter(void* data, struct wl_data_device* wl_data_device, uint serial, struct wl_surface* surface, wl_fixed_t x, wl_fixed_t y, struct wl_data_offer* id)
+{
+
+}
+
+static void
+data_device_drop_motion(void* data, struct wl_data_device* wl_data_device, uint time, wl_fixed_t x, wl_fixed_t y)
+{
+
+}
+
+static void
+data_device_drop_leave(void* data, struct wl_data_device* wl_data_device)
+{
+
+}
+
+static void
 data_device_handle_data_offer(void *data, struct wl_data_device *data_device, struct wl_data_offer *offer)
+{
+}
+
+static void
+data_device_drop_drop(void* data, struct wl_data_device* wl_data_device)
 {
 }
 
@@ -599,6 +659,10 @@ data_device_handle_selection(void *data, struct wl_data_device *data_device, str
 static const struct wl_data_device_listener data_device_listener = {
 	.data_offer = data_device_handle_data_offer,
 	.selection = data_device_handle_selection,
+	.leave = data_device_drop_leave,
+	.motion = data_device_drop_motion,
+	.enter = data_device_drop_enter,
+	.drop = data_device_drop_drop,
 };
 
 static void
@@ -609,6 +673,23 @@ xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 
 static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 	.ping = xdg_wm_base_ping,
+};
+
+static void
+zxdg_toplevel_decoration_v1_handle_configure(void *data, struct zxdg_toplevel_decoration_v1 *deco, uint32_t mode)
+{
+	Wlwin *wl = data;
+	int csd = mode == ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+	if(csd == wl->client_side_deco){
+		return;
+	}
+
+	wl->client_side_deco = csd;
+	wlresize(wl, wl->dx, wl->dy);
+}
+
+static const struct zxdg_toplevel_decoration_v1_listener zxdg_toplevel_decoration_v1_listener = {
+	.configure = zxdg_toplevel_decoration_v1_handle_configure,
 };
 
 static void
@@ -640,32 +721,29 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 	struct wl_output *out;
 
 	wl = data;
-	if(strcmp(interface, wl_shm_interface.name) == 0) {
+	if(strcmp(interface, wl_shm_interface.name) == 0){
 		wl->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
-	} else if(strcmp(interface, wl_output_interface.name) == 0) {
+	} else if(strcmp(interface, wl_output_interface.name) == 0){
 		out = wl_registry_bind(registry, name, &wl_output_interface, 2);
 		wl_output_add_listener(out, &output_listener, wl);
-	} else if(strcmp(interface, wl_seat_interface.name) == 0) {
+	} else if(strcmp(interface, wl_seat_interface.name) == 0){
 		//We don't support multiseat
 		if(wl->seat != nil)
 			return;
 		wl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 4);
 		wl_seat_add_listener(wl->seat, &seat_listener, wl);
-		wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
-		wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
-		wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
-	} else if(strcmp(interface, wl_compositor_interface.name) == 0) {
+	} else if(strcmp(interface, wl_compositor_interface.name) == 0){
 		wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
-	} else if(strcmp(interface, xdg_wm_base_interface.name) == 0) {
+	} else if(strcmp(interface, xdg_wm_base_interface.name) == 0){
 		wl->xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(wl->xdg_wm_base, &xdg_wm_base_listener, wl);
-	} else if(strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+	} else if(strcmp(interface, wl_data_device_manager_interface.name) == 0){
 		wl->data_device_manager = wl_registry_bind(registry, name, &wl_data_device_manager_interface, 3);
-	} else if(strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
+	} else if(strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0){
 		wl->decoman = wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
-	} else if(strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
+	} else if(strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0){
 		wl->primsel = wl_registry_bind(registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
-	} else if(strcmp(interface, zwlr_virtual_pointer_manager_v1_interface.name) == 0) {
+	} else if(strcmp(interface, zwlr_virtual_pointer_manager_v1_interface.name) == 0){
 		wl->vpmgr = wl_registry_bind(registry, name, &zwlr_virtual_pointer_manager_v1_interface, 1);
 	}
 }
@@ -700,7 +778,7 @@ wlsetcb(Wlwin *wl)
 	wl_display_roundtrip(wl->display);
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
-	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->decoman == nil || wl->primsel == nil)
+	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->primsel == nil)
 		sysfatal("registration fell short");
 
 	if(wl->vpmgr != nil)
@@ -711,10 +789,15 @@ wlsetcb(Wlwin *wl)
 
 	xdg_surface = xdg_wm_base_get_xdg_surface(wl->xdg_wm_base, wl->surface);
 	wl->xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
-	deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
-	zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 	xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, wl);
 	xdg_toplevel_add_listener(wl->xdg_toplevel, &xdg_toplevel_listener, wl);
+
+	wl->client_side_deco = wl->decoman == nil;
+	if(wl->decoman != nil){
+		deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
+		zxdg_toplevel_decoration_v1_add_listener(wl->decoman, &zxdg_toplevel_decoration_v1_listener, wl);
+		zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+	}
 
 	wl_surface_commit(wl->surface);
 	wl_display_roundtrip(wl->display);
@@ -723,6 +806,12 @@ wlsetcb(Wlwin *wl)
 
 	cb = wl_surface_frame(wl->surface);
 	wl_callback_add_listener(cb, &wl_surface_frame_listener, wl);
+
+	if(wl->data_device_manager != nil && wl->seat != nil){
+		wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
+		wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
+		wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
+	}
 }
 
 void
@@ -776,7 +865,7 @@ void
 wlsetmouse(Wlwin *wl, Point p)
 {
 	Point delta;
-	if (wl->vpointer == nil)
+	if(wl->vpointer == nil)
 		return;
 
 	delta.x = p.x - wl->mouse.xy.x;
