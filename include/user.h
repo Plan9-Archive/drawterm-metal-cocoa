@@ -98,3 +98,5 @@ extern	int	iprint(char*, ...);
 extern	int	atexit(void (*)(void));
 extern	void	exits(char*);
 extern	char*	getenv(char*);
+
+#define IOUNIT			32768	/* default buffer size for 9p io */

@@ -109,7 +109,6 @@ extern	char*	utfrrune(char*, long);
 
 #define	ERRMAX			128	/* max length of error string */
 #define	KNAMELEN		28	/* max length of name held in kernel */
-#define IOUNIT			32768	/* default buffer size for 9p io */
 
 /* bits in Qid.type */
 #define QTDIR		0x80		/* type bit for directories */
