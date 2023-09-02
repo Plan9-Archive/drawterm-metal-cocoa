@@ -133,7 +133,6 @@ void
 rcpu(char *host, char *cmd)
 {
 	static char script[] = 
-"syscall fversion 0 65536 buf 256 >/dev/null >[2=1]\n"
 "mount -nc /fd/0 /mnt/term || exit\n"
 "bind -q /mnt/term/dev/cons /dev/cons\n"
 "if(test -r /mnt/term/dev/kbd){\n"
