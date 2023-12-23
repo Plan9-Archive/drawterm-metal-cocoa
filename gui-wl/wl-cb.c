@@ -776,8 +776,8 @@ wlsetcb(Wlwin *wl)
 	wl_display_roundtrip(wl->display);
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
-	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil || wl->primsel == nil)
-		sysfatal("registration fell short");
+	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil)
+		panic("required wayland capabilities not met");
 
 	if(wl->vpmgr != nil)
 		wl->vpointer = zwlr_virtual_pointer_manager_v1_create_virtual_pointer(wl->vpmgr, wl->seat);
@@ -808,7 +808,10 @@ wlsetcb(Wlwin *wl)
 	if(wl->data_device_manager != nil && wl->seat != nil){
 		wl->data_device = wl_data_device_manager_get_data_device(wl->data_device_manager, wl->seat);
 		wl_data_device_add_listener(wl->data_device, &data_device_listener, wl);
-		wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
+		if(wl->primsel != nil)
+			wl->primsel_device = zwp_primary_selection_device_manager_v1_get_device(wl->primsel, wl->seat);
+		else
+			iprint("primary selection not available, clipboard will not work\n");
 	}
 }
 

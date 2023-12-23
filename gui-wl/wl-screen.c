@@ -36,7 +36,7 @@ newwlwin(void)
 
 	wl = mallocz(sizeof *wl, 1);
 	if(wl == nil)
-		sysfatal("malloc Wlwin");
+		panic("malloc Wlwin");
 	wl->dx = 1024;
 	wl->dy = 1024;
 	wl->monx = wl->dx;
@@ -185,7 +185,7 @@ wlattach(char *label)
 	gwin = wl;
 	wl->display = wl_display_connect(nil);
 	if(wl->display == nil)
-		sysfatal("could not connect to display");
+		panic("could not connect to display");
 
 	memimageinit();
 	wlsetcb(wl);
