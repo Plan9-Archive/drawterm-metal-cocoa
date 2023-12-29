@@ -159,7 +159,7 @@ clonefid(Fid *f, int new)
 void
 Xwalk(Fsrpc *t)
 {
-	char err[ERRMAX], *e;
+	char err[ERRMAX] = {0}, *e;
 	Fcall rhdr;
 	Fid *f, *nf;
 	File *wf;
@@ -295,7 +295,7 @@ getiounit(int fd)
 void
 Xcreate(Fsrpc *t)
 {
-	char err[ERRMAX], *path;
+	char err[ERRMAX] = {0}, *path;
 	Fcall rhdr;
 	Fid *f;
 	File *nf;

@@ -710,7 +710,7 @@ AuthInfo*
 p9any(int fd)
 {
 	char buf[1024], buf2[1024], *bbuf, *p, *proto, *dom;
-	uchar crand[2*NONCELEN], cchal[CHALLEN], y[PAKYLEN];
+	uchar crand[2*NONCELEN] = {0}, cchal[CHALLEN] = {0}, y[PAKYLEN];
 	char tbuf[2*MAXTICKETLEN+MAXAUTHENTLEN+PAKYLEN], trbuf[TICKREQLEN+PAKYLEN];
 	Authkey authkey;
 	Authenticator auth;
