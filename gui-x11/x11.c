@@ -76,7 +76,7 @@ xallocmemimage(Rectangle r, ulong chan, int pmid, XImage **X)
 		offset = r.min.x&(31/d);
 	r.min.x -= offset;
 
-	assert(wordsperline(r, m->depth) <= m->width);
+	assert(wordsperline(r, m->depth) <= (long)m->width);
 
 	xi = XCreateImage(xdisplay, xvis, m->depth==32?24:m->depth, ZPixmap, 0,
 		(char*)m->data->bdata, Dx(r), Dy(r), 32, m->width*sizeof(ulong));

@@ -11,7 +11,9 @@ passtodeskey(char key[DESKEYLEN], char *p)
 
 	memset(buf, ' ', 8);
 	n = strlen(p);
-	if(n >= sizeof(buf))
+	if(n <= 0)
+		sysfatal("strlen");
+	if((uvlong)n >= sizeof(buf))
 		n = sizeof(buf)-1;
 	memmove(buf, p, n);
 	buf[n] = 0;

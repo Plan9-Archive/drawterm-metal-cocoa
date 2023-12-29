@@ -389,7 +389,9 @@ cpubody(void)
 			s = secstorefetch(secstore, user, pass);
 			if(s){
 				slen = strlen(s);
-				if(slen >= sizeof secstorebuf)
+				if(slen <= 0)
+					sysfatal("strlen");
+				if((uvlong)slen >= sizeof secstorebuf)
 					sysfatal("secstore data too big");
 				mlock(secstorebuf, sizeof secstorebuf);
 				memcpy(secstorebuf, s, slen+1);
