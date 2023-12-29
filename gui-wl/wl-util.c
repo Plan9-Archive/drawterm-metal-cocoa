@@ -34,7 +34,7 @@ wlcreateshm(off_t size)
 	int fd;
 
 	if((dir = getenv("XDG_RUNTIME_DIR")) == nil)
-		sysfatal("XDG_RUNTIME_DIR not set");
+		panic("XDG_RUNTIME_DIR not set");
 
 	path = malloc(strlen(dir) + sizeof(name) + 1);
 	strcpy(path, dir);
@@ -63,12 +63,12 @@ wlallocpool(Wlwin *wl)
 
 	fd = wlcreateshm(screensize+cursorsize);
 	if(fd < 0)
-		sysfatal("could not mk_shm_fd");
+		panic("could not mk_shm_fd");
 	ftruncate(fd, screensize+cursorsize);
 
 	wl->shm_data = mmap(nil, screensize+cursorsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if(wl->shm_data == MAP_FAILED)
-		sysfatal("could not mmap shm_data");
+		panic("could not mmap shm_data");
 
 	wl->pool = wl_shm_create_pool(wl->shm, fd, screensize+cursorsize);
 	wl->poolsize = screensize+cursorsize;
