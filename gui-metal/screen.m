@@ -17,6 +17,9 @@
 #include "screen.h"
 #include "keyboard.h"
 #include "ball9png.h"
+#include "ParseGeom.h"
+
+extern char		*geometry;	/* defined in cpu.c */
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -334,16 +337,48 @@ mainproc(void *aux)
 		| NSWindowStyleMaskMiniaturizable
 		| NSWindowStyleMaskResizable;
 
-	NSRect r = [[NSScreen mainScreen] visibleFrame];
+	NSRect s = [[NSScreen mainScreen] visibleFrame];
+	NSRect r;
+	CGFloat sizeFactor = 3.0 / 4.0;
+	r.size.width = s.size.width*sizeFactor;
+	r.size.height = s.size.height*sizeFactor;
+	if (geometry != NULL) {
+		unsigned int width = 0;
+		unsigned int height = 0;
+		int xoff = 0;
+		int yoff = 0;
+		int mask = XParseGeometry(geometry, &xoff, &yoff, &width, &height);
+		CGFloat goldenRatio = 1.61833;
+		if (!(mask & WidthValue || mask & HeightValue)) {
+			width = r.size.width;
+			height = r.size.height;
+		}
+		if (width == 0) {
+			width = height * goldenRatio;
+		}
+		if (height == 0) {
+			height = width / goldenRatio;
+		}
+		if (xoff < 0) {
+			xoff = s.size.width + xoff - width;
+		}
+		if (yoff < 0) {
+			// The screen origin (0,0) on macOS is the lower left corner, whereas on X11 it is the top left.
+			yoff *= -1;
+		} else {
+			yoff = s.size.height - yoff - height;
+		}
+		r = CGRectMake(xoff, yoff, width, height);
+	}
 
-	r.size.width = r.size.width*3/4;
-	r.size.height = r.size.height*3/4;
 	r = [NSWindow contentRectForFrameRect:r styleMask:Winstyle];
 
 	_window = [[NSWindow alloc] initWithContentRect:r styleMask:Winstyle
 		backing:NSBackingStoreBuffered defer:NO];
 	[_window setTitle:@"drawterm"];
-	[_window center];
+	if (geometry == NULL) {
+		[_window center];
+	}
 	[_window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
 	[_window setContentMinSize:NSMakeSize(64,64)];
 	[_window setOpaque:YES];
