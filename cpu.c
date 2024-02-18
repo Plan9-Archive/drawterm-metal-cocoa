@@ -27,6 +27,7 @@ static int	aanto = 3600 * 24;
 static int	norcpu;
 static int	nokbd;
 static int	nogfx;
+static int	nineflag;
 
 static char	*ealgs = "rc4_256 sha1";
 
@@ -176,7 +177,7 @@ rcpu(char *host, char *cmd)
 	atexit(rcpuexit);
 
 	/* Begin serving the namespace */
-	exportfs(fd);
+	exportfs(fd, fd);
 }
 
 void
@@ -236,13 +237,13 @@ ncpu(char *host, char *cmd)
 	write(fd, "OK", 2);
 
 	/* Begin serving the gnot namespace */
-	exportfs(fd);
+	exportfs(fd, fd);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-GBO] "
+	fprint(2, "usage: %s [-9GBO] "
 		"[-h host] [-u user] [-a authserver] [-s secstore] "
 		"[-e 'crypt hash'] [-k keypattern] "
 		"[-p] [-t timeout] "
@@ -262,12 +263,13 @@ cpumain(int argc, char **argv)
 	char *s;
 
 	user = getenv("USER");
-	if((pass = getenv("PASS")) != nil)
-		remove("/env/PASS");
 	host = getenv("cpu");
 	authserver = getenv("auth");
 
 	ARGBEGIN{
+	case '9':
+		nineflag = 1;
+		/* wet floor */
 	case 'G':
 		nogfx = 1;
 		/* wet floor */
@@ -320,8 +322,8 @@ cpumain(int argc, char **argv)
 		break;
 	case 'g':
 		/* X11 geometry string
-			[=][<width>{xX}<height>][{+-}<xoffset>{+-}<yoffset>]
-			*/
+		 *	[=][<width>{xX}<height>][{+-}<xoffset>{+-}<yoffset>]
+		 */
 		geometry = EARGF(usage());
 		break;
 	default:
@@ -330,6 +332,14 @@ cpumain(int argc, char **argv)
 
 	if(argc != 0)
 		usage();
+
+	if(nineflag){
+		exportfs(lfdfd(0), lfdfd(1));
+		return;
+	}
+
+	if((pass = getenv("PASS")) != nil)
+		remove("/env/PASS");
 
 	if(!nogfx)
 		guimain();
