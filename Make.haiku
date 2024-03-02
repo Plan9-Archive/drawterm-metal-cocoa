@@ -1,0 +1,21 @@
+# Haiku
+AR=ar
+AS=as
+RANLIB=ranlib
+CC=gcc
+CXX=g++
+CFLAGS=-Wall -Wno-missing-braces -Wno-parentheses -ggdb -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/kern -c -D_THREAD_SAFE -D_POSIX_C_SOURCE -O2
+O=o
+OS=posix
+GUI=haiku
+AUDIO=haiku
+LDADD=-ggdb -lbe -lnetwork -lmedia -lstdc++
+LDFLAGS=
+TARG=drawterm
+
+
+all: default
+
+libmachdep.a:
+	arch=`uname -m|sed 's/i.86/386/;s/Power Macintosh/power/; s/x86_64/amd64/; s/armv[567].*/arm/; s/aarch64/arm64/'`; \
+	(cd posix-$$arch &&  make)

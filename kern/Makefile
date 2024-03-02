@@ -48,3 +48,5 @@ $(LIB): $(OFILES)
 %.$O: %.c
 	$(CC) $(CFLAGS) $*.c
 
+devaudio-haiku.$O: devaudio-haiku.cpp
+	$(CXX) $(CFLAGS) $<
