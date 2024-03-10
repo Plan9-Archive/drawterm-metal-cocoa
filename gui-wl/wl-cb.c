@@ -1,37 +1,28 @@
-#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
+
+#include "u.h"
+#include "lib.h"
+#include "dat.h"
+#include "fns.h"
+#include <draw.h>
+#include <memdraw.h>
+#include <keyboard.h>
+
+#undef up
+
 #include <sys/mman.h>
 #include <wayland-client.h>
 #include <wayland-client-protocol.h>
 #include <linux/input-event-codes.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <time.h>
 #include <xkbcommon/xkbcommon.h>
 #include "xdg-shell-protocol.h"
 #include "xdg-decoration-protocol.h"
 #include "xdg-primary-selection-protocol.h"
 #include "wlr-virtual-pointer.h"
 
-#include "u.h"
-#include "lib.h"
-#include "kern/dat.h"
-#include "kern/fns.h"
-#include "error.h"
-#include "user.h"
-#include <draw.h>
-#include <memdraw.h>
-#include <keyboard.h>
 #include "screen.h"
 #include "wl-inc.h"
 
-#undef close
-#undef send
-#undef pipe
-#undef write
-#undef read
-#undef time
 
 static void
 xdg_surface_handle_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
@@ -68,11 +59,8 @@ xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *xdg_toplevel, int
 	wl->maximized = 0;
 	for(i = 0; i < states->size; i++){
 		state = ((enum xdg_toplevel_state *)states->data)[i];
-		switch (state){
-		case XDG_TOPLEVEL_STATE_MAXIMIZED:
+		if(state == XDG_TOPLEVEL_STATE_MAXIMIZED)
 			wl->maximized = 1;
-			return;
-		}
 	}
 }
 
@@ -258,6 +246,9 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 		break;
 	case XKB_KEY_Insert:
 		utf32 = Kins;
+		break;
+	case XKB_KEY_Scroll_Lock:
+		utf32 = Kscroll;
 		break;
 	case XKB_KEY_F1:
 	case XKB_KEY_F2:
@@ -529,7 +520,6 @@ data_source_handle_send(void *data, struct wl_data_source *source, const char *m
 	len = strlen(wl->clip.content);
 	for(pos = 0; (n = write(fd, wl->clip.content+pos, len-pos)) > 0 && pos < len; pos += n)
 		;
-	wl->clip.posted = 0;
 	close(fd);
 	qunlock(&wl->clip.lk);
 }
@@ -537,12 +527,6 @@ data_source_handle_send(void *data, struct wl_data_source *source, const char *m
 static void
 data_source_handle_cancelled(void *data, struct wl_data_source *source)
 {
-	Wlwin *wl;
-
-	wl = data;
-	qlock(&wl->clip.lk);
-	wl->clip.posted = 0;
-	qunlock(&wl->clip.lk);
 	wl_data_source_destroy(source);
 }
 
@@ -567,7 +551,6 @@ primsel_source_handle_send(void *data, struct zwp_primary_selection_source_v1 *s
 	len = strlen(wl->clip.content);
 	for(pos = 0; (n = write(fd, wl->clip.content+pos, len-pos)) > 0 && pos < len; pos += n)
 		;
-	wl->clip.primsel_posted = 0;
 	close(fd);
 	qunlock(&wl->clip.lk);
 }
@@ -575,12 +558,6 @@ primsel_source_handle_send(void *data, struct zwp_primary_selection_source_v1 *s
 static void
 primsel_source_handle_cancelled(void *data, struct zwp_primary_selection_source_v1 *source)
 {
-	Wlwin *wl;
-
-	wl = data;
-	qlock(&wl->clip.lk);
-	wl->clip.primsel_posted = 0;
-	qunlock(&wl->clip.lk);
 	zwp_primary_selection_source_v1_destroy(source);
 }
 
@@ -793,7 +770,7 @@ wlsetcb(Wlwin *wl)
 	wl->client_side_deco = wl->decoman == nil;
 	if(wl->decoman != nil){
 		deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
-		zxdg_toplevel_decoration_v1_add_listener(wl->decoman, &zxdg_toplevel_decoration_v1_listener, wl);
+		zxdg_toplevel_decoration_v1_add_listener(deco, &zxdg_toplevel_decoration_v1_listener, wl);
 		zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 	}
 
@@ -831,23 +808,15 @@ wlsetsnarf(Wlwin *wl, char *s)
 	free(wl->clip.content);
 	wl->clip.content = strdup(s);
 
-	/* Do we still own the clipboard? */
-	if(wl->clip.posted == 0){
-		source = wl_data_device_manager_create_data_source(wl->data_device_manager);
-		wl_data_source_add_listener(source, &data_source_listener, wl);
-		wl_data_source_offer(source, "text/plain;charset=utf-8");
-		wl_data_device_set_selection(wl->data_device, source, wl->clip.serial);
-		wl->clip.posted = 1;
-	}
+	source = wl_data_device_manager_create_data_source(wl->data_device_manager);
+	wl_data_source_add_listener(source, &data_source_listener, wl);
+	wl_data_source_offer(source, "text/plain;charset=utf-8");
+	wl_data_device_set_selection(wl->data_device, source, wl->clip.serial);
 
-	/* Primary selection */
-	if(wl->clip.primsel_posted == 0){
-		psource = zwp_primary_selection_device_manager_v1_create_source(wl->primsel);
-		zwp_primary_selection_source_v1_add_listener(psource, &primsel_source_listener, wl);
-		zwp_primary_selection_source_v1_offer(psource, "text/plain;charset=utf-8");
-		zwp_primary_selection_device_v1_set_selection(wl->primsel_device, psource, wl->clip.serial);
-		wl->clip.primsel_posted = 1;
-	}
+	psource = zwp_primary_selection_device_manager_v1_create_source(wl->primsel);
+	zwp_primary_selection_source_v1_add_listener(psource, &primsel_source_listener, wl);
+	zwp_primary_selection_source_v1_offer(psource, "text/plain;charset=utf-8");
+	zwp_primary_selection_device_v1_set_selection(wl->primsel_device, psource, wl->clip.serial);
 
 	qunlock(&wl->clip.lk);
 }
