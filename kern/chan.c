@@ -830,7 +830,6 @@ ewalk(Chan *c, Chan *nc, char **name, int nname)
  * Either walks all the way or not at all.  No partial results in *cp.
  * *nerror is the number of names to display in an error message.
  */
-static char Edoesnotexist[] = "does not exist";
 int
 walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 {
@@ -946,7 +945,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 					if(wq->nqid == 0 || (wq->qid[wq->nqid-1].type&QTDIR) != 0){
 						if(nerror)
 							*nerror = nhave+wq->nqid+1;
-						kstrcpy(up->errstr, Edoesnotexist, ERRMAX);
+						kstrcpy(up->errstr, Enonexist, ERRMAX);
 					}else{
 						if(nerror)
 							*nerror = nhave+wq->nqid;
@@ -1084,7 +1083,7 @@ parsename(char *aname, Elemlist *e)
 	}
 }
 
-static void
+void
 namelenerror(char *aname, int len, char *err)
 {
 	char *ename, *name, *next;
@@ -1127,14 +1126,8 @@ namelenerror(char *aname, int len, char *err)
 		snprint(up->genbuf, sizeof up->genbuf, "...%.*s",
 			utfnlen(name, ename-name), name);
 	}				
-	snprint(up->errstr, ERRMAX, "%#q %s", up->genbuf, err);
+	snprint(up->errstr, ERRMAX, "%s: %#q", err, up->genbuf);
 	nexterror();
-}
-
-void
-nameerror(char *name, char *err)
-{
-	namelenerror(name, strlen(name), err);
 }
 
 /*
