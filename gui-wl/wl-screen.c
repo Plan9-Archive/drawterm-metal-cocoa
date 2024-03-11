@@ -1,29 +1,23 @@
-#define _POSIX_C_SOURCE 200809L
-#include <sys/mman.h>
-#include <wayland-client.h>
-#include <wayland-client-protocol.h>
-#include <linux/input-event-codes.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <xkbcommon/xkbcommon.h>
-#include "xdg-shell-protocol.h"
+#define _GNU_SOURCE
 
 #include "u.h"
 #include "lib.h"
-#include "kern/dat.h"
-#include "kern/fns.h"
-#include "error.h"
+#include "dat.h"
+#include "fns.h"
 #include "user.h"
 #include <draw.h>
 #include <memdraw.h>
-#include <keyboard.h>
-#include <cursor.h>
+
+#undef up
+
+#include <wayland-client.h>
+#include <wayland-client-protocol.h>
+#include <linux/input-event-codes.h>
+#include <xkbcommon/xkbcommon.h>
+#include "xdg-shell-protocol.h"
+
 #include "screen.h"
 #include "wl-inc.h"
-
-#undef close
 
 static Wlwin *gwin;
 
