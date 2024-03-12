@@ -767,15 +767,15 @@ wlsetcb(Wlwin *wl)
 	xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, wl);
 	xdg_toplevel_add_listener(wl->xdg_toplevel, &xdg_toplevel_listener, wl);
 
+	wl_surface_commit(wl->surface);
+	wl_display_roundtrip(wl->display);
+
 	wl->client_side_deco = wl->decoman == nil;
 	if(wl->decoman != nil){
 		deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
 		zxdg_toplevel_decoration_v1_add_listener(deco, &zxdg_toplevel_decoration_v1_listener, wl);
 		zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 	}
-
-	wl_surface_commit(wl->surface);
-	wl_display_roundtrip(wl->display);
 
 	xdg_toplevel_set_app_id(wl->xdg_toplevel, "drawterm");
 
