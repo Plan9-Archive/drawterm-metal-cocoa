@@ -1150,7 +1150,7 @@ Chan*
 namec(char *aname, int amode, int omode, ulong perm)
 {
 	int len, n, t, nomount;
-	Chan *c;
+	Chan *volatile c;
 	Chan *volatile cnew;
 	Path *volatile path;
 	Elemlist e;
