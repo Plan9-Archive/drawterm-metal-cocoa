@@ -6,7 +6,7 @@ drawterm  \- connection to cpu, fs, and auth servers
 .SH SYNOPSIS
 .B drawterm
 [
-.B -GBO
+.B -9GBO
 ] [
 .B -h
 .I host
@@ -51,6 +51,12 @@ The goal of drawterm is to provide an abstraction layer from the client operatin
 .PP
 The options are:
 .PD
+
+.TP
+.B -9
+Start drawterm in 9P mode;
+exporting the namespace over 9P on standard input and output.
+Graphics and keyboard input are disabled.
 
 .TP
 .B -G

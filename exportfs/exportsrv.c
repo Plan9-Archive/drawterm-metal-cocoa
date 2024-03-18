@@ -15,7 +15,7 @@ char Enomem[] = "No memory";
 char Eversion[] = "Bad 9P2000 version";
 
 void*
-emallocz(ulong n)
+emallocz(uint n)
 {
 	void *v;
 

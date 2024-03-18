@@ -1,30 +1,25 @@
-#define _POSIX_C_SOURCE 200809L
-#include <sys/mman.h>
-#include <wayland-client.h>
-#include <wayland-client-protocol.h>
-#include <linux/input-event-codes.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <xkbcommon/xkbcommon.h>
-#include "xdg-shell-protocol.h"
+#define _GNU_SOURCE
 
 #include "u.h"
 #include "lib.h"
-#include "kern/dat.h"
-#include "kern/fns.h"
-#include "error.h"
-#include "user.h"
+#include "dat.h"
+#include "fns.h"
 #include <draw.h>
 #include <memdraw.h>
 #include <keyboard.h>
 #include <cursor.h>
+
+#undef up
+
+#include <sys/mman.h>
+#include <wayland-client.h>
+#include <wayland-client-protocol.h>
+#include <linux/input-event-codes.h>
+#include <xkbcommon/xkbcommon.h>
+#include "xdg-shell-protocol.h"
+
 #include "screen.h"
 #include "wl-inc.h"
-
-#undef getenv
-#undef close
 
 static int
 wlcreateshm(off_t size)
@@ -64,7 +59,8 @@ wlallocpool(Wlwin *wl)
 	fd = wlcreateshm(screensize+cursorsize);
 	if(fd < 0)
 		panic("could not mk_shm_fd");
-	ftruncate(fd, screensize+cursorsize);
+	if(ftruncate(fd, screensize+cursorsize) < 0)
+		panic("could not ftruncate");
 
 	wl->shm_data = mmap(nil, screensize+cursorsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if(wl->shm_data == MAP_FAILED)

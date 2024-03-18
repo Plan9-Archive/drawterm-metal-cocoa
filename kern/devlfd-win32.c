@@ -23,6 +23,26 @@ lfdchan(void *fd)
 	return c;
 }
 
+/*
+ * only good for stdin/stdout/stderr
+ */
+int
+lfdfd(int fd)
+{
+	HANDLE h;
+
+	switch(fd){
+	case 0: h = GetStdHandle(STD_INPUT_HANDLE); break;
+	case 1: h = GetStdHandle(STD_OUTPUT_HANDLE); break;
+	case 2: h = GetStdHandle(STD_ERROR_HANDLE); break;
+	default:
+		return -1;
+	}
+	if(h == INVALID_HANDLE_VALUE)
+		return -1;
+	return newfd(lfdchan((void*)h));
+}
+
 static Chan*
 lfdattach(char *x)
 {

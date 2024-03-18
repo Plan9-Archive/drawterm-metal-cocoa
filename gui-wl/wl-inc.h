@@ -18,15 +18,6 @@ struct Clipboard {
 	 * So we must provide the serial we get
 	 * on keyboard.enter. */
 	u32int serial;
-
-	/* Because we dont actually cough
-	 * up the buffer until someone else
-	 * asks, we can change the contents
-	 * locally without a round trip.
-	 * Posted stores if we already made
-	 * our round trip */
-	int posted;
-	int primsel_posted;
 };
 
 struct Mouse {

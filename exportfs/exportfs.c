@@ -9,7 +9,6 @@
 #define Extern
 #include "exportfs.h"
 
-/* #define QIDPATH	((1LL<<48)-1) */
 #define QIDPATH	((((vlong)1)<<48)-1)
 vlong newqid = 0;
 
@@ -21,14 +20,15 @@ int	freecnt;
 int	qidcnt;
 int	qfreecnt;
 int	ncollision;
-int	netfd;
+int	netfd[2];
 
 int
-exportfs(int fd)
+exportfs(int rfd, int wfd)
 {
 	char buf[ERRMAX], ebuf[ERRMAX];
 	Fsrpc *r;
 	int i, n;
+
 
 	fcalls[Tversion] = Xversion;
 	fcalls[Tauth] = Xauth;
@@ -45,22 +45,18 @@ exportfs(int fd)
 	fcalls[Twstat] = Xwstat;
 
 	srvfd = -1;
-	netfd = fd;
-	//dbg = 1;
+	netfd[0] = rfd;
+	netfd[1] = wfd;
 
 	strcpy(buf, "this is buf");
 	strcpy(ebuf, "this is ebuf");
 	DEBUG(DFD, "exportfs: started\n");
 
-//	rfork(RFNOTEG);
-
-	messagesize = iounit(netfd);
+	messagesize = iounit(rfd);
 	if(messagesize == 0)
 		messagesize = IOUNIT+IOHDRSZ;
 
 	Workq = emallocz(sizeof(Fsrpc)*Nr_workbufs);
-//	for(i=0; i<Nr_workbufs; i++)
-//		Workq[i].buf = emallocz(messagesize);
 	fhash = emallocz(sizeof(Fid*)*FHASHSIZE);
 
 	fmtinstall('F', fcallfmt);
@@ -78,7 +74,7 @@ exportfs(int fd)
 			fatal("Out of service buffers");
 			
 		DEBUG(DFD, "read9p...");
-		n = read9pmsg(netfd, r->buf, messagesize);
+		n = read9pmsg(netfd[0], r->buf, messagesize);
 		if(n <= 0)
 			fatal(nil);
 
@@ -122,7 +118,7 @@ if(0) iprint("-> %F\n", t);
 	if(data == nil)
 		fatal(Enomem);
 	n = convS2M(t, data, messagesize);
-	if((m=write(netfd, data, n))!=n){
+	if((m=write(netfd[1], data, n))!=n){
 		iprint("wrote %d got %d (%r)\n", n, m);
 		fatal("write");
 	}
