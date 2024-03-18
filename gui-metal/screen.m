@@ -937,6 +937,9 @@ keystroke(Rune r)
 	}
 
 	blit = [cbuf blitCommandEncoder];
+
+	qlock(&drawlock);
+
 	[blit copyFromTexture:_texture
 		sourceSlice:0
 		sourceLevel:0
@@ -958,6 +961,7 @@ keystroke(Rune r)
 		}else{
 			LOG(@"command buffer finished");
 		}
+		qunlock(&drawlock);
 	}];
 	[cbuf commit];
 }
