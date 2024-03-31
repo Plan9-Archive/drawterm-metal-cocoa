@@ -763,7 +763,7 @@ findmount(Chan *volatile *cp, Mhead **mp, int type, int dev, Qid qid)
  * Calls findmount but also updates path.
  */
 static int
-domount(Chan **cp, Mhead **mp, Path *volatile *path)
+domount(Chan *volatile *cp, Mhead **mp, Path *volatile *path)
 {
 	Chan **lc, *from;
 	Path *p;
@@ -831,7 +831,7 @@ ewalk(Chan *c, Chan *nc, char **name, int nname)
  * *nerror is the number of names to display in an error message.
  */
 int
-walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
+walk(Chan *volatile *cp, char **names, int nnames, int nomount, int *nerror)
 {
 	int dev, didmount, dotdot, i, n, nhave, ntry, type;
 	Chan *c, *nc, *mtpt;

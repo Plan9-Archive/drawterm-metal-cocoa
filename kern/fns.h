@@ -212,7 +212,7 @@ char*		validnamedup(char*, int);
 void		validstat(uchar*, int);
 void*		vmemchr(void*, int, int);
 Proc*		wakeup(Rendez*);
-int		walk(Chan**, char**, int, int, int*);
+int		walk(Chan*volatile*, char**, int, int, int*);
 #define	waserror()	(setjmp(pwaserror()->buf))
 void		wlock(RWlock*);
 void		wunlock(RWlock*);
