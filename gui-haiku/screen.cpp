@@ -251,6 +251,12 @@ public:
     view->MakeFocus();
     window->Show();
   }
+
+  bool QuitRequested() override {
+    BMessage message(B_QUIT_REQUESTED);
+    window->PostMessage(&message);
+    return true;
+  }
 };
 #define sApp ((Application *)be_app)
 
