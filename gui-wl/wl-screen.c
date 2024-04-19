@@ -78,7 +78,7 @@ wlupdatecsdrects(Wlwin *wl)
 	Point offset;
 	Rectangle button;
 
-	if(!wl->client_side_deco) {
+	if(!wl->client_side_deco){
 		memset(&wl->csd_rects, 0, sizeof wl->csd_rects);
 		return;
 	}
@@ -146,6 +146,8 @@ wlresize(Wlwin *wl, int x, int y)
 	qlock(&drawlock);
 	wlallocbuffer(wl);
 	r = Rect(0, wl->csd_rects.bar.max.y, wl->dx, wl->dy);
+	if(gscreen != nil)
+		freememimage(gscreen);
 	gscreen = allocmemimage(r, XRGB32);
 	gscreen->clipr = ZR;
 	qunlock(&drawlock);
@@ -155,8 +157,8 @@ wlresize(Wlwin *wl, int x, int y)
 	qlock(&drawlock);
 	wl->dirty = 1;
 	wl->r = r;
-	wlflush(wl);
 	wldrawcsd(wl);
+	wlflush(wl);
 	qunlock(&drawlock);
 }
 
@@ -190,15 +192,13 @@ wlattach(char *label)
 	r = Rect(0, wl->csd_rects.bar.max.y, wl->dx, wl->dy);
 	gscreen = allocmemimage(r, XRGB32);
 	gscreen->clipr = r;
-	gscreen->r = r;
-	rectclip(&(gscreen->clipr), gscreen->r);
 
 	wl->runing = 1;
 	kproc("wldispatch", dispatchproc, wl);
 	qlock(&drawlock);
+	wldrawcsd(wl);
 	terminit();
 	wlflush(wl);
-	wldrawcsd(wl);
 	qunlock(&drawlock);
 	return wl;
 }
