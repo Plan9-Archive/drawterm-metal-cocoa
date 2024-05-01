@@ -231,7 +231,12 @@ fscreate(Chan *c, char *name, int mode, ulong perm)
 		}
 	}
 	else {
-		int m = fsomode(omode & 3) | O_CREAT | O_TRUNC;
+		int m = omode & 3;
+		/*
+		 * POSIX specifies that O_TRUNC with O_RDONLY is undefined.
+		 * OpenBSD chooses to return an error.
+		 */
+		m = fsomode(m == OREAD ? ORDWR : m) | O_CREAT | O_TRUNC;
 		if(mode & OEXCL)
 			m |= O_EXCL;
 		if((fd = open(path, m, uif->mode & perm & 0777)) < 0)

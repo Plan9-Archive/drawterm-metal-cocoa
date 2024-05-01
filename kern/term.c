@@ -11,7 +11,6 @@
 extern Memimage		*gscreen;
 
 static Memsubfont	*memdefont;
-static Lock		screenlock;
 static Memimage		*conscol;
 static Memimage		*back;
 static Rectangle	flushr;
@@ -19,6 +18,7 @@ static Rectangle	window;
 static Point		curpos;
 static int		h;
 
+static void drawscreenputs(char*, int);
 static void termscreenputs(char*, int);
 
 static void
@@ -58,10 +58,10 @@ screenwin(void)
 	/* a lot of work to get a grey color */
 	grey = allocmemimage(Rect(0,0,1,1), CMAP8);
 	grey->flags |= Frepl;
-	grey->clipr = gscreen->r;
+	grey->clipr = gscreen->clipr;
 	memfillcolor(grey, 0xAAAAAAFF);
 	memimagedraw(gscreen, Rect(window.min.x, window.min.y,
-			window.max.x, window.min.y+h+5+6), grey, ZP, nil, ZP, S);
+			window.max.x, window.min.y+h+5+6), grey, gscreen->clipr.min, nil, ZP, S);
 	freememimage(grey);
 	window = insetrect(window, 5);
 
@@ -73,7 +73,8 @@ screenwin(void)
 	window.max.y = window.min.y+((window.max.y-window.min.y)/h)*h;
 	flushmemscreen(gscreen->r);
 
-	termscreenputs(kmesg.buf, kmesg.n);
+	drawscreenputs(kmesg.buf, kmesg.n);
+	screenflush();
 }
 
 static struct {
@@ -217,15 +218,13 @@ screenputc(char *buf)
 }
 
 static void
-termscreenputs(char *s, int n)
+drawscreenputs(char *s, int n)
 {
 	static char rb[UTFmax+1];
 	static int nrb;
 	int locked;
 	char *e;
 
-	lock(&screenlock);
-	locked = canqlock(&drawlock);
 	e = s + n;
 	while(s < e){
 		rb[nrb++] = *s++;
@@ -235,9 +234,13 @@ termscreenputs(char *s, int n)
 			nrb = 0;
 		}
 	}
-	if(locked){
-		screenflush();
-		qunlock(&drawlock);
-	}
-	unlock(&screenlock);
+}
+
+static void
+termscreenputs(char *s, int n)
+{
+	qlock(&drawlock);
+	drawscreenputs(s, n);
+	screenflush();
+	qunlock(&drawlock);
 }

@@ -70,18 +70,19 @@ wakeup(Rendez *r)
 	lock(&r->lk);
 	p = r->p;
 
-	if(p != nil){
+	if(p == nil)
+		unlock(&r->lk);
+	else {
 		lock(&p->rlock);
 		if(p->state != Wakeme || p->r != r)
 			panic("wakeup: state");
+		p->state = Running;
 		r->p = nil;
 		p->r = nil;
-		p->state = Running;
-		procwakeup(p);
 		unlock(&p->rlock);
+		unlock(&r->lk);
+		procwakeup(p);
 	}
-	unlock(&r->lk);
-
 	splx(s);
 
 	return p;

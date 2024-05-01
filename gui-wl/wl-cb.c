@@ -662,7 +662,6 @@ zxdg_toplevel_decoration_v1_handle_configure(void *data, struct zxdg_toplevel_de
 	}
 
 	wl->client_side_deco = csd;
-	wlresize(wl, wl->dx, wl->dy);
 }
 
 static const struct zxdg_toplevel_decoration_v1_listener zxdg_toplevel_decoration_v1_listener = {
@@ -675,7 +674,7 @@ mode(void *data, struct wl_output*, uint, int x, int y, int)
 	Wlwin *wl;
 
 	wl = data;
-	if(x >= wl->monx && y >= wl->mony){
+	if(x > wl->monx || y > wl->mony){
 		wl->monx = x;
 		wl->mony = y;
 	}
@@ -777,6 +776,7 @@ wlsetcb(Wlwin *wl)
 		deco = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->decoman, wl->xdg_toplevel);
 		zxdg_toplevel_decoration_v1_add_listener(deco, &zxdg_toplevel_decoration_v1_listener, wl);
 		zxdg_toplevel_decoration_v1_set_mode(deco, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+		wl_display_roundtrip(wl->display);
 	}
 
 	xdg_toplevel_set_app_id(wl->xdg_toplevel, "drawterm");
