@@ -530,7 +530,14 @@ data_source_handle_cancelled(void *data, struct wl_data_source *source)
 	wl_data_source_destroy(source);
 }
 
+static void
+data_source_handle_target(void *data, struct wl_data_source *source, const char *mime_type)
+{
+
+}
+
 static const struct wl_data_source_listener data_source_listener = {
+	.target = data_source_handle_target,
 	.send = data_source_handle_send,
 	.cancelled = data_source_handle_cancelled,
 };
