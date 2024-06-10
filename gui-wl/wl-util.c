@@ -54,7 +54,7 @@ wlallocpool(Wlwin *wl)
 
 	depth = 4;
 	screensize = wl->monx * wl->mony * depth;
-	cursorsize = 16 * 16 * depth;
+	cursorsize = 32 * 32 * depth;
 
 	fd = wlcreateshm(screensize+cursorsize);
 	if(fd < 0)
@@ -90,7 +90,7 @@ wlallocbuffer(Wlwin *wl)
 		wl_buffer_destroy(wl->cursorbuffer);
 
 	wl->screenbuffer = wl_shm_pool_create_buffer(wl->pool, 0, wl->dx, wl->dy, wl->dx*4, WL_SHM_FORMAT_XRGB8888);
-	wl->cursorbuffer = wl_shm_pool_create_buffer(wl->pool, size, 16, 16, 16*4, WL_SHM_FORMAT_ARGB8888);
+	wl->cursorbuffer = wl_shm_pool_create_buffer(wl->pool, size, 32, 32, 32*4, WL_SHM_FORMAT_ARGB8888);
 }
 
 enum {
@@ -113,22 +113,22 @@ wldrawcursor(Wlwin *wl, Cursorinfo *c)
 		clr[i] = c->clr[j]<<8 | c->clr[j+1];
 		set[i] = c->set[j]<<8 | c->set[j+1];
 	}
-	for(i=0; i < 16; i++){
-		for(j = 0; j < 16; j++){
-			pos = i*16 + j;
+	for(i=0; i < 32; i++){
+		for(j = 0; j < 32; j++){
+			pos = i*32 + j;
 			mask = (1<<16) >> j;
 
 			buf[pos] = Transparent;
-			if(clr[i] & mask)
+			if(i < 16 && clr[i] & mask)
 				buf[pos] = White;
-			if(set[i] & mask)
+			if(i < 16 && set[i] & mask)
 				buf[pos] = Black;
 		}
 	}
 	if(wl->cursorsurface == nil)
 		wl->cursorsurface = wl_compositor_create_surface(wl->compositor);
 	wl_surface_attach(wl->cursorsurface, wl->cursorbuffer, 0, 0);
-	wl_surface_damage(wl->cursorsurface, 0, 0, 16, 16);
+	wl_surface_damage(wl->cursorsurface, 0, 0, 32, 32);
 	wl_surface_commit(wl->cursorsurface);
 	wl_pointer_set_cursor(wl->pointer, wl->pointerserial, wl->cursorsurface, -c->offset.x, -c->offset.y);
 }
