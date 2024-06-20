@@ -3,7 +3,8 @@ include ../Make.config
 LIB=libgui.a
 
 OFILES=\
-	screen.$O
+	screen.$O \
+	ParseGeom.$O
 
 default: $(LIB)
 $(LIB): $(OFILES)
