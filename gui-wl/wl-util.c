@@ -109,15 +109,14 @@ wldrawcursor(Wlwin *wl, Cursorinfo *c)
 	uint16_t clr[16], set[16];
 
 	buf = wl->shm_data+(wl->dx*wl->dy*4);
-	for(i=0,j=0; i < 16; i++,j+=2){
+	for(i = 0, j = 0; i < 16; i++, j += 2){
 		clr[i] = c->clr[j]<<8 | c->clr[j+1];
 		set[i] = c->set[j]<<8 | c->set[j+1];
 	}
-	for(i=0; i < 16; i++){
-		for(j = 0; j < 16; j++){
-			pos = i*16 + j;
-			mask = (1<<16) >> j;
 
+	for(i = 0, pos = 0; i < 16; i++){
+		for(j = 0; j < 16; j++, pos++){
+			mask = (1<<15) >> j;
 			buf[pos] = Transparent;
 			if(clr[i] & mask)
 				buf[pos] = White;
@@ -125,8 +124,10 @@ wldrawcursor(Wlwin *wl, Cursorinfo *c)
 				buf[pos] = Black;
 		}
 	}
+
 	if(wl->cursorsurface == nil)
 		wl->cursorsurface = wl_compositor_create_surface(wl->compositor);
+
 	wl_surface_attach(wl->cursorsurface, wl->cursorbuffer, 0, 0);
 	wl_surface_damage(wl->cursorsurface, 0, 0, 16, 16);
 	wl_surface_commit(wl->cursorsurface);

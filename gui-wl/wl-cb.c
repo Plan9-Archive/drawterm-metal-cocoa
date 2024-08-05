@@ -80,7 +80,9 @@ wl_surface_frame_done(void *data, struct wl_callback *cb, uint32_t time)
 	wl_callback_destroy(cb);
 	cb = wl_surface_frame(wl->surface);
 	wl_callback_add_listener(cb, &wl_surface_frame_listener, wl);
+	qlock(&drawlock);
 	wlflush(wl);
+	qunlock(&drawlock);
 }
 
 static void
