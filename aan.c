@@ -32,10 +32,6 @@ struct Client {
 	int	pipefd;
 	int	timeout;
 
-	int	reader;
-	int	writer;
-	int	syncer;
-
 	ulong	inmsg;
 	ulong	outmsg;
 
@@ -211,8 +207,8 @@ aanclient(char *addr, int timeout)
 	c->timeout = 60;
 	reconnect(c);
 	c->timeout = timeout;
-	c->writer = kproc("aanwriter", aanwriter, c);
-	c->reader = kproc("aanreader", aanreader, c);
-	c->syncer = kproc("aansyncer", aansyncer, c);
+	kproc("aanwriter", aanwriter, c);
+	kproc("aanreader", aanreader, c);
+	kproc("aansyncer", aansyncer, c);
 	return pfd[0];
 }

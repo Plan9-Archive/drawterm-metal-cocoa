@@ -80,7 +80,7 @@ int		iseve(void);
 #define	islo()	(0)
 int		kbdputc(Queue*, int);
 void		kbdkey(Rune, int);
-int		kproc(char*, void(*)(void*), void*);
+void*		kproc(char*, void(*)(void*), void*);
 void		ksetenv(char*, char*, int);
 void		kstrcpy(char*, char*, int);
 void		kstrdup(char**, char*);
@@ -137,6 +137,7 @@ void		pgrpnote(ulong, char*, long, int);
 Pgrp*		pgrptab(int);
 #define		poperror()		up->nerrlab--
 int		postnote(Proc*, int, char*, int);
+void		procinterrupt(Proc*);
 int		pprint(char*, ...);
 int		procfdprint(Chan*, int, int, char*, int);
 void		procinit0(void);

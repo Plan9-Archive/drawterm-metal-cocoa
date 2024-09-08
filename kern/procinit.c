@@ -38,7 +38,7 @@ newproc(void)
 	return p;
 }
 
-int
+void*
 kproc(char *name, void (*fn)(void*), void *arg)
 {
 	Proc *p;
@@ -60,7 +60,7 @@ kproc(char *name, void (*fn)(void*), void *arg)
 	strecpy(p->text, p->text+sizeof p->text, name);
 
 	osproc(p);
-	return p->pid;
+	return (void*)p;
 }
 
 void

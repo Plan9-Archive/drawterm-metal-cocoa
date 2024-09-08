@@ -224,7 +224,7 @@ getsbuf(void)
 		}
 
 		wb = &Workq[ap];
-		wb->pid = 0;
+		wb->kp = nil;
 		wb->canint = 0;
 		wb->flushtag = NOTAG;
 		wb->busy = 1;
@@ -484,6 +484,7 @@ fatal(char *s, ...)
 {
 	char buf[ERRMAX];
 	va_list arg;
+	Proc *m;
 
 	if (s != nil) {
 		va_start(arg, s);
@@ -492,8 +493,8 @@ fatal(char *s, ...)
 	}
 
 	/* Clear away the slave children */
-//	for(m = Proclist; m; m = m->next)
-//		postnote(PNPROC, m->pid, "kill");
+	for(m = Proclist; m; m = m->next)
+		kprocint(m->kp);
 
 	if (s != nil) { 
 		DEBUG(DFD, "%s\n", buf);

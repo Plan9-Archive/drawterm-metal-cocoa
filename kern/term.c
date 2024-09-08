@@ -221,7 +221,6 @@ drawscreenputs(char *s, int n)
 {
 	static char rb[UTFmax+1];
 	static int nrb;
-	int locked;
 	char *e;
 
 	e = s + n;

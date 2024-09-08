@@ -19,6 +19,8 @@
 #define pipe	syspipe
 #define rendezvous	sysrendezvous
 #define getpid	sysgetpid
+#define getkproc sysgetkproc
+#define kprocint syskprocint
 #define time systime
 #define nsec sysnsec
 #define pread syspread
@@ -77,7 +79,9 @@ extern	int	pushssl(int, char*, char*, char*, int*);
 extern	long	pread(int, void*, long, vlong);
 extern	long	pwrite(int, void*, long, vlong);
 extern	void*	rendezvous(void*, void*);
-extern	int	kproc(char*, void(*)(void*), void*);
+extern	void*	kproc(char*, void(*)(void*), void*);
+extern	void	kprocint(void*);
+extern	void*	getkproc(void);
 extern	int	getpid(void);
 extern	void	panic(char*, ...);
 extern	void	sleep(int);
