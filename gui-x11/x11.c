@@ -923,7 +923,8 @@ xkeyboard(XEvent *e)
 		k = XK_minus;
 	/* Do control mapping ourselves if translator doesn't */
 	if(e->xkey.state&ControlMask && k != Kalt && k != Kctl)
-		k &= 0x9f;
+		if(k < 0x80)
+			k &= 0x1f;
 	if(k == NoSymbol)
 		return;
 	altdown = e->xany.type == KeyPress && k == Kalt;
