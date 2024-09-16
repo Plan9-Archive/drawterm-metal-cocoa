@@ -88,3 +88,87 @@ wakeup(Rendez *r)
 	return p;
 }
 
+/*
+ *  if waking a sleeping process, this routine must hold both
+ *  p->rlock and r->lock.  However, it can't know them in
+ *  the same order as wakeup causing a possible lock ordering
+ *  deadlock.  We break the deadlock by giving up the p->rlock
+ *  lock if we can't get the r->lock and retrying.
+ */
+void
+procinterrupt(Proc *p)
+{
+	int s;
+
+	p->notepending = 1;
+
+	/* this loop is to avoid lock ordering problems. */
+	for(;;){
+		Rendez *r;
+
+		s = splhi();
+		lock(&p->rlock);
+		r = p->r;
+
+		/* waiting for a wakeup? */
+		if(r == nil)
+			break;	/* no */
+
+		/* try for the second lock */
+		if(canlock(&r->lk)){
+			if(p->state != Wakeme || r->p != p)
+				panic("procinterrupt: state %d %d %d",
+					r->p != p, p->r != r, p->state);
+			p->r = nil;
+			r->p = nil;
+			unlock(&p->rlock);
+			unlock(&r->lk);
+			/* hands off r */
+			procwakeup(p);
+			splx(s);
+			return;
+		}
+
+		/* give other process time to get out of critical section and try again */
+		unlock(&p->rlock);
+		splx(s);
+
+		osyield();
+	}
+	unlock(&p->rlock);
+	splx(s);
+
+	switch(p->state){
+	case Rendezvous:
+		/* Try and pull out of a rendezvous */
+		lock(&p->rgrp->ref.lk);
+		if(p->state == Rendezvous) {
+			Proc *d, **l;
+
+			l = &REND(p->rgrp, (uintptr)p->rendtag);
+			for(d = *l; d != nil; d = d->rendhash) {
+				if(d == p) {
+					*l = p->rendhash;
+					p->rendval = (void*)~(uintptr)0;
+					unlock(&p->rgrp->ref.lk);
+					/* hands off p->rgrp */
+					procwakeup(p);
+					return;
+				}
+				l = &d->rendhash;
+			}
+		}
+		unlock(&p->rgrp->ref.lk);
+		break;
+	}
+}
+
+int
+postnote(Proc *p, int x, char *msg, int flag)
+{
+	USED(x);
+	USED(msg);
+	USED(flag);
+	procinterrupt(p);
+	return 0;
+}

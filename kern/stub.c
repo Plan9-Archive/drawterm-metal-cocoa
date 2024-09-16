@@ -60,16 +60,6 @@ setrealloctag(void *v, uintptr tag)
 	USED(tag);
 }
 
-int
-postnote(Proc *p, int x, char *msg, int flag)
-{
-	USED(p);
-	USED(x);
-	USED(msg);
-	USED(flag);
-	return 0;
-}
-
 void
 exhausted(char *s)
 {

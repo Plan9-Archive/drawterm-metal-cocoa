@@ -63,12 +63,12 @@ Xflush(Fsrpc *t)
 
 	for(w = Workq; w < e; w++) {
 		if(w->work.tag == t->work.oldtag) {
-			DEBUG(DFD, "\tQ busy %d pid %d can %d\n", w->busy, w->pid, w->canint);
-			if(w->busy && w->pid) {
+			DEBUG(DFD, "\tQ busy %d kp %d can %d\n", w->busy, w->kp, w->canint);
+			if(w->busy && w->kp) {
 				w->flushtag = t->work.tag;
 				DEBUG(DFD, "\tset flushtag %d\n", t->work.tag);
-			//	if(w->canint)
-			//		postnote(PNPROC, w->pid, "flush");
+				if(w->canint)
+					kprocint(w->kp);
 				t->busy = 0;
 				return;
 			}
@@ -421,41 +421,39 @@ void
 slave(Fsrpc *f)
 {
 	Proc *p;
-	int pid;
+	void *kp;
 	static int nproc;
 
 	for(;;) {
 		for(p = Proclist; p; p = p->next) {
 			if(p->busy == 0) {
-				f->pid = p->pid;
+				f->kp = p->kp;
 				p->busy = 1;
-				pid = (uintptr)rendezvous((void*)(uintptr)p->pid, f);
-				if(pid != p->pid)
+				kp = rendezvous(p->kp, f);
+				if(kp != p->kp)
 					fatal("rendezvous sync fail");
 				return;
-			}	
+			}
 		}
 
 		if(++nproc > MAXPROC)
 			fatal("too many procs");
 
-		pid = kproc("slave", blockingslave, nil);
-		DEBUG(DFD, "slave pid %d\n", pid);
-		if(pid == -1)
-			fatal("kproc");
+		kp = kproc("slave", blockingslave, nil);
+		DEBUG(DFD, "slave kp %p\n", kp);
 
 		p = malloc(sizeof(Proc));
 		if(p == 0)
 			fatal("out of memory");
 
 		p->busy = 0;
-		p->pid = pid;
+		p->kp = kp;
 		p->next = Proclist;
 		Proclist = p;
 
-DEBUG(DFD, "parent %d rendez\n", pid);
-		rendezvous((void*)(uintptr)pid, p);
-DEBUG(DFD, "parent %d went\n", pid);
+DEBUG(DFD, "parent %p rendez\n", kp);
+		rendezvous(kp, p);
+DEBUG(DFD, "parent %p went\n", kp);
 	}
 }
 
@@ -465,24 +463,24 @@ blockingslave(void *x)
 	Fsrpc *p;
 	Fcall rhdr;
 	Proc *m;
-	int pid;
+	void *kp;
 
 	USED(x);
 
+	kp = getkproc();
+
 	notify(flushaction);
 
-	pid = getpid();
-
-DEBUG(DFD, "blockingslave %d rendez\n", pid);
-	m = (Proc*)rendezvous((void*)(uintptr)pid, 0);
-DEBUG(DFD, "blockingslave %d rendez got %p\n", pid, m);
+DEBUG(DFD, "blockingslave %p rendez\n", kp);
+	m = rendezvous(kp, 0);
+DEBUG(DFD, "blockingslave %p rendez got %p\n", kp, m);
 	
 	for(;;) {
-		p = rendezvous((void*)(uintptr)pid, (void*)(uintptr)pid);
+		p = rendezvous(kp, kp);
 		if((uintptr)p == ~(uintptr)0)			/* Interrupted */
 			continue;
 
-		DEBUG(DFD, "\tslave: %d %F b %d p %d\n", pid, &p->work, p->busy, p->pid);
+		DEBUG(DFD, "\tslave: %p %F b %d p %p\n", kp, &p->work, p->busy, p->kp);
 		if(p->flushtag != NOTAG)
 			goto flushme;
 

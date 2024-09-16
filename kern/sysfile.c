@@ -1251,3 +1251,16 @@ sysgetpid(void)
 {
 	return up->pid;
 }
+
+void*
+sysgetkproc(void)
+{
+	return (void*)up;
+}
+
+void
+syskprocint(void *p)
+{
+	if(p != nil)
+		procinterrupt((Proc*)p);
+}
