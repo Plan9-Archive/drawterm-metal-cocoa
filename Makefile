@@ -38,6 +38,9 @@ $(TARG): $(OFILES) $(LIBS)
 clean:
 	rm -f *.o */*.o */*.a *.a drawterm drawterm.exe
 
+libmachdep.a:
+	(cd posix-port; $(MAKE))
+
 kern/libkern.a:
 	(cd kern; $(MAKE))
 

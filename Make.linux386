@@ -16,7 +16,3 @@ TARG=drawterm
 AUDIO=unix
 
 all: default
-
-libmachdep.a:
-	arch=386; \
-	(cd posix-$$arch &&  make)

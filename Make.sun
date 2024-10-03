@@ -15,7 +15,3 @@ TARG=drawterm
 AUDIO=none
 
 all: default
-
-libmachdep.a:
-	arch=`uname -m|sed 's/i.86/386/;s/Power Macintosh/power/'`; \
-	(cd posix-$$arch &&  make)

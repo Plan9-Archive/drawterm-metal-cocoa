@@ -20,7 +20,3 @@ AUDIO=none
 
 all: default
 
-libmachdep.a:
-	arch=arm; \
-	(cd posix-$$arch &&  make)
-

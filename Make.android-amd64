@@ -19,8 +19,3 @@ TARG=lib/x86_64/libdrawterm.so
 AUDIO=none
 
 all: default
-
-libmachdep.a:
-	arch=amd64; \
-	(cd posix-$$arch &&  make)
-

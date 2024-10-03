@@ -13,9 +13,4 @@ LDADD=-ggdb -lbe -lnetwork -lmedia -lstdc++
 LDFLAGS=
 TARG=drawterm
 
-
 all: default
-
-libmachdep.a:
-	arch=`uname -m|sed 's/BePC/386/; s/x86_64/amd64/; s/armv[567].*/arm/; s/aarch64/arm64/'`; \
-	(cd posix-$$arch &&  make)
