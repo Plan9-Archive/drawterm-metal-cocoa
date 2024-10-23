@@ -19,8 +19,3 @@ TARG=lib/arm64-v8a/libdrawterm.so
 AUDIO=none
 
 all: default
-
-libmachdep.a:
-	arch=arm64; \
-	(cd posix-$$arch &&  make)
-

@@ -4,5 +4,6 @@
 uintptr
 getcallerpc(void *a)
 {
-	return 0;
+	USED(a);
+	return (uintptr)__builtin_extract_return_addr(__builtin_return_address(0));
 }

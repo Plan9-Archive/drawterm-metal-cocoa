@@ -4,6 +4,7 @@ LIB=../libmachdep.a
 
 OFILES=\
 	getcallerpc.$O\
+	tas.$O\
 
 default: $(LIB)
 $(LIB): $(OFILES)

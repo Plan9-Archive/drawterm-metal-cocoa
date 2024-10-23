@@ -19,6 +19,3 @@ TARG=drawterm
 MAKE=gmake
 
 all: default
-
-libmachdep.a:
-	(cd posix-mips && $(MAKE))

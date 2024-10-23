@@ -33,10 +33,6 @@ XOFILES=glenda-t.$O
 
 all: default
 
-# for root
-libmachdep.a:
-	(cd win32-386; make)
-
 glenda-t.$O: glenda-t.rc glenda-t.ico
 	$(WINDRES) -i glenda-t.rc -o glenda-t.o
 
